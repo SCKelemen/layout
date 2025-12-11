@@ -120,7 +120,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 				rowEnd = rowStart + 1
 			}
 		}
-		
+
 		if needsAutoCol {
 			// Use itemIndex (which only counts non-DisplayNone children) for auto-placement
 			colStart = itemIndex % len(columns)

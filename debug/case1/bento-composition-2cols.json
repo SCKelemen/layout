@@ -1,0 +1,164 @@
+{
+  "style": {
+    "display": "grid",
+    "gridTemplateRows": [
+      {
+        "maxSize": 1.7976931348623157e+308
+      },
+      {
+        "maxSize": 1.7976931348623157e+308
+      },
+      {
+        "maxSize": 1.7976931348623157e+308
+      },
+      {
+        "maxSize": 1.7976931348623157e+308
+      },
+      {
+        "maxSize": 1.7976931348623157e+308
+      }
+    ],
+    "gridTemplateColumns": [
+      {
+        "maxSize": 1.7976931348623157e+308,
+        "fraction": 1
+      },
+      {
+        "maxSize": 1.7976931348623157e+308,
+        "fraction": 1
+      }
+    ],
+    "gridAutoRows": {},
+    "gridAutoColumns": {},
+    "gridRowGap": 8,
+    "gridColumnGap": 8,
+    "width": 1000,
+    "padding": {},
+    "margin": {},
+    "border": {},
+    "transform": {
+      "a": 0,
+      "b": 0,
+      "c": 0,
+      "d": 0,
+      "e": 0,
+      "f": 0
+    }
+  },
+  "children": [
+    {
+      "style": {
+        "gridAutoRows": {},
+        "gridAutoColumns": {},
+        "gridRowEnd": 1,
+        "gridColumnEnd": 2,
+        "minHeight": 105,
+        "padding": {},
+        "margin": {},
+        "border": {},
+        "transform": {
+          "a": 0,
+          "b": 0,
+          "c": 0,
+          "d": 0,
+          "e": 0,
+          "f": 0
+        }
+      },
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1000,
+        "height": 105
+      }
+    },
+    {
+      "style": {
+        "gridAutoRows": {},
+        "gridAutoColumns": {},
+        "gridRowStart": 1,
+        "gridRowEnd": 2,
+        "gridColumnEnd": 1,
+        "minHeight": 84,
+        "padding": {},
+        "margin": {},
+        "border": {},
+        "transform": {
+          "a": 0,
+          "b": 0,
+          "c": 0,
+          "d": 0,
+          "e": 0,
+          "f": 0
+        }
+      },
+      "rect": {
+        "x": 0,
+        "y": 113,
+        "width": 496,
+        "height": 84
+      }
+    },
+    {
+      "style": {
+        "gridAutoRows": {},
+        "gridAutoColumns": {},
+        "gridRowStart": 1,
+        "gridRowEnd": 2,
+        "gridColumnStart": 1,
+        "gridColumnEnd": 2,
+        "minHeight": 84,
+        "padding": {},
+        "margin": {},
+        "border": {},
+        "transform": {
+          "a": 0,
+          "b": 0,
+          "c": 0,
+          "d": 0,
+          "e": 0,
+          "f": 0
+        }
+      },
+      "rect": {
+        "x": 504,
+        "y": 113,
+        "width": 496,
+        "height": 84
+      }
+    },
+    {
+      "style": {
+        "gridAutoRows": {},
+        "gridAutoColumns": {},
+        "gridRowStart": 2,
+        "gridRowEnd": 5,
+        "gridColumnEnd": 2,
+        "minHeight": 180,
+        "padding": {},
+        "margin": {},
+        "border": {},
+        "transform": {
+          "a": 0,
+          "b": 0,
+          "c": 0,
+          "d": 0,
+          "e": 0,
+          "f": 0
+        }
+      },
+      "rect": {
+        "x": 0,
+        "y": 205,
+        "width": 1000,
+        "height": 196
+      }
+    }
+  ],
+  "rect": {
+    "x": 0,
+    "y": 0,
+    "width": 1000,
+    "height": 401
+  }
+}

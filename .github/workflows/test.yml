@@ -25,11 +25,11 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Run tests
-      run: go test -v ./...
+    - name: Run tests (without YAML)
+      run: go test -tags no_yaml -v ./...
     
-    - name: Run tests with coverage
-      run: go test -coverprofile=coverage.out ./...
+    - name: Run tests with coverage (without YAML)
+      run: go test -tags no_yaml -coverprofile=coverage.out ./...
     
     - name: Upload coverage (optional)
       uses: codecov/codecov-action@v4

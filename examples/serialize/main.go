@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Layout Tree Serialization Example ===\n")
+	fmt.Println("=== Layout Tree Serialization Example ===")
+	fmt.Println()
 
 	// Create a layout tree
 	root := layout.VStack(

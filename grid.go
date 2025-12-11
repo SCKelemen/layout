@@ -184,11 +184,20 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		spanRows := item.rowEnd - item.rowStart
 		
 		// For spanning items, the item height needs to be distributed across rows
-		// However, we need to account for gaps between rows when calculating the cell height
-		// For now, we'll divide the item height by spanRows to get a per-row contribution
-		// The actual cell height (including gaps) will be calculated later in positioning
-		// This is correct for auto rows where the item's intrinsic size determines row height
-		heightPerRow := itemHeight / float64(spanRows)
+		// The item height is the content height, and the cell height (which includes gaps)
+		// is: row0 + gap + row1 + gap + ... + rowN
+		// For auto-sized rows, we need to determine row heights such that the sum equals the item height
+		// If we assume equal row heights: spanRows * rowHeight + (spanRows-1) * gap = itemHeight
+		// So: rowHeight = (itemHeight - (spanRows-1) * gap) / spanRows
+		var heightPerRow float64
+		if spanRows > 1 {
+			// Account for gaps between rows
+			totalGaps := rowGap * float64(spanRows-1)
+			heightPerRow = (itemHeight - totalGaps) / float64(spanRows)
+		} else {
+			// Single row: item height is the row height
+			heightPerRow = itemHeight
+		}
 
 		for row := item.rowStart; row < item.rowEnd; row++ {
 			if heightPerRow > rowHeights[row] {
@@ -294,41 +303,11 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Position item within grid cell, accounting for margins
 		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
-		measuredHeight := item.measuredSize.Height
+		// This applies to all items, regardless of whether they span or are in auto/fixed rows
+		// The row height is determined by the maximum intrinsic size of items in that row,
+		// but once the row height is determined, all items in that row stretch to fill it
 		maxItemHeight := cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom
-		
-		// Determine if this spans multiple rows
-		spanRows := item.rowEnd - item.rowStart
-		isSpanning := spanRows > 1
-		
-		// Determine if this is an auto-sized row
-		isAutoRow := false
-		for row := item.rowStart; row < item.rowEnd && row < len(rows); row++ {
-			track := rows[row]
-			// Auto track: MinSize == 0, MaxSize == Unbounded, Fraction == 0
-			if track.MinSize == 0 && track.MaxSize == Unbounded && track.Fraction == 0 {
-				isAutoRow = true
-				break
-			}
-		}
-		
-		// For items spanning multiple rows, always fill the cell (sum of row heights)
-		// For single-row items in auto rows, use intrinsic size
-		// For fixed rows, items always fill the cell (CSS Grid default stretch behavior)
-		var itemHeight float64
-		if isSpanning {
-			// Spanning items always fill their cell (sum of row heights)
-			itemHeight = maxItemHeight
-		} else if isAutoRow {
-			// Single-row auto: use measured height, constrained by cell
-			itemHeight = measuredHeight
-			if itemHeight > maxItemHeight {
-				itemHeight = maxItemHeight
-			}
-		} else {
-			// Fixed row: fill the cell (stretch behavior)
-			itemHeight = maxItemHeight
-		}
+		itemHeight := maxItemHeight
 		
 		// Position item within grid cell, accounting for margins
 		// Margins are applied within the cell boundaries, not extending into gaps

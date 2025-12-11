@@ -34,6 +34,11 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
   - Snap to grid boundaries (primarily for block/absolute layouts)
   - Based on [CSS Box Alignment Module Level 3](https://www.w3.org/TR/css-align-3/)
 
+- **Serialization** (optional `serialize` package): JSON/YAML serialization for debugging and persistence
+  - Inspect layout trees
+  - Save and load layout configurations
+  - Useful for testing and documentation
+
 ## Installation
 
 ```bash

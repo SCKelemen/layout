@@ -12,21 +12,60 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	}
 
 	// Calculate available space
+	// If container has explicit width/height, use that to constrain available space
+	// Otherwise, use constraints (similar to block layout)
 	availableWidth := constraints.MaxWidth
 	availableHeight := constraints.MaxHeight
-
+	
 	// Account for padding and border
 	horizontalPadding := node.Style.Padding.Left + node.Style.Padding.Right
 	verticalPadding := node.Style.Padding.Top + node.Style.Padding.Bottom
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
+	horizontalPaddingBorder := horizontalPadding + horizontalBorder
+	verticalPaddingBorder := verticalPadding + verticalBorder
+
+	// If container has explicit width, use it to constrain available width
+	// In CSS, an explicit width on a grid container determines the container's size
+	// Convert from box-sizing to total size for comparison with constraints
+	if node.Style.Width >= 0 {
+		// Convert to content size first
+		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+		// Add padding+border to get total size for comparison
+		totalSpecifiedWidth := specifiedWidthContent + horizontalPaddingBorder
+		// Use explicit width when set, respecting constraints
+		// If constraint is unbounded, always use explicit width
+		// Otherwise, use the smaller of explicit width or constraint
+		if availableWidth >= Unbounded {
+			availableWidth = totalSpecifiedWidth
+		} else {
+			// Use the smaller value, but if they're equal, prefer explicit width
+			if totalSpecifiedWidth <= availableWidth {
+				availableWidth = totalSpecifiedWidth
+			}
+		}
+	}
+	
+	// If container has explicit height, use it to constrain available height
+	if node.Style.Height >= 0 {
+		// Convert to content size first
+		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+		// Add padding+border to get total size for comparison
+		totalSpecifiedHeight := specifiedHeightContent + verticalPaddingBorder
+		// Use explicit height when set, but don't exceed constraints
+		if availableHeight >= Unbounded {
+			availableHeight = totalSpecifiedHeight
+		} else if totalSpecifiedHeight < availableHeight {
+			availableHeight = totalSpecifiedHeight
+		}
+	}
 
 	// Clamp content size to >= 0
-	contentWidth := availableWidth - horizontalPadding - horizontalBorder
+	contentWidth := availableWidth - horizontalPaddingBorder
 	if contentWidth < 0 {
 		contentWidth = 0
 	}
-	contentHeight := availableHeight - verticalPadding - verticalBorder
+	contentHeight := availableHeight - verticalPaddingBorder
 	if contentHeight < 0 {
 		contentHeight = 0
 	}
@@ -60,6 +99,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	}
 
 	// Step 1: Calculate column sizes
+	// CRITICAL: contentWidth must be correct here - it's used to size all columns
 	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
 
 	// Step 2: Calculate row sizes (need to measure children first for auto rows)

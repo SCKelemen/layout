@@ -81,11 +81,21 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	// If height is auto, use children height
 	if node.Style.Height < 0 {
 		nodeHeight = currentY
+		// Ensure MinHeight is still respected even when using children height
+		if node.Style.MinHeight > 0 {
+			nodeHeight = max(nodeHeight, node.Style.MinHeight)
+		}
+		// If no children and no MinHeight, height is 0 (which is correct)
+		// But this can cause issues in auto-sized grid rows
 	}
 
 	// If width is auto, use max child width
 	if node.Style.Width < 0 {
 		nodeWidth = maxChildWidth
+		// Ensure MinWidth is still respected even when using children width
+		if node.Style.MinWidth > 0 {
+			nodeWidth = max(nodeWidth, node.Style.MinWidth)
+		}
 	}
 
 	// Calculate final size including padding and border

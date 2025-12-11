@@ -164,6 +164,7 @@ layout.Layout(root, constraints)
 - [Layout Systems](docs/layout-systems.md) - Flexbox, Grid, Block, and Positioned layouts
 - [API Reference](docs/api-reference.md) - Complete API documentation
 - [Usage Patterns](docs/usage-patterns.md) - Different ways to use the library
+- [Common Gotchas](docs/gotchas.md) - Common pitfalls and how to avoid them ⚠️
 - [SVG Rendering](docs/svg-rendering.md) - Rendering layouts to SVG
 - [Limitations](docs/limitations.md) - Known limitations and design decisions
 

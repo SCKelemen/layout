@@ -174,7 +174,11 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			childSize = LayoutBlock(item.node, childConstraints)
 		}
 
+		// Store measured size for use in positioning phase
+		item.measuredSize = childSize
+
 		// Track required height for each row
+		// childSize.Height already respects MinHeight (set in block layout)
 		itemHeight := childSize.Height
 		spanRows := item.rowEnd - item.rowStart
 		heightPerRow := itemHeight / float64(spanRows)
@@ -203,6 +207,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 				trackHeight = track.MinSize
 			} else {
 				// Auto or minmax track - use measured height or track size
+				// The measured height comes from children, which respects MinHeight if set
 				trackHeight = math.Max(track.MinSize, rowHeights[i])
 				if track.MaxSize < Unbounded {
 					trackHeight = math.Min(trackHeight, track.MaxSize)
@@ -234,6 +239,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 					rowSizes[i] = track.MinSize
 				} else {
 					// Auto track - use measured height or min size
+					// The measured height comes from children, which respects MinHeight if set
 					rowSizes[i] = math.Max(track.MinSize, rowHeights[i])
 					if track.MaxSize < Unbounded {
 						rowSizes[i] = math.Min(rowSizes[i], track.MaxSize)
@@ -280,11 +286,48 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		}
 
 		// Position item within grid cell, accounting for margins
+		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
+		measuredHeight := item.measuredSize.Height
+		maxItemHeight := cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom
+		
+		// Determine if this spans multiple rows
+		spanRows := item.rowEnd - item.rowStart
+		isSpanning := spanRows > 1
+		
+		// Determine if this is an auto-sized row
+		isAutoRow := false
+		for row := item.rowStart; row < item.rowEnd && row < len(rows); row++ {
+			track := rows[row]
+			// Auto track: MinSize == 0, MaxSize == Unbounded, Fraction == 0
+			if track.MinSize == 0 && track.MaxSize == Unbounded && track.Fraction == 0 {
+				isAutoRow = true
+				break
+			}
+		}
+		
+		// For items spanning multiple rows, always fill the cell (sum of row heights)
+		// For single-row items in auto rows, use intrinsic size
+		// For fixed rows, items always fill the cell (CSS Grid default stretch behavior)
+		var itemHeight float64
+		if isSpanning {
+			// Spanning items always fill their cell (sum of row heights)
+			itemHeight = maxItemHeight
+		} else if isAutoRow {
+			// Single-row auto: use measured height, constrained by cell
+			itemHeight = measuredHeight
+			if itemHeight > maxItemHeight {
+				itemHeight = maxItemHeight
+			}
+		} else {
+			// Fixed row: fill the cell (stretch behavior)
+			itemHeight = maxItemHeight
+		}
+		
 		item.node.Rect = Rect{
 			X:      cellX + item.node.Style.Margin.Left,
 			Y:      cellY + item.node.Style.Margin.Top,
 			Width:  cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right,
-			Height: cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom,
+			Height: itemHeight,
 		}
 		
 		// Ensure size doesn't go negative
@@ -316,11 +359,12 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 }
 
 type gridItem struct {
-	node     *Node
-	rowStart int
-	rowEnd   int
-	colStart int
-	colEnd   int
+	node         *Node
+	rowStart     int
+	rowEnd       int
+	colStart     int
+	colEnd       int
+	measuredSize Size // Store measured size from first pass
 }
 
 func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int) []float64 {

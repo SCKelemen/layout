@@ -136,6 +136,29 @@ func Background(node *Node) *Node {
 	return node
 }
 
+// MinHeight sets the minimum height of a node.
+// This is especially important for items in auto-sized grid rows.
+//
+// Example:
+//
+//	item := layout.Fixed(100, 50)
+//	item = layout.MinHeight(item, 60) // Ensures item is at least 60px tall
+func MinHeight(node *Node, height float64) *Node {
+	node.Style.MinHeight = height
+	return node
+}
+
+// MinWidth sets the minimum width of a node.
+//
+// Example:
+//
+//	item := layout.Fixed(100, 50)
+//	item = layout.MinWidth(item, 120) // Ensures item is at least 120px wide
+func MinWidth(node *Node, width float64) *Node {
+	node.Style.MinWidth = width
+	return node
+}
+
 // Grid creates a grid container with the specified number of rows and columns.
 // Each row and column will have the same fixed size.
 //

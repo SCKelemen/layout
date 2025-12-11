@@ -13,6 +13,7 @@ package layout
 //	    layout.Spacer(),
 //	    layout.Fixed(100, 50),
 //	)
+//	stack.Style.Padding = layout.Uniform(10)
 func HStack(children ...*Node) *Node {
 	return &Node{
 		Style: Style{
@@ -33,6 +34,7 @@ func HStack(children ...*Node) *Node {
 //	    layout.Spacer(),
 //	    layout.Fixed(100, 50),
 //	)
+//	stack.Style.Padding = layout.Uniform(10)
 func VStack(children ...*Node) *Node {
 	return &Node{
 		Style: Style{

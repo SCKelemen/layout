@@ -90,12 +90,17 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		colEnd := child.Style.GridColumnEnd
 
 		// Auto placement (simplified - just place sequentially)
-		// -1 means auto, but 0 can also mean unset (default value)
-		// If rowStart is set but rowEnd is 0 or -1, treat rowEnd as auto
-		if rowStart < 0 {
+		// -1 means explicit auto, 0 means unset (default value) - both should trigger auto-placement
+		// We need to distinguish between "explicitly set to 0" and "unset (defaults to 0)"
+		// For now, we'll treat 0 as unset if rowEnd is also 0 or -1 (unset)
+		// This means if both rowStart and rowEnd are unset, we auto-place
+		needsAutoRow := rowStart < 0 || (rowStart == 0 && rowEnd <= 0)
+		needsAutoCol := colStart < 0 || (colStart == 0 && colEnd <= 0)
+
+		if needsAutoRow {
 			rowStart = i / len(columns)
 		}
-		if colStart < 0 {
+		if needsAutoCol {
 			colStart = i % len(columns)
 		}
 		// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
@@ -240,45 +245,54 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 	// Step 5: Position children
 	for _, item := range gridItems {
-		// Calculate position
-		x := 0.0
+		// Calculate grid cell position
+		cellX := 0.0
 		for col := 0; col < item.colStart; col++ {
-			x += columnSizes[col]
+			cellX += columnSizes[col]
 			if col < len(columnSizes)-1 {
-				x += columnGap
+				cellX += columnGap
 			}
 		}
 
-		y := 0.0
+		cellY := 0.0
 		for row := 0; row < item.rowStart && row < len(rowSizes); row++ {
-			y += rowSizes[row]
+			cellY += rowSizes[row]
 			if row < len(rowSizes)-1 {
-				y += rowGap
+				cellY += rowGap
 			}
 		}
 
-		// Calculate size
-		width := 0.0
+		// Calculate grid cell size
+		cellWidth := 0.0
 		for col := item.colStart; col < item.colEnd; col++ {
-			width += columnSizes[col]
+			cellWidth += columnSizes[col]
 		}
 		if item.colEnd > item.colStart+1 {
-			width += columnGap * float64(item.colEnd-item.colStart-1)
+			cellWidth += columnGap * float64(item.colEnd-item.colStart-1)
 		}
 
-		height := 0.0
+		cellHeight := 0.0
 		for row := item.rowStart; row < item.rowEnd && row < len(rowSizes); row++ {
-			height += rowSizes[row]
+			cellHeight += rowSizes[row]
 		}
 		if item.rowEnd > item.rowStart+1 {
-			height += rowGap * float64(item.rowEnd-item.rowStart-1)
+			cellHeight += rowGap * float64(item.rowEnd-item.rowStart-1)
 		}
 
+		// Position item within grid cell, accounting for margins
 		item.node.Rect = Rect{
-			X:      x,
-			Y:      y,
-			Width:  width,
-			Height: height,
+			X:      cellX + item.node.Style.Margin.Left,
+			Y:      cellY + item.node.Style.Margin.Top,
+			Width:  cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right,
+			Height: cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom,
+		}
+		
+		// Ensure size doesn't go negative
+		if item.node.Rect.Width < 0 {
+			item.node.Rect.Width = 0
+		}
+		if item.node.Rect.Height < 0 {
+			item.node.Rect.Height = 0
 		}
 	}
 

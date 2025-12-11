@@ -58,7 +58,7 @@ type Style struct {
     
     // Spacing
     Padding Spacing
-    Margin  Spacing  // Note: Not used in layout calculations
+    Margin  Spacing  // Supported in Flexbox and Grid layouts
     Border  Spacing
     
     // Box Model
@@ -307,6 +307,28 @@ Adds custom padding to a node.
 ```go
 func PaddingCustom(node *Node, top, right, bottom, left float64) *Node
 ```
+
+### Margin
+
+Adds uniform margin to a node. Margins are fully supported in Flexbox and Grid layouts.
+
+```go
+func Margin(node *Node, margin float64) *Node
+```
+
+Example:
+```go
+item := layout.Fixed(100, 50)
+item = layout.Margin(item, 10) // 10px margin on all sides
+
+// Or use with HStack/VStack
+stack := layout.HStack(
+    layout.Margin(layout.Fixed(100, 50), 10),
+    layout.Margin(layout.Fixed(100, 50), 10),
+)
+```
+
+**Note**: Margins don't collapse in Flexbox or Grid (CSS-compliant behavior).
 
 ### Frame
 

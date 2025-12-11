@@ -135,7 +135,7 @@ type Style struct {
 	MaxWidth  float64
 	MaxHeight float64
 	Padding   Spacing
-	Margin    Spacing // Note: Margin is currently not used in layout calculations
+	Margin    Spacing // Margin is supported in Flexbox and Grid layouts
 	Border    Spacing
 
 	// Box model

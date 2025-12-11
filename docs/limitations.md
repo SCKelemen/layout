@@ -6,19 +6,24 @@ This document outlines known limitations and design decisions for the layout lib
 
 ### Margin Support
 
-**Status**: Margin is defined in the `Style` struct but **not used** in layout calculations.
+**Status**: ✅ **Margin is now fully supported** in Flexbox and Grid layouts!
 
-**Why**: For the primary use cases (Grid/Flexbox layouts), margins aren't needed:
-- **Grid** has `GridGap`, `GridRowGap`, `GridColumnGap` for spacing
-- **Flexbox** uses `JustifyContent` and `AlignItems` for spacing
-- **Block layout** is primarily a fallback for simple cases
+**Implementation**:
+- **Flexbox**: Margins are accounted for in item positioning and spacing
+- **Grid**: Margins are applied within grid cells, reducing the available space for items
+- **Block**: Margin support is not yet implemented (use padding instead)
 
-**Impact**: If you need spacing between elements, use:
-- Grid gaps for grid layouts
-- Flexbox alignment for flex layouts
-- Padding for block layouts
+**Usage**:
+```go
+// Add margins to items in HStack/VStack
+item := layout.Fixed(100, 50)
+item.Style.Margin = layout.Uniform(10) // 10px margin on all sides
 
-**Future**: Margin support could be added if there's demand, but it's not a priority for current use cases.
+// Or use the Margin helper
+layout.Margin(item, 10)
+```
+
+**Note**: Margins don't collapse in Flexbox or Grid (unlike block layout), which matches CSS behavior.
 
 ### Box-Sizing
 

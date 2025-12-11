@@ -102,7 +102,6 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	// CRITICAL: contentWidth must be correct here - it's used to size all columns
 	// For row-spanning items with aspect ratio, contentWidth must be correct for proper sizing
 	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
-	
 
 	// Step 2: Calculate row sizes (need to measure children first for auto rows)
 	// For now, we'll do a two-pass layout
@@ -221,7 +220,6 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		if item.colEnd > item.colStart+1 {
 			itemWidth += columnGap * float64(item.colEnd-item.colStart-1)
 		}
-		
 
 		// Measure child
 		childConstraints := Constraints{
@@ -400,14 +398,15 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			// If measured size maintains aspect ratio, prefer it (especially for spanning items)
 			// This ensures consistency between measurement and positioning phases
 			// For spanning items, the measured size determines row/column sizes, so we should use it
+			// According to CSS spec, items with aspect-ratio maintain their ratio and don't stretch
+			// to fill cells (unlike items without aspect-ratio which stretch by default)
 			if measuredRatio > 0 && math.Abs(measuredRatio-item.node.Style.AspectRatio) < 0.01 {
 				// Use measured size, but ensure it fits within cell
 				itemWidth = item.measuredSize.Width
 				itemHeight = item.measuredSize.Height
 
-				// For spanning items, if cell size is smaller than measured (shouldn't happen),
-				// we still want to use measured size to maintain aspect ratio
-				// But if cell is larger, we can use measured size as-is
+				// Constrain to cell if measured size exceeds cell (shouldn't happen for spanning items)
+				// But aspect ratio takes precedence - don't stretch beyond measured size
 				if maxItemWidth > 0 && itemWidth > maxItemWidth {
 					// Cell is smaller than measured - constrain to cell
 					itemWidth = maxItemWidth

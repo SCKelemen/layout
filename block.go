@@ -23,7 +23,6 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	if contentHeight < 0 {
 		contentHeight = 0
 	}
-	
 
 	// Convert width/height from specified box-sizing to content-box for internal calculations
 	// According to W3C CSS Box Sizing spec:
@@ -38,7 +37,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	// when aspect ratio is set and both dimensions are 0
 	isAutoWidth := specifiedWidth < 0 || (specifiedWidth == 0 && node.Style.AspectRatio > 0 && specifiedHeight == 0)
 	isAutoHeight := specifiedHeight < 0 || (specifiedHeight == 0 && node.Style.AspectRatio > 0 && specifiedWidth == 0)
-	
+
 	nodeWidth := specifiedWidth
 	if isAutoWidth {
 		nodeWidth = contentWidth // auto
@@ -54,7 +53,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			nodeHeight = contentHeight // auto
 		}
 	}
-	
+
 	// Track if aspect ratio calculated dimensions (so we don't overwrite with children later)
 	aspectRatioCalculatedWidth := false
 	aspectRatioCalculatedHeight := false
@@ -243,7 +242,6 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	// Both approaches result in the same total size
 	finalWidth := nodeWidth + horizontalPaddingBorder
 	finalHeight := nodeHeight + verticalPaddingBorder
-	
 
 	// Constrain size and apply to Rect
 	// CRITICAL: node.Rect must respect constraints to match the returned Size

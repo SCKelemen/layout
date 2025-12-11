@@ -54,11 +54,11 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 	// However, the row height is determined by the item's measured height during the measurement phase
 	// If the measured height is based on MinHeight (100), then the row height will be 100
 	// And the item will be constrained by the row height, so width = 100 * 2 = 200
-	
+
 	// The current behavior: aspect ratio items maintain their ratio, but are constrained by cell size
 	// If the cell height is smaller than the aspect-ratio-calculated height, the item is constrained by height
 	// This test documents the current behavior, which may need refinement
-	
+
 	// Item 1 should maintain aspect ratio: width / height = 2.0
 	actualRatio := item1.Rect.Width / item1.Rect.Height
 	if math.Abs(actualRatio-2.0) > 0.01 {
@@ -115,24 +115,23 @@ func TestGridAspectRatioConstrainedByCell(t *testing.T) {
 	// But the cell width is 1000, so we need to fit within the cell
 	// The item should be constrained by the cell height (100) and maintain aspect ratio
 	// So width should be 100 * 2 = 200, not 1000
-	
+
 	// Actually, in CSS Grid, items stretch to fill the cell by default
 	// But aspect ratio should constrain that. If the cell is 1000x100 and aspect ratio is 2:1,
 	// the item should be 200x100 (maintaining ratio, constrained by height)
-	
+
 	// Let's check what actually happens
-	t.Logf("Item 1: width=%.2f, height=%.2f, ratio=%.2f", 
+	t.Logf("Item 1: width=%.2f, height=%.2f, ratio=%.2f",
 		item1.Rect.Width, item1.Rect.Height, item1.Rect.Width/item1.Rect.Height)
-	
+
 	// The item should maintain aspect ratio
 	actualRatio := item1.Rect.Width / item1.Rect.Height
 	if math.Abs(actualRatio-2.0) > 0.01 {
 		t.Errorf("Item 1 should maintain aspect ratio 2:1: got %.2f:1", actualRatio)
 	}
-	
+
 	// The item should be constrained by the cell height (100)
 	if item1.Rect.Height > 100.01 {
 		t.Errorf("Item 1 height should be constrained by cell height 100: got %.2f", item1.Rect.Height)
 	}
 }
-

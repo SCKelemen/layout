@@ -109,18 +109,28 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		needsAutoCol := colStart < 0 || (colStart == 0 && colEnd <= 0)
 
 		if needsAutoRow {
+			// Use itemIndex (which only counts non-DisplayNone children) for auto-placement
 			rowStart = itemIndex / len(columns)
-		}
-		if needsAutoCol {
-			colStart = itemIndex % len(columns)
-		}
-		// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
-		// Note: rowEnd=0 is invalid in CSS Grid (would be same as rowStart), so treat as auto
-		if rowEnd <= 0 {
+			// Set rowEnd to rowStart + 1 for auto-placed items
 			rowEnd = rowStart + 1
+		} else {
+			// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
+			// Note: rowEnd=0 is invalid in CSS Grid (would be same as rowStart), so treat as auto
+			if rowEnd <= 0 {
+				rowEnd = rowStart + 1
+			}
 		}
-		if colEnd <= 0 {
+		
+		if needsAutoCol {
+			// Use itemIndex (which only counts non-DisplayNone children) for auto-placement
+			colStart = itemIndex % len(columns)
+			// Set colEnd to colStart + 1 for auto-placed items
 			colEnd = colStart + 1
+		} else {
+			// If colEnd is -1 (explicit auto) or 0 (unset default), set it to colStart + 1
+			if colEnd <= 0 {
+				colEnd = colStart + 1
+			}
 		}
 
 		// Ensure we have enough rows/columns
@@ -151,6 +161,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		item.colEnd = colEnd
 
 		gridItems = append(gridItems, item)
+		itemIndex++ // Increment AFTER using itemIndex for auto-placement
 	}
 
 	// Step 3: Measure children to determine row sizes

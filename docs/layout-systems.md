@@ -64,6 +64,7 @@ Grid is perfect for two-dimensional layouts with precise control over rows and c
 - **Auto Rows/Columns**: Default size for implicit tracks
 - **Grid Gaps**: Spacing between grid items
 - **Item Positioning**: Place items in specific cells or span multiple cells
+- **Bento Box / Mosaic Layouts**: Create Pinterest-style or bento box layouts with items spanning different numbers of rows/columns
 
 ### Example
 
@@ -126,6 +127,74 @@ GridTemplateColumns: []layout.GridTrack{
 ```
 
 See `examples/multi_column/main.go` for a complete example.
+
+### Grid Helper Functions
+
+For simpler grid creation, use the helper functions:
+
+```go
+// Create a grid with fixed track sizes
+grid := layout.Grid(4, 4, 150, 200) // 4 rows x 4 columns, rows=150px, cols=200px
+
+// Create a grid with auto-sized tracks
+grid := layout.GridAuto(3, 4) // 3 rows x 4 columns, auto-sized
+
+// Create a grid with fractional tracks
+grid := layout.GridFractional(2, 3) // 2 rows x 3 columns, equal fractional units
+```
+
+This is much simpler than manually creating `GridTemplateRows` and `GridTemplateColumns` arrays!
+
+### Bento Box / Mosaic Layouts
+
+Grid's spanning capabilities make it perfect for creating bento box or mosaic-style layouts where items have different sizes:
+
+```go
+root := &layout.Node{
+    Style: layout.Style{
+        Display: layout.DisplayGrid,
+        GridTemplateRows: []layout.GridTrack{
+            layout.FixedTrack(150),
+            layout.FixedTrack(150),
+            layout.FixedTrack(150),
+        },
+        GridTemplateColumns: []layout.GridTrack{
+            layout.FixedTrack(200),
+            layout.FixedTrack(200),
+            layout.FixedTrack(200),
+        },
+        GridGap: 10,
+    },
+    Children: []*layout.Node{
+        // Large item spanning 2x2
+        {
+            Style: layout.Style{
+                GridRowStart:    0,
+                GridRowEnd:      2,  // Spans 2 rows
+                GridColumnStart: 0,
+                GridColumnEnd:   2,  // Spans 2 columns
+            },
+        },
+        // Medium item spanning 1x2
+        {
+            Style: layout.Style{
+                GridRowStart:    0,
+                GridColumnStart: 2,
+                GridColumnEnd:   4,  // Spans 2 columns
+            },
+        },
+        // Small 1x1 items
+        {
+            Style: layout.Style{
+                GridRowStart:    2,
+                GridColumnStart: 0,
+            },
+        },
+    },
+}
+```
+
+See `examples/bento/main.go` for a complete bento box layout example.
 
 ## Block Layout
 

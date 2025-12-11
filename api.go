@@ -133,3 +133,82 @@ func Frame(node *Node, width, height float64) *Node {
 func Background(node *Node) *Node {
 	return node
 }
+
+// Grid creates a grid container with the specified number of rows and columns.
+// Each row and column will have the same fixed size.
+//
+// Example:
+//
+//	grid := layout.Grid(3, 4, 150, 200) // 3 rows x 4 columns, rows=150px, cols=200px
+//	grid.Style.GridGap = 10
+func Grid(rows, cols int, rowSize, colSize float64) *Node {
+	gridRows := make([]GridTrack, rows)
+	for i := range gridRows {
+		gridRows[i] = FixedTrack(rowSize)
+	}
+
+	gridCols := make([]GridTrack, cols)
+	for i := range gridCols {
+		gridCols[i] = FixedTrack(colSize)
+	}
+
+	return &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateRows:    gridRows,
+			GridTemplateColumns: gridCols,
+		},
+	}
+}
+
+// GridAuto creates a grid container with auto-sized tracks.
+// Useful when you want the grid to size based on content.
+//
+// Example:
+//
+//	grid := layout.GridAuto(3, 4) // 3 rows x 4 columns, auto-sized
+func GridAuto(rows, cols int) *Node {
+	gridRows := make([]GridTrack, rows)
+	for i := range gridRows {
+		gridRows[i] = AutoTrack()
+	}
+
+	gridCols := make([]GridTrack, cols)
+	for i := range gridCols {
+		gridCols[i] = AutoTrack()
+	}
+
+	return &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateRows:    gridRows,
+			GridTemplateColumns: gridCols,
+		},
+	}
+}
+
+// GridFractional creates a grid container with fractional (fr) tracks.
+// All rows/columns will share space equally.
+//
+// Example:
+//
+//	grid := layout.GridFractional(3, 4) // 3 rows x 4 columns, all equal fractional units
+func GridFractional(rows, cols int) *Node {
+	gridRows := make([]GridTrack, rows)
+	for i := range gridRows {
+		gridRows[i] = FractionTrack(1)
+	}
+
+	gridCols := make([]GridTrack, cols)
+	for i := range gridCols {
+		gridCols[i] = FractionTrack(1)
+	}
+
+	return &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateRows:    gridRows,
+			GridTemplateColumns: gridCols,
+		},
+	}
+}

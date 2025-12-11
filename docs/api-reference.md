@@ -316,6 +316,48 @@ Sets the width and/or height of a node.
 func Frame(node *Node, width, height float64) *Node
 ```
 
+## Grid Helpers
+
+### Grid
+
+Creates a grid container with the specified number of rows and columns using fixed track sizes.
+
+```go
+func Grid(rows, cols int, rowSize, colSize float64) *Node
+```
+
+Example:
+```go
+grid := layout.Grid(4, 4, 150, 200) // 4 rows x 4 columns, rows=150px, cols=200px
+grid.Style.GridGap = 10
+```
+
+### GridAuto
+
+Creates a grid container with auto-sized tracks.
+
+```go
+func GridAuto(rows, cols int) *Node
+```
+
+Example:
+```go
+grid := layout.GridAuto(3, 4) // 3 rows x 4 columns, auto-sized
+```
+
+### GridFractional
+
+Creates a grid container with fractional (fr) tracks that share space equally.
+
+```go
+func GridFractional(rows, cols int) *Node
+```
+
+Example:
+```go
+grid := layout.GridFractional(2, 3) // 2 rows x 3 columns, all equal fractional units
+```
+
 ## SVG Helpers
 
 ### GetSVGTransform

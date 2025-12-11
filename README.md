@@ -20,6 +20,7 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
   - Min/max track sizing
   - Grid gaps
   - Grid item positioning and spanning
+  - **Bento box / mosaic layouts** - items spanning multiple rows/columns
 
 - **Block Layout**: Basic block layout for non-flex/grid elements
 

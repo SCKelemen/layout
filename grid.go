@@ -453,9 +453,134 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 				}
 			}
 		} else {
-			// No aspect ratio: stretch to fill cell (default CSS Grid behavior)
-			itemWidth = maxItemWidth
-			itemHeight = maxItemHeight
+			// No aspect ratio: apply justify-items and align-items alignment
+			// Default is stretch, but can be overridden
+			justifyItems := node.Style.JustifyItems
+			alignItems := node.Style.AlignItems
+
+			// Default to stretch if not explicitly set (zero value means not set)
+			// For justify-items, zero value means use default (stretch)
+			if justifyItems == 0 {
+				justifyItems = JustifyItemsStretch
+			}
+			// For align-items, zero value means use default (stretch)
+			if alignItems == 0 {
+				alignItems = AlignItemsStretch
+			}
+
+			// Apply justify-items (inline/row axis)
+			switch justifyItems {
+			case JustifyItemsStart, JustifyItemsEnd, JustifyItemsCenter:
+				// For non-stretch, always prefer explicit width if set (accounting for box-sizing)
+				// Explicit dimensions take precedence over measured size for alignment
+				if item.node.Style.Width >= 0 {
+					// Item has explicit width - convert to total size accounting for box-sizing
+					itemPaddingBorder := item.node.Style.Padding.Left + item.node.Style.Padding.Right +
+						item.node.Style.Border.Left + item.node.Style.Border.Right
+					if item.node.Style.BoxSizing == BoxSizingBorderBox {
+						// Width already includes padding+border, use as-is
+						itemWidth = math.Min(item.node.Style.Width, maxItemWidth)
+					} else {
+						// Width is content-only, add padding+border
+						itemWidth = math.Min(item.node.Style.Width+itemPaddingBorder, maxItemWidth)
+					}
+				} else if item.measuredSize.Width > 0 {
+					// Use measured size (clamped to cell)
+					itemWidth = math.Min(item.measuredSize.Width, maxItemWidth)
+				} else {
+					// No explicit width and no measured size - use 0 (min content)
+					itemWidth = 0
+				}
+			case JustifyItemsStretch:
+				// Stretch to fill cell width
+				itemWidth = maxItemWidth
+			}
+
+			// Apply align-items (block/column axis)
+			switch alignItems {
+			case AlignItemsFlexStart, AlignItemsFlexEnd, AlignItemsCenter:
+				// For non-stretch, always prefer explicit height if set (accounting for box-sizing)
+				// Explicit dimensions take precedence over measured size for alignment
+				if item.node.Style.Height >= 0 {
+					// Item has explicit height - convert to total size accounting for box-sizing
+					itemPaddingBorder := item.node.Style.Padding.Top + item.node.Style.Padding.Bottom +
+						item.node.Style.Border.Top + item.node.Style.Border.Bottom
+					if item.node.Style.BoxSizing == BoxSizingBorderBox {
+						// Height already includes padding+border, use as-is
+						itemHeight = math.Min(item.node.Style.Height, maxItemHeight)
+					} else {
+						// Height is content-only, add padding+border
+						itemHeight = math.Min(item.node.Style.Height+itemPaddingBorder, maxItemHeight)
+					}
+				} else if item.measuredSize.Height > 0 {
+					// Use measured size (clamped to cell)
+					itemHeight = math.Min(item.measuredSize.Height, maxItemHeight)
+				} else {
+					// No explicit height and no measured size - use 0 (min content)
+					itemHeight = 0
+				}
+			case AlignItemsStretch:
+				// Stretch to fill cell height
+				itemHeight = maxItemHeight
+			default:
+				// Default to stretch
+				itemHeight = maxItemHeight
+			}
+		}
+
+		// Calculate item position within cell based on alignment
+		var itemX, itemY float64
+
+		// Handle justify-items positioning (inline/row axis)
+		justifyItems := node.Style.JustifyItems
+		if justifyItems == 0 {
+			justifyItems = JustifyItemsStretch
+		}
+		// Items with aspect-ratio default to start alignment per spec
+		if item.node.Style.AspectRatio > 0 {
+			justifyItems = JustifyItemsStart
+		}
+
+		// Calculate total item size including margins for alignment
+		totalItemWidth := itemWidth + item.node.Style.Margin.Left + item.node.Style.Margin.Right
+		totalItemHeight := itemHeight + item.node.Style.Margin.Top + item.node.Style.Margin.Bottom
+
+		switch justifyItems {
+		case JustifyItemsStart:
+			itemX = cellX + item.node.Style.Margin.Left
+		case JustifyItemsEnd:
+			// Align item+margin box to end, then item starts at margin.Left from that
+			itemX = cellX + cellWidth - totalItemWidth + item.node.Style.Margin.Left
+		case JustifyItemsCenter:
+			// Center the item+margin box, then item starts at margin.Left from that
+			itemX = cellX + (cellWidth-totalItemWidth)/2 + item.node.Style.Margin.Left
+		case JustifyItemsStretch:
+			itemX = cellX + item.node.Style.Margin.Left
+		}
+
+		// Handle align-items positioning (block/column axis)
+		alignItems := node.Style.AlignItems
+		if alignItems == 0 {
+			alignItems = AlignItemsStretch
+		}
+		// Items with aspect-ratio default to start alignment per spec
+		if item.node.Style.AspectRatio > 0 {
+			alignItems = AlignItemsFlexStart
+		}
+
+		switch alignItems {
+		case AlignItemsFlexStart: // Start
+			itemY = cellY + item.node.Style.Margin.Top
+		case AlignItemsFlexEnd: // End
+			// Align item+margin box to end, then item starts at margin.Top from that
+			itemY = cellY + cellHeight - totalItemHeight + item.node.Style.Margin.Top
+		case AlignItemsCenter:
+			// Center the item+margin box, then item starts at margin.Top from that
+			itemY = cellY + (cellHeight-totalItemHeight)/2 + item.node.Style.Margin.Top
+		case AlignItemsStretch:
+			itemY = cellY + item.node.Style.Margin.Top
+		default:
+			itemY = cellY + item.node.Style.Margin.Top
 		}
 
 		// Position item within grid cell, accounting for margins, padding, and border
@@ -463,8 +588,8 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// For spanning items, margins are still contained within the spanned cell area
 		// Add padding and border offsets to position items within the container's content area
 		item.node.Rect = Rect{
-			X:      node.Style.Padding.Left + node.Style.Border.Left + cellX + item.node.Style.Margin.Left,
-			Y:      node.Style.Padding.Top + node.Style.Border.Top + cellY + item.node.Style.Margin.Top,
+			X:      node.Style.Padding.Left + node.Style.Border.Left + itemX,
+			Y:      node.Style.Padding.Top + node.Style.Border.Top + itemY,
 			Width:  itemWidth,
 			Height: itemHeight,
 		}

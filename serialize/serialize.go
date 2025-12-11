@@ -8,23 +8,24 @@ import (
 
 // NodeJSON represents a serializable version of layout.Node
 type NodeJSON struct {
-	Style    StyleJSON    `json:"style"`
-	Children []*NodeJSON  `json:"children,omitempty"`
-	Rect     RectJSON     `json:"rect,omitempty"`
+	Style    StyleJSON   `json:"style"`
+	Children []*NodeJSON `json:"children,omitempty"`
+	Rect     RectJSON    `json:"rect,omitempty"`
 }
 
 // StyleJSON represents a serializable version of layout.Style
 type StyleJSON struct {
-	Display       string      `json:"display,omitempty"`
-	FlexDirection string      `json:"flexDirection,omitempty"`
-	FlexWrap      string      `json:"flexWrap,omitempty"`
-	JustifyContent string     `json:"justifyContent,omitempty"`
-	AlignItems    string      `json:"alignItems,omitempty"`
-	AlignContent  string      `json:"alignContent,omitempty"`
-	FlexGrow      float64     `json:"flexGrow,omitempty"`
-	FlexShrink    float64     `json:"flexShrink,omitempty"`
-	FlexBasis     float64     `json:"flexBasis,omitempty"`
-	
+	Display        string  `json:"display,omitempty"`
+	FlexDirection  string  `json:"flexDirection,omitempty"`
+	FlexWrap       string  `json:"flexWrap,omitempty"`
+	JustifyContent string  `json:"justifyContent,omitempty"`
+	AlignItems     string  `json:"alignItems,omitempty"`
+	AlignContent   string  `json:"alignContent,omitempty"`
+	JustifyItems   string  `json:"justifyItems,omitempty"`
+	FlexGrow       float64 `json:"flexGrow,omitempty"`
+	FlexShrink     float64 `json:"flexShrink,omitempty"`
+	FlexBasis      float64 `json:"flexBasis,omitempty"`
+
 	// Grid
 	GridTemplateRows    []TrackJSON `json:"gridTemplateRows,omitempty"`
 	GridTemplateColumns []TrackJSON `json:"gridTemplateColumns,omitempty"`
@@ -37,24 +38,24 @@ type StyleJSON struct {
 	GridRowEnd          int         `json:"gridRowEnd,omitempty"`
 	GridColumnStart     int         `json:"gridColumnStart,omitempty"`
 	GridColumnEnd       int         `json:"gridColumnEnd,omitempty"`
-	
+
 	// Sizing
-	Width      float64   `json:"width,omitempty"`
-	Height     float64   `json:"height,omitempty"`
-	MinWidth   float64   `json:"minWidth,omitempty"`
-	MinHeight  float64   `json:"minHeight,omitempty"`
-	MaxWidth   float64   `json:"maxWidth,omitempty"`
-	MaxHeight  float64   `json:"maxHeight,omitempty"`
-	AspectRatio float64  `json:"aspectRatio,omitempty"`
-	
+	Width       float64 `json:"width,omitempty"`
+	Height      float64 `json:"height,omitempty"`
+	MinWidth    float64 `json:"minWidth,omitempty"`
+	MinHeight   float64 `json:"minHeight,omitempty"`
+	MaxWidth    float64 `json:"maxWidth,omitempty"`
+	MaxHeight   float64 `json:"maxHeight,omitempty"`
+	AspectRatio float64 `json:"aspectRatio,omitempty"`
+
 	// Spacing
 	Padding SpacingJSON `json:"padding,omitempty"`
 	Margin  SpacingJSON `json:"margin,omitempty"`
 	Border  SpacingJSON `json:"border,omitempty"`
-	
+
 	// Box model
 	BoxSizing string `json:"boxSizing,omitempty"`
-	
+
 	// Positioning
 	Position string  `json:"position,omitempty"`
 	Top      float64 `json:"top,omitempty"`
@@ -62,15 +63,15 @@ type StyleJSON struct {
 	Bottom   float64 `json:"bottom,omitempty"`
 	Left     float64 `json:"left,omitempty"`
 	ZIndex   int     `json:"zIndex,omitempty"`
-	
+
 	// Transform
 	Transform TransformJSON `json:"transform,omitempty"`
 }
 
 // TrackJSON represents a serializable version of layout.GridTrack
 type TrackJSON struct {
-	MinSize float64 `json:"minSize,omitempty"`
-	MaxSize float64 `json:"maxSize,omitempty"`
+	MinSize  float64 `json:"minSize,omitempty"`
+	MaxSize  float64 `json:"maxSize,omitempty"`
 	Fraction float64 `json:"fraction,omitempty"`
 }
 
@@ -120,19 +121,19 @@ func nodeToJSON(node *layout.Node) *NodeJSON {
 	if node == nil {
 		return nil
 	}
-	
+
 	nj := &NodeJSON{
 		Style: styleToJSON(&node.Style),
 		Rect:  rectToJSON(&node.Rect),
 	}
-	
+
 	if len(node.Children) > 0 {
 		nj.Children = make([]*NodeJSON, len(node.Children))
 		for i, child := range node.Children {
 			nj.Children[i] = nodeToJSON(child)
 		}
 	}
-	
+
 	return nj
 }
 
@@ -141,53 +142,53 @@ func jsonToNode(nj *NodeJSON) *layout.Node {
 	if nj == nil {
 		return nil
 	}
-	
+
 	node := &layout.Node{
 		Style: jsonToStyle(&nj.Style),
 		Rect:  jsonToRect(&nj.Rect),
 	}
-	
+
 	if len(nj.Children) > 0 {
 		node.Children = make([]*layout.Node, len(nj.Children))
 		for i, child := range nj.Children {
 			node.Children[i] = jsonToNode(child)
 		}
 	}
-	
+
 	return node
 }
 
 // styleToJSON converts layout.Style to StyleJSON
 func styleToJSON(s *layout.Style) StyleJSON {
 	sj := StyleJSON{
-		Width:      s.Width,
-		Height:     s.Height,
-		MinWidth:   s.MinWidth,
-		MinHeight:  s.MinHeight,
-		MaxWidth:   s.MaxWidth,
-		MaxHeight:  s.MaxHeight,
-		AspectRatio: s.AspectRatio,
-		FlexGrow:   s.FlexGrow,
-		FlexShrink: s.FlexShrink,
-		FlexBasis:  s.FlexBasis,
-		GridGap:    s.GridGap,
-		GridRowGap: s.GridRowGap,
-		GridColumnGap: s.GridColumnGap,
-		GridRowStart: s.GridRowStart,
-		GridRowEnd:   s.GridRowEnd,
+		Width:           s.Width,
+		Height:          s.Height,
+		MinWidth:        s.MinWidth,
+		MinHeight:       s.MinHeight,
+		MaxWidth:        s.MaxWidth,
+		MaxHeight:       s.MaxHeight,
+		AspectRatio:     s.AspectRatio,
+		FlexGrow:        s.FlexGrow,
+		FlexShrink:      s.FlexShrink,
+		FlexBasis:       s.FlexBasis,
+		GridGap:         s.GridGap,
+		GridRowGap:      s.GridRowGap,
+		GridColumnGap:   s.GridColumnGap,
+		GridRowStart:    s.GridRowStart,
+		GridRowEnd:      s.GridRowEnd,
 		GridColumnStart: s.GridColumnStart,
 		GridColumnEnd:   s.GridColumnEnd,
-		Top:    s.Top,
-		Right:  s.Right,
-		Bottom: s.Bottom,
-		Left:   s.Left,
-		ZIndex: s.ZIndex,
-		Padding: spacingToJSON(&s.Padding),
-		Margin:  spacingToJSON(&s.Margin),
-		Border:  spacingToJSON(&s.Border),
-		Transform: transformToJSON(&s.Transform),
+		Top:             s.Top,
+		Right:           s.Right,
+		Bottom:          s.Bottom,
+		Left:            s.Left,
+		ZIndex:          s.ZIndex,
+		Padding:         spacingToJSON(&s.Padding),
+		Margin:          spacingToJSON(&s.Margin),
+		Border:          spacingToJSON(&s.Border),
+		Transform:       transformToJSON(&s.Transform),
 	}
-	
+
 	// Convert enums to strings
 	if s.Display != 0 {
 		sj.Display = displayToString(s.Display)
@@ -207,13 +208,16 @@ func styleToJSON(s *layout.Style) StyleJSON {
 	if s.AlignContent != 0 {
 		sj.AlignContent = alignContentToString(s.AlignContent)
 	}
+	if s.JustifyItems != 0 {
+		sj.JustifyItems = justifyItemsToString(s.JustifyItems)
+	}
 	if s.BoxSizing != 0 {
 		sj.BoxSizing = boxSizingToString(s.BoxSizing)
 	}
 	if s.Position != 0 {
 		sj.Position = positionToString(s.Position)
 	}
-	
+
 	// Convert grid tracks
 	if len(s.GridTemplateRows) > 0 {
 		sj.GridTemplateRows = make([]TrackJSON, len(s.GridTemplateRows))
@@ -233,41 +237,41 @@ func styleToJSON(s *layout.Style) StyleJSON {
 	if s.GridAutoColumns.MinSize != 0 || s.GridAutoColumns.MaxSize != layout.Unbounded || s.GridAutoColumns.Fraction != 0 {
 		sj.GridAutoColumns = trackToJSON(&s.GridAutoColumns)
 	}
-	
+
 	return sj
 }
 
 // jsonToStyle converts StyleJSON to layout.Style
 func jsonToStyle(sj *StyleJSON) layout.Style {
 	s := layout.Style{
-		Width:      sj.Width,
-		Height:     sj.Height,
-		MinWidth:   sj.MinWidth,
-		MinHeight:  sj.MinHeight,
-		MaxWidth:   sj.MaxWidth,
-		MaxHeight:  sj.MaxHeight,
-		AspectRatio: sj.AspectRatio,
-		FlexGrow:   sj.FlexGrow,
-		FlexShrink: sj.FlexShrink,
-		FlexBasis:  sj.FlexBasis,
-		GridGap:    sj.GridGap,
-		GridRowGap: sj.GridRowGap,
-		GridColumnGap: sj.GridColumnGap,
-		GridRowStart: sj.GridRowStart,
-		GridRowEnd:   sj.GridRowEnd,
+		Width:           sj.Width,
+		Height:          sj.Height,
+		MinWidth:        sj.MinWidth,
+		MinHeight:       sj.MinHeight,
+		MaxWidth:        sj.MaxWidth,
+		MaxHeight:       sj.MaxHeight,
+		AspectRatio:     sj.AspectRatio,
+		FlexGrow:        sj.FlexGrow,
+		FlexShrink:      sj.FlexShrink,
+		FlexBasis:       sj.FlexBasis,
+		GridGap:         sj.GridGap,
+		GridRowGap:      sj.GridRowGap,
+		GridColumnGap:   sj.GridColumnGap,
+		GridRowStart:    sj.GridRowStart,
+		GridRowEnd:      sj.GridRowEnd,
 		GridColumnStart: sj.GridColumnStart,
 		GridColumnEnd:   sj.GridColumnEnd,
-		Top:    sj.Top,
-		Right:  sj.Right,
-		Bottom: sj.Bottom,
-		Left:   sj.Left,
-		ZIndex: sj.ZIndex,
-		Padding: jsonToSpacing(&sj.Padding),
-		Margin:  jsonToSpacing(&sj.Margin),
-		Border:  jsonToSpacing(&sj.Border),
-		Transform: jsonToTransform(&sj.Transform),
+		Top:             sj.Top,
+		Right:           sj.Right,
+		Bottom:          sj.Bottom,
+		Left:            sj.Left,
+		ZIndex:          sj.ZIndex,
+		Padding:         jsonToSpacing(&sj.Padding),
+		Margin:          jsonToSpacing(&sj.Margin),
+		Border:          jsonToSpacing(&sj.Border),
+		Transform:       jsonToTransform(&sj.Transform),
 	}
-	
+
 	// Convert strings to enums
 	if sj.Display != "" {
 		s.Display = stringToDisplay(sj.Display)
@@ -284,6 +288,9 @@ func jsonToStyle(sj *StyleJSON) layout.Style {
 	if sj.AlignItems != "" {
 		s.AlignItems = stringToAlignItems(sj.AlignItems)
 	}
+	if sj.JustifyItems != "" {
+		s.JustifyItems = stringToJustifyItems(sj.JustifyItems)
+	}
 	if sj.AlignContent != "" {
 		s.AlignContent = stringToAlignContent(sj.AlignContent)
 	}
@@ -293,7 +300,7 @@ func jsonToStyle(sj *StyleJSON) layout.Style {
 	if sj.Position != "" {
 		s.Position = stringToPosition(sj.Position)
 	}
-	
+
 	// Convert grid tracks
 	if len(sj.GridTemplateRows) > 0 {
 		s.GridTemplateRows = make([]layout.GridTrack, len(sj.GridTemplateRows))
@@ -313,7 +320,7 @@ func jsonToStyle(sj *StyleJSON) layout.Style {
 	if sj.GridAutoColumns.MinSize != 0 || sj.GridAutoColumns.MaxSize != layout.Unbounded || sj.GridAutoColumns.Fraction != 0 {
 		s.GridAutoColumns = jsonToTrack(&sj.GridAutoColumns)
 	}
-	
+
 	return s
 }
 
@@ -467,6 +474,36 @@ func stringToAlignItems(s string) layout.AlignItems {
 		return layout.AlignItemsStretch
 	case "baseline":
 		return layout.AlignItemsBaseline
+	default:
+		return 0
+	}
+}
+
+func justifyItemsToString(ji layout.JustifyItems) string {
+	switch ji {
+	case layout.JustifyItemsStart:
+		return "start"
+	case layout.JustifyItemsEnd:
+		return "end"
+	case layout.JustifyItemsCenter:
+		return "center"
+	case layout.JustifyItemsStretch:
+		return "stretch"
+	default:
+		return ""
+	}
+}
+
+func stringToJustifyItems(s string) layout.JustifyItems {
+	switch s {
+	case "start":
+		return layout.JustifyItemsStart
+	case "end":
+		return layout.JustifyItemsEnd
+	case "center":
+		return layout.JustifyItemsCenter
+	case "stretch":
+		return layout.JustifyItemsStretch
 	default:
 		return 0
 	}
@@ -639,4 +676,3 @@ func jsonToTransform(tj *TransformJSON) layout.Transform {
 		F: tj.F,
 	}
 }
-

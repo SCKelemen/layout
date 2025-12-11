@@ -122,10 +122,13 @@ type Style struct {
 	GridGap             float64
 	GridRowGap          float64
 	GridColumnGap       float64
-	GridRowStart        int // -1 means auto
-	GridRowEnd          int // -1 means auto
-	GridColumnStart     int // -1 means auto
-	GridColumnEnd       int // -1 means auto
+	GridRowStart        int          // -1 means auto
+	GridRowEnd          int          // -1 means auto
+	GridColumnStart     int          // -1 means auto
+	GridColumnEnd       int          // -1 means auto
+	JustifyItems        JustifyItems // Alignment along inline (row) axis. Default: Stretch
+	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
+	// For Grid: Default is Stretch, but Start for items with aspect-ratio
 
 	// Sizing
 	Width       float64 // -1 means auto
@@ -242,6 +245,17 @@ const (
 	AlignItemsCenter
 	AlignItemsStretch
 	AlignItemsBaseline
+)
+
+// JustifyItems controls alignment along the inline (row) axis in Grid
+// Used for justify-items property in CSS Grid
+type JustifyItems int
+
+const (
+	JustifyItemsStart JustifyItems = iota
+	JustifyItemsEnd
+	JustifyItemsCenter
+	JustifyItemsStretch
 )
 
 // AlignContent

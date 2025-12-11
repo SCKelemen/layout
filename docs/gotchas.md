@@ -72,9 +72,38 @@ gridRows := []layout.GridTrack{
 }
 ```
 
+### Height vs MinHeight
+
+Both `Height` and `MinHeight` work for auto rows, but they behave slightly differently:
+
+- **`Height`**: Explicit height. Item will be exactly this tall (unless constrained).
+- **`MinHeight`**: Minimum height. Item will be at least this tall, but can grow if it has content.
+
+For auto rows, **both work**, but `MinHeight` is more flexible:
+
+```go
+// Using Height (explicit)
+item := &layout.Node{
+    Style: layout.Style{
+        GridRowStart: 0,
+        GridColumnStart: 0,
+        Height: 50.0, // Item will be exactly 50px
+    },
+}
+
+// Using MinHeight (recommended for auto rows)
+item := &layout.Node{
+    Style: layout.Style{
+        GridRowStart: 0,
+        GridColumnStart: 0,
+        MinHeight: 50.0, // Item will be at least 50px, can grow
+    },
+}
+```
+
 ### Best Practice
 
-When using auto-sized grid rows, **always set `MinHeight` on items** that don't have content:
+When using auto-sized grid rows, **always set `MinHeight` (or `Height`) on items** that don't have content:
 
 ```go
 grid := layout.GridAuto(3, 3)
@@ -287,4 +316,57 @@ For very large grids (100+ items), consider pagination or virtualization.
 1. Check grid positioning (`GridRowStart`, `GridColumnStart`)
 2. Verify row/column spans are correct
 3. Check margins aren't causing negative sizes
+
+## Debugging Grid Layout Issues
+
+### Checklist for Row Overlapping/Collapsing
+
+If your grid rows are overlapping or collapsing, check:
+
+1. **Did you call `Layout()`?**
+   ```go
+   // ❌ Missing Layout() call
+   root := layout.Grid(2, 2, 100, 100)
+   fmt.Println(root.Children[0].Rect.Y) // Will be 0!
+   
+   // ✅ Correct
+   root := layout.Grid(2, 2, 100, 100)
+   layout.Layout(root, constraints)
+   fmt.Println(root.Children[0].Rect.Y) // Will be correct
+   ```
+
+2. **Do all items have `MinHeight` or `Height` set?**
+   ```go
+   // Check your items
+   for i, item := range grid.Children {
+       if item.Style.MinHeight == 0 && item.Style.Height <= 0 {
+           fmt.Printf("WARNING: Item %d has no MinHeight or Height!\n", i)
+       }
+   }
+   ```
+
+3. **Are constraints large enough?**
+   ```go
+   // Use Unbounded for auto rows
+   constraints := layout.Loose(width, layout.Unbounded)
+   ```
+
+4. **Are row/column positions set correctly?**
+   ```go
+   // Verify GridRowStart/GridColumnStart are set
+   for i, item := range grid.Children {
+       fmt.Printf("Item %d: row %d-%d, col %d-%d\n",
+           i, item.Style.GridRowStart, item.Style.GridRowEnd,
+           item.Style.GridColumnStart, item.Style.GridColumnEnd)
+   }
+   ```
+
+5. **Check the final layout results:**
+   ```go
+   layout.Layout(root, constraints)
+   fmt.Printf("Root: %.2f x %.2f\n", root.Rect.Width, root.Rect.Height)
+   for i, child := range root.Children {
+       fmt.Printf("Item %d: y=%.2f, h=%.2f\n", i, child.Rect.Y, child.Rect.Height)
+   }
+   ```
 

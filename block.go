@@ -86,17 +86,36 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	}
 
 	// Apply min/max constraints
+	// If aspect ratio calculated dimensions, we need to maintain the ratio when min/max are applied
 	if node.Style.MinWidth > 0 {
 		nodeWidth = max(nodeWidth, node.Style.MinWidth)
+		// If aspect ratio calculated width, recalculate height to maintain ratio
+		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
+			nodeHeight = nodeWidth / node.Style.AspectRatio
+		}
 	}
 	if node.Style.MaxWidth > 0 && node.Style.MaxWidth < Unbounded {
 		nodeWidth = min(nodeWidth, node.Style.MaxWidth)
+		// If aspect ratio calculated width, recalculate height to maintain ratio
+		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
+			nodeHeight = nodeWidth / node.Style.AspectRatio
+		}
 	}
 	if node.Style.MinHeight > 0 {
+		oldHeight := nodeHeight
 		nodeHeight = max(nodeHeight, node.Style.MinHeight)
+		// If aspect ratio calculated height and MinHeight increased it, recalculate width to maintain ratio
+		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight > oldHeight {
+			nodeWidth = nodeHeight * node.Style.AspectRatio
+		}
 	}
 	if node.Style.MaxHeight > 0 && node.Style.MaxHeight < Unbounded {
+		oldHeight := nodeHeight
 		nodeHeight = min(nodeHeight, node.Style.MaxHeight)
+		// If aspect ratio calculated height and MaxHeight decreased it, recalculate width to maintain ratio
+		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight < oldHeight {
+			nodeWidth = nodeHeight * node.Style.AspectRatio
+		}
 	}
 
 	// Constrain to available space
@@ -162,7 +181,12 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	} else if node.Style.Height < 0 {
 		// Aspect ratio calculated height, but ensure MinHeight is still respected
 		if node.Style.MinHeight > 0 {
+			oldHeight := nodeHeight
 			nodeHeight = max(nodeHeight, node.Style.MinHeight)
+			// If MinHeight increased height and aspect ratio is set, recalculate width to maintain ratio
+			if node.Style.AspectRatio > 0 && nodeHeight > oldHeight {
+				nodeWidth = nodeHeight * node.Style.AspectRatio
+			}
 		}
 	}
 
@@ -179,7 +203,12 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		}
 		// Ensure MinWidth is still respected (even if aspect ratio calculated width)
 		if node.Style.MinWidth > 0 {
+			oldWidth := nodeWidth
 			nodeWidth = max(nodeWidth, node.Style.MinWidth)
+			// If MinWidth increased width and aspect ratio is set, recalculate height to maintain ratio
+			if node.Style.AspectRatio > 0 && nodeWidth > oldWidth && aspectRatioCalculatedHeight {
+				nodeHeight = nodeWidth / node.Style.AspectRatio
+			}
 		}
 	}
 

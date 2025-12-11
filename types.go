@@ -128,15 +128,16 @@ type Style struct {
 	GridColumnEnd       int // -1 means auto
 
 	// Sizing
-	Width     float64 // -1 means auto
-	Height    float64 // -1 means auto
-	MinWidth  float64
-	MinHeight float64
-	MaxWidth  float64
-	MaxHeight float64
-	Padding   Spacing
-	Margin    Spacing // Margin is supported in Flexbox and Grid layouts
-	Border    Spacing
+	Width       float64 // -1 means auto
+	Height      float64 // -1 means auto
+	MinWidth    float64
+	MinHeight   float64
+	MaxWidth    float64
+	MaxHeight   float64
+	AspectRatio float64 // Width/Height ratio (0 means not set). Example: 16/9 = 1.777...
+	Padding     Spacing
+	Margin      Spacing // Margin is supported in Flexbox and Grid layouts
+	Border      Spacing
 
 	// Box model
 	BoxSizing BoxSizing

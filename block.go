@@ -25,6 +25,45 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		nodeHeight = contentHeight // auto
 	}
 
+	// Track if aspect ratio calculated dimensions (so we don't overwrite with children later)
+	aspectRatioCalculatedWidth := false
+	aspectRatioCalculatedHeight := false
+
+	// Apply aspect ratio if set (before min/max constraints)
+	// Aspect ratio affects sizing when one dimension is auto
+	if node.Style.AspectRatio > 0 {
+		if node.Style.Width < 0 && node.Style.Height < 0 {
+			// Both auto: use available space and aspect ratio
+			// Prefer width-based calculation (use available width)
+			if contentWidth > 0 {
+				// Use available width, calculate height from aspect ratio
+				nodeHeight = nodeWidth / node.Style.AspectRatio
+				aspectRatioCalculatedHeight = true
+				aspectRatioCalculatedWidth = true // Width is set from contentWidth
+				// Constrain to available height
+				if nodeHeight > contentHeight {
+					nodeHeight = contentHeight
+					nodeWidth = nodeHeight * node.Style.AspectRatio
+					// Both recalculated
+				}
+			} else if contentHeight > 0 {
+				// Use available height, calculate width from aspect ratio
+				nodeWidth = nodeHeight * node.Style.AspectRatio
+				aspectRatioCalculatedWidth = true
+				aspectRatioCalculatedHeight = true // Height is set from contentHeight
+			}
+		} else if node.Style.Width < 0 {
+			// Width is auto, height is set: calculate width from height and aspect ratio
+			nodeWidth = nodeHeight * node.Style.AspectRatio
+			aspectRatioCalculatedWidth = true
+		} else if node.Style.Height < 0 {
+			// Height is auto, width is set: calculate height from width and aspect ratio
+			nodeHeight = nodeWidth / node.Style.AspectRatio
+			aspectRatioCalculatedHeight = true
+		}
+		// If both width and height are explicitly set, aspect ratio is ignored (CSS behavior)
+	}
+
 	// Apply min/max constraints
 	if node.Style.MinWidth > 0 {
 		nodeWidth = max(nodeWidth, node.Style.MinWidth)
@@ -78,21 +117,30 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		}
 	}
 
-	// If height is auto, use children height
-	if node.Style.Height < 0 {
+	// If height is auto, use children height (unless aspect ratio already calculated it)
+	if node.Style.Height < 0 && !aspectRatioCalculatedHeight {
+		// Aspect ratio didn't calculate height, so use children height
 		nodeHeight = currentY
 		// Ensure MinHeight is still respected even when using children height
 		if node.Style.MinHeight > 0 {
 			nodeHeight = max(nodeHeight, node.Style.MinHeight)
 		}
-		// If no children and no MinHeight, height is 0 (which is correct)
+		// If no children and no MinHeight and no aspect ratio, height is 0 (which is correct)
 		// But this can cause issues in auto-sized grid rows
+	} else if node.Style.Height < 0 {
+		// Aspect ratio calculated height, but ensure MinHeight is still respected
+		if node.Style.MinHeight > 0 {
+			nodeHeight = max(nodeHeight, node.Style.MinHeight)
+		}
 	}
 
-	// If width is auto, use max child width
+	// If width is auto, use max child width (unless aspect ratio already calculated it)
 	if node.Style.Width < 0 {
-		nodeWidth = maxChildWidth
-		// Ensure MinWidth is still respected even when using children width
+		if !aspectRatioCalculatedWidth {
+			// Aspect ratio didn't calculate width, so use children width
+			nodeWidth = maxChildWidth
+		}
+		// Ensure MinWidth is still respected
 		if node.Style.MinWidth > 0 {
 			nodeWidth = max(nodeWidth, node.Style.MinWidth)
 		}

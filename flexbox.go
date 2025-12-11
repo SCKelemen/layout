@@ -219,7 +219,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			case AlignItemsFlexEnd:
 				crossOffset = alignmentCrossSize - item.crossSize - item.crossMarginEnd
 			case AlignItemsCenter:
-				crossOffset = (alignmentCrossSize - itemCrossSizeWithMargins) / 2 + item.crossMarginStart
+				crossOffset = (alignmentCrossSize-itemCrossSizeWithMargins)/2 + item.crossMarginStart
 			case AlignItemsStretch:
 				// Stretch: item fills cross axis, but margins are still applied
 				item.crossSize = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
@@ -260,8 +260,19 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 				}
 			} else {
 				itemEnd := item.node.Rect.Y + item.node.Rect.Height + item.mainMarginEnd
-				if itemEnd > mainOffset+maxMainInLine {
-					maxMainInLine = itemEnd - mainOffset
+				// For the first line, itemEnd is absolute (includes first item's top margin)
+				// For subsequent lines, itemEnd is relative to mainOffset
+				// We need to calculate the extent correctly
+				if lineIdx == 0 {
+					// First line: calculate from 0 (since first item's Y includes its top margin)
+					if itemEnd > maxMainInLine {
+						maxMainInLine = itemEnd
+					}
+				} else {
+					// Subsequent lines: calculate relative to mainOffset
+					if itemEnd > mainOffset+maxMainInLine {
+						maxMainInLine = itemEnd - mainOffset
+					}
 				}
 			}
 		}
@@ -305,17 +316,17 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 }
 
 type flexItem struct {
-	node            *Node
-	mainSize        float64
-	crossSize       float64
-	baseSize        float64
-	flexGrow        float64
-	flexShrink      float64
-	flexBasis       float64
-	mainMarginStart float64
-	mainMarginEnd   float64
+	node             *Node
+	mainSize         float64
+	crossSize        float64
+	baseSize         float64
+	flexGrow         float64
+	flexShrink       float64
+	flexBasis        float64
+	mainMarginStart  float64
+	mainMarginEnd    float64
 	crossMarginStart float64
-	crossMarginEnd  float64
+	crossMarginEnd   float64
 }
 
 func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool) [][]*flexItem {

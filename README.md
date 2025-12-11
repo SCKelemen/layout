@@ -24,6 +24,10 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
 
 - **Block Layout**: Basic block layout for non-flex/grid elements
 
+- **Aspect Ratio**: Maintain consistent width-to-height ratios for responsive elements
+  - Based on [CSS Box Sizing Module Level 4](https://www.w3.org/TR/css-sizing-4/#aspect-ratio)
+  - Helps elements reserve space correctly when one dimension is auto
+
 - **Post-Layout Alignment & Distribution**: Design-tool-like operations for aligning and distributing nodes after layout:
   - Align to edges (left, right, top, bottom) or centers
   - Distribute with even spacing

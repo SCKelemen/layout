@@ -49,12 +49,13 @@ type Style struct {
     GridColumnEnd       int  // -1 means auto
     
     // Sizing
-    Width     float64  // -1 means auto
-    Height    float64  // -1 means auto
-    MinWidth  float64
-    MinHeight float64
-    MaxWidth  float64
-    MaxHeight float64
+    Width      float64  // -1 means auto
+    Height     float64  // -1 means auto
+    MinWidth   float64
+    MinHeight  float64
+    MaxWidth   float64
+    MaxHeight  float64
+    AspectRatio float64  // Width/Height ratio (0 means not set). Example: 16/9 = 1.777...
     
     // Spacing
     Padding Spacing
@@ -337,6 +338,55 @@ Sets the width and/or height of a node.
 ```go
 func Frame(node *Node, width, height float64) *Node
 ```
+
+### AspectRatio
+
+Sets the aspect ratio (width/height) for a node. This helps elements reserve space correctly when one dimension is auto.
+
+**Specification**: [CSS Box Sizing Module Level 4](https://www.w3.org/TR/css-sizing-4/#aspect-ratio)
+
+```go
+func AspectRatio(node *Node, ratio float64) *Node
+```
+
+**Common aspect ratios**:
+- `16.0/9.0` = 1.777... (widescreen video)
+- `4.0/3.0` = 1.333... (traditional TV)
+- `1.0` (square)
+- `3.0/2.0` = 1.5 (photo)
+
+**How it works**:
+- If width is set and height is auto: calculates height from width and aspect ratio
+- If height is set and width is auto: calculates width from height and aspect ratio
+- If both are auto: uses available space and maintains aspect ratio
+- If both are explicitly set: aspect ratio is ignored (CSS behavior)
+
+**Example**:
+```go
+// Image that maintains 16:9 aspect ratio
+image := &layout.Node{
+    Style: layout.Style{
+        Width: 800, // Width is set
+        // Height will be calculated: 800 / 1.777... = 450
+    },
+}
+image = layout.AspectRatio(image, 16.0/9.0)
+
+// Element that fills available width and maintains aspect ratio
+video := &layout.Node{
+    Style: layout.Style{
+        // Both width and height are auto
+        // Will use available width and calculate height from aspect ratio
+    },
+}
+video = layout.AspectRatio(video, 16.0/9.0)
+```
+
+**Use cases**:
+- Images and videos that need to maintain proportions
+- Cards with consistent aspect ratios
+- Responsive elements that size based on available space
+- Fixing space reservation issues for auto-sized elements
 
 ## Post-Layout Alignment and Distribution
 

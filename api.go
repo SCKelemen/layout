@@ -422,6 +422,40 @@ func MinWidth(node *Node, width float64) *Node {
 	return node
 }
 
+// AspectRatio sets the aspect ratio (width/height) for a node.
+// This helps elements reserve space correctly when one dimension is auto.
+// Aspect ratio is applied when width or height is auto (not explicitly set).
+//
+// Common aspect ratios:
+//   - 16/9 = 1.777... (widescreen video)
+//   - 4/3 = 1.333... (traditional TV)
+//   - 1/1 = 1.0 (square)
+//   - 3/2 = 1.5 (photo)
+//
+// Example:
+//
+//	// Image that maintains 16:9 aspect ratio
+//	image := &layout.Node{
+//	    Style: layout.Style{
+//	        Width: 800, // Width is set
+//	        // Height will be calculated: 800 / 1.777... = 450
+//	    },
+//	}
+//	image = layout.AspectRatio(image, 16.0/9.0)
+//
+//	// Element that fills available width and maintains aspect ratio
+//	video := &layout.Node{
+//	    Style: layout.Style{
+//	        // Both width and height are auto
+//	        // Will use available width and calculate height from aspect ratio
+//	    },
+//	}
+//	video = layout.AspectRatio(video, 16.0/9.0)
+func AspectRatio(node *Node, ratio float64) *Node {
+	node.Style.AspectRatio = ratio
+	return node
+}
+
 // Grid creates a grid container with the specified number of rows and columns.
 // Each row and column will have the same fixed size.
 //

@@ -179,8 +179,15 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Track required height for each row
 		// childSize.Height already respects MinHeight (set in block layout)
+		// Note: childSize.Height does NOT include margins - margins are handled separately in positioning
 		itemHeight := childSize.Height
 		spanRows := item.rowEnd - item.rowStart
+		
+		// For spanning items, the item height needs to be distributed across rows
+		// However, we need to account for gaps between rows when calculating the cell height
+		// For now, we'll divide the item height by spanRows to get a per-row contribution
+		// The actual cell height (including gaps) will be calculated later in positioning
+		// This is correct for auto rows where the item's intrinsic size determines row height
 		heightPerRow := itemHeight / float64(spanRows)
 
 		for row := item.rowStart; row < item.rowEnd; row++ {
@@ -323,12 +330,20 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			itemHeight = maxItemHeight
 		}
 		
+		// Position item within grid cell, accounting for margins
+		// Margins are applied within the cell boundaries, not extending into gaps
+		// For spanning items, margins are still contained within the spanned cell area
 		item.node.Rect = Rect{
 			X:      cellX + item.node.Style.Margin.Left,
 			Y:      cellY + item.node.Style.Margin.Top,
 			Width:  cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right,
 			Height: itemHeight,
 		}
+		
+		// Note: The margin is already accounted for in maxItemHeight calculation above,
+		// so itemHeight is the content height, and the margin positions the item within the cell.
+		// The cell boundaries (cellY, cellY + cellHeight) define the grid structure,
+		// and margins are purely internal to the cell.
 		
 		// Ensure size doesn't go negative
 		if item.node.Rect.Width < 0 {

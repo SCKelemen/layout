@@ -23,6 +23,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	if contentHeight < 0 {
 		contentHeight = 0
 	}
+	
 
 	// Convert width/height from specified box-sizing to content-box for internal calculations
 	// According to W3C CSS Box Sizing spec:
@@ -32,22 +33,28 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	specifiedHeight := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
 
 	// Determine node size (now in content-box units)
+	// CRITICAL FIX: Treat 0 as auto when aspect ratio is set (Go zero value issue)
+	// In Go, unset float64 fields default to 0, not -1, so we need to treat 0 as auto
+	// when aspect ratio is set and both dimensions are 0
+	isAutoWidth := specifiedWidth < 0 || (specifiedWidth == 0 && node.Style.AspectRatio > 0 && specifiedHeight == 0)
+	isAutoHeight := specifiedHeight < 0 || (specifiedHeight == 0 && node.Style.AspectRatio > 0 && specifiedWidth == 0)
+	
 	nodeWidth := specifiedWidth
-	if nodeWidth < 0 {
+	if isAutoWidth {
 		nodeWidth = contentWidth // auto
 	}
 	nodeHeight := specifiedHeight
-	if nodeHeight < 0 {
+	if isAutoHeight {
 		// For auto height, don't set to Unbounded initially if aspect ratio will calculate it
 		// Aspect ratio calculation happens next and will set height based on width
-		if node.Style.AspectRatio > 0 && node.Style.Width < 0 && contentWidth > 0 {
+		if node.Style.AspectRatio > 0 && isAutoWidth && contentWidth > 0 {
 			// Will be calculated by aspect ratio below
 			nodeHeight = 0
 		} else {
 			nodeHeight = contentHeight // auto
 		}
 	}
-
+	
 	// Track if aspect ratio calculated dimensions (so we don't overwrite with children later)
 	aspectRatioCalculatedWidth := false
 	aspectRatioCalculatedHeight := false
@@ -59,12 +66,12 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	// - Prefer width-based calculation if available width > 0
 	// - If available height is bounded and would constrain, use height-based instead
 	if node.Style.AspectRatio > 0 {
-		if node.Style.Width < 0 && node.Style.Height < 0 {
+		if isAutoWidth && isAutoHeight {
 			// Both auto: use available space and aspect ratio
 			// Prefer width-based calculation (use available width)
 			if contentWidth > 0 {
 				// Use available width, calculate height from aspect ratio
-				// nodeWidth is already set to contentWidth from line 28
+				// nodeWidth is already set to contentWidth from line 37
 				nodeHeight = nodeWidth / node.Style.AspectRatio
 				aspectRatioCalculatedHeight = true
 				aspectRatioCalculatedWidth = true // Width is set from contentWidth (nodeWidth)
@@ -82,11 +89,11 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 				aspectRatioCalculatedWidth = true
 				aspectRatioCalculatedHeight = true
 			}
-		} else if node.Style.Width < 0 {
+		} else if isAutoWidth {
 			// Width is auto, height is set: calculate width from height and aspect ratio
 			nodeWidth = nodeHeight * node.Style.AspectRatio
 			aspectRatioCalculatedWidth = true
-		} else if node.Style.Height < 0 {
+		} else if isAutoHeight {
 			// Height is auto, width is set: calculate height from width and aspect ratio
 			nodeHeight = nodeWidth / node.Style.AspectRatio
 			aspectRatioCalculatedHeight = true
@@ -185,7 +192,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	}
 
 	// If height is auto, use children height (unless aspect ratio already calculated it)
-	if node.Style.Height < 0 && !aspectRatioCalculatedHeight {
+	if isAutoHeight && !aspectRatioCalculatedHeight {
 		// Aspect ratio didn't calculate height, so use children height
 		nodeHeight = currentY
 		// Ensure MinHeight is still respected even when using children height
@@ -194,7 +201,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		}
 		// If no children and no MinHeight and no aspect ratio, height is 0 (which is correct)
 		// But this can cause issues in auto-sized grid rows
-	} else if node.Style.Height < 0 {
+	} else if isAutoHeight {
 		// Aspect ratio calculated height, but ensure MinHeight is still respected
 		if minHeightContent > 0 {
 			oldHeight := nodeHeight
@@ -207,7 +214,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	}
 
 	// If width is auto, use max child width (unless aspect ratio already calculated it)
-	if node.Style.Width < 0 {
+	if isAutoWidth {
 		if !aspectRatioCalculatedWidth {
 			// Aspect ratio didn't calculate width, so use children width
 			// But if there are no children and we have contentWidth, use that
@@ -235,6 +242,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	// Both approaches result in the same total size
 	finalWidth := nodeWidth + horizontalPaddingBorder
 	finalHeight := nodeHeight + verticalPaddingBorder
+	
 
 	// Constrain size and apply to Rect
 	// CRITICAL: node.Rect must respect constraints to match the returned Size

@@ -100,7 +100,9 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 	// Step 1: Calculate column sizes
 	// CRITICAL: contentWidth must be correct here - it's used to size all columns
+	// For row-spanning items with aspect ratio, contentWidth must be correct for proper sizing
 	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
+	
 
 	// Step 2: Calculate row sizes (need to measure children first for auto rows)
 	// For now, we'll do a two-pass layout
@@ -191,7 +193,8 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 					columns[len(columns)-1] = AutoTrack()
 				}
 			}
-			// Recalculate column sizes
+			// Recalculate column sizes when columns are extended
+			// CRITICAL: Use the same contentWidth that was used initially
 			columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
 		}
 
@@ -218,6 +221,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		if item.colEnd > item.colStart+1 {
 			itemWidth += columnGap * float64(item.colEnd-item.colStart-1)
 		}
+		
 
 		// Measure child
 		childConstraints := Constraints{

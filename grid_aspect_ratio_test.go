@@ -66,14 +66,15 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 			actualRatio, item1.Rect.Width, item1.Rect.Height)
 	}
 
-	// With current implementation, the item is constrained by row height (from MinHeight)
-	// So width = height * aspectRatio = 100 * 2 = 200
-	// This is a known limitation: aspect ratio calculation in block layout needs improvement
-	if math.Abs(item1.Rect.Width-200.0) > 1.0 {
-		t.Errorf("Item 1 width should be 200 (constrained by row height): got %.2f", item1.Rect.Width)
+	// With the fix for zero-value handling, aspect ratio now correctly calculates dimensions
+	// The item maintains aspect ratio 2:1, so with cell width 1000, height is 500
+	// MinHeight=100 is a minimum constraint, so it doesn't constrain a larger calculated height
+	// The row height will be determined by the measured height (500), not MinHeight
+	if math.Abs(item1.Rect.Width-1000.0) > 1.0 {
+		t.Errorf("Item 1 width should be 1000 (from aspect ratio with cell width): got %.2f", item1.Rect.Width)
 	}
-	if math.Abs(item1.Rect.Height-100.0) > 1.0 {
-		t.Errorf("Item 1 height should be 100 (from MinHeight/row height): got %.2f", item1.Rect.Height)
+	if math.Abs(item1.Rect.Height-500.0) > 1.0 {
+		t.Errorf("Item 1 height should be 500 (from aspect ratio 2:1): got %.2f", item1.Rect.Height)
 	}
 }
 

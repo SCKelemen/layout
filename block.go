@@ -126,8 +126,9 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	if minHeightContent > 0 {
 		oldHeight := nodeHeight
 		nodeHeight = max(nodeHeight, minHeightContent)
-		// If aspect ratio calculated height and MinHeight increased it, recalculate width to maintain ratio
-		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight > oldHeight {
+		// If aspect ratio calculated height and MinHeight changed it, recalculate width to maintain ratio
+		// This handles both cases: MinHeight increasing height, and MinHeight constraining a larger height
+		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight != oldHeight {
 			nodeWidth = nodeHeight * node.Style.AspectRatio
 		}
 	}

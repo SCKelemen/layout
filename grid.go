@@ -458,13 +458,17 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			justifyItems := node.Style.JustifyItems
 			alignItems := node.Style.AlignItems
 
-			// Default to stretch if not explicitly set (zero value means not set)
-			// For justify-items, zero value means use default (stretch)
-			if justifyItems == 0 {
+			// Note: JustifyItemsStart is 0 (iota), so we can't use == 0 to distinguish "not set" from "set to start"
+			// Since the zero value is JustifyItemsStart, we'll treat 0 as start (not default to stretch)
+			// This means if user wants stretch, they must explicitly set JustifyItemsStretch
+			// This is a limitation: we can't distinguish "not set" (should default to stretch per CSS spec) from "set to start" (0)
+			// Only default to stretch if the value is outside the valid enum range
+			if justifyItems > JustifyItemsStretch {
 				justifyItems = JustifyItemsStretch
 			}
-			// For align-items, zero value means use default (stretch)
-			if alignItems == 0 {
+			// For align-items, AlignItemsFlexStart is also 0 (iota), so we have the same issue
+			// Only default to stretch if the value is outside the valid enum range
+			if alignItems > AlignItemsBaseline {
 				alignItems = AlignItemsStretch
 			}
 
@@ -533,7 +537,9 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Handle justify-items positioning (inline/row axis)
 		justifyItems := node.Style.JustifyItems
-		if justifyItems == 0 {
+		// Note: JustifyItemsStart is 0, so we can't use == 0 to check "not set"
+		// Only default to stretch if the value is outside the valid enum range
+		if justifyItems > JustifyItemsStretch {
 			justifyItems = JustifyItemsStretch
 		}
 		// Items with aspect-ratio default to start alignment per spec
@@ -560,7 +566,9 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Handle align-items positioning (block/column axis)
 		alignItems := node.Style.AlignItems
-		if alignItems == 0 {
+		// Note: AlignItemsFlexStart is 0, so we can't use == 0 to check "not set"
+		// Only default to stretch if the value is outside the valid enum range
+		if alignItems > AlignItemsBaseline {
 			alignItems = AlignItemsStretch
 		}
 		// Items with aspect-ratio default to start alignment per spec

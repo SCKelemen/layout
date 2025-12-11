@@ -21,8 +21,15 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
 
+	// Clamp content size to >= 0
 	contentWidth := availableWidth - horizontalPadding - horizontalBorder
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
 	contentHeight := availableHeight - verticalPadding - verticalBorder
+	if contentHeight < 0 {
+		contentHeight = 0
+	}
 
 	// Determine main and cross axis
 	isRow := node.Style.FlexDirection == FlexDirectionRow || node.Style.FlexDirection == FlexDirectionRowReverse
@@ -49,9 +56,13 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		return constraints.Constrain(resultSize)
 	}
 
-	// Step 1: Measure all children
-	flexItems := make([]*flexItem, len(children))
-	for i, child := range children {
+	// Step 1: Measure all children (filter DisplayNone)
+	flexItems := make([]*flexItem, 0, len(children))
+	for _, child := range children {
+		// Skip display:none children
+		if child.Style.Display == DisplayNone {
+			continue
+		}
 		item := &flexItem{
 			node: child,
 		}
@@ -134,7 +145,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			item.baseSize = measuredMainSize
 			item.flexBasis = measuredMainSize
 		}
-		flexItems[i] = item
+		flexItems = append(flexItems, item)
 	}
 
 	// Step 2: Calculate flex line (for wrapping)
@@ -142,7 +153,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 	// Step 3: Layout each line
 	totalCrossSize := 0.0
-	mainOffset := 0.0
+	maxLineMainSize := 0.0
 	lineStartCrossOffset := 0.0
 
 	for lineIdx, line := range lines {
@@ -232,15 +243,18 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			}
 
 			// Set cross-axis position and size (main-axis will be set by justifyContent)
+			// Add padding offsets to child positions
 			if isRow {
 				item.node.Rect = Rect{
-					Y:      lineStartCrossOffset + crossOffset,
+					X:      node.Style.Padding.Left,
+					Y:      node.Style.Padding.Top + lineStartCrossOffset + crossOffset,
 					Width:  item.mainSize,
 					Height: item.crossSize,
 				}
 			} else {
 				item.node.Rect = Rect{
-					X:      lineStartCrossOffset + crossOffset,
+					X:      node.Style.Padding.Left + lineStartCrossOffset + crossOffset,
+					Y:      node.Style.Padding.Top,
 					Width:  item.crossSize,
 					Height: item.mainSize,
 				}
@@ -248,35 +262,31 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		}
 
 		// Justify content (main axis alignment) - this sets main-axis positions
-		justifyContent(node.Style.JustifyContent, line, mainOffset, mainSize, isRow)
+		// All lines start at the same main origin (0 in local coordinates)
+		justifyContent(node.Style.JustifyContent, line, 0, mainSize, isRow)
 
-		// Update offsets (including margins)
-		maxMainInLine := 0.0
+		// Calculate this line's main extent (including margins)
+		lineMainSize := 0.0
 		for _, item := range line {
 			if isRow {
 				itemEnd := item.node.Rect.X + item.node.Rect.Width + item.mainMarginEnd
-				if itemEnd > mainOffset+maxMainInLine {
-					maxMainInLine = itemEnd - mainOffset
+				if itemEnd > lineMainSize {
+					lineMainSize = itemEnd
 				}
 			} else {
 				itemEnd := item.node.Rect.Y + item.node.Rect.Height + item.mainMarginEnd
-				// For the first line, itemEnd is absolute (includes first item's top margin)
-				// For subsequent lines, itemEnd is relative to mainOffset
-				// We need to calculate the extent correctly
-				if lineIdx == 0 {
-					// First line: calculate from 0 (since first item's Y includes its top margin)
-					if itemEnd > maxMainInLine {
-						maxMainInLine = itemEnd
-					}
-				} else {
-					// Subsequent lines: calculate relative to mainOffset
-					if itemEnd > mainOffset+maxMainInLine {
-						maxMainInLine = itemEnd - mainOffset
-					}
+				if itemEnd > lineMainSize {
+					lineMainSize = itemEnd
 				}
 			}
 		}
 
+		// Track maximum line main size (for container main dimension)
+		if lineMainSize > maxLineMainSize {
+			maxLineMainSize = lineMainSize
+		}
+
+		// Update cross-axis stacking for wrapping
 		if node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse {
 			totalCrossSize += lineCrossSize
 			if lineIdx < len(lines)-1 {
@@ -287,32 +297,36 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			totalCrossSize = lineCrossSize
 			lineStartCrossOffset = 0
 		}
-		mainOffset += maxMainInLine
 	}
 
 	// Calculate container size
+	// Main dimension = max line main extent (not sum)
+	// Cross dimension = sum of line cross sizes
 	var containerSize Size
 	if isRow {
 		containerSize = Size{
-			Width:  mainOffset + horizontalPadding + horizontalBorder,
+			Width:  maxLineMainSize + horizontalPadding + horizontalBorder,
 			Height: totalCrossSize + verticalPadding + verticalBorder,
 		}
 	} else {
 		containerSize = Size{
 			Width:  totalCrossSize + horizontalPadding + horizontalBorder,
-			Height: mainOffset + verticalPadding + verticalBorder,
+			Height: maxLineMainSize + verticalPadding + verticalBorder,
 		}
 	}
+
+	// Constrain size and apply to Rect
+	constrainedSize := constraints.Constrain(containerSize)
 
 	// Set container rect
 	node.Rect = Rect{
 		X:      0,
 		Y:      0,
-		Width:  containerSize.Width,
-		Height: containerSize.Height,
+		Width:  constrainedSize.Width,
+		Height: constrainedSize.Height,
 	}
 
-	return constraints.Constrain(containerSize)
+	return constrainedSize
 }
 
 type flexItem struct {
@@ -372,6 +386,8 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 		}
 	}
 
+	// Free space is the container's main size minus total item size
+	// For wrapping flex, containerSize is the full available space, not per-line
 	freeSpace := containerSize - totalItemSize
 	var offset float64
 
@@ -389,10 +405,12 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 			currentPos := startOffset
 			for _, item := range line {
 				if isRow {
-					item.node.Rect.X = currentPos + item.mainMarginStart
+					// X already includes padding.Left, add main-axis position
+					item.node.Rect.X += currentPos + item.mainMarginStart
 					currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd + gap
 				} else {
-					item.node.Rect.Y = currentPos + item.mainMarginStart
+					// Y already includes padding.Top, add main-axis position
+					item.node.Rect.Y += currentPos + item.mainMarginStart
 					currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd + gap
 				}
 			}
@@ -411,14 +429,19 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 		}
 	}
 
-	// Apply offset (accounting for margins)
+	// Apply offset (accounting for margins and padding)
+	// startOffset is 0 for all lines (lines don't accumulate main offset)
 	currentPos := startOffset + offset
 	for _, item := range line {
 		if isRow {
-			item.node.Rect.X = currentPos + item.mainMarginStart
+			// X position already includes padding.Left from cross-axis positioning
+			// Add main-axis offset and margin
+			item.node.Rect.X += currentPos + item.mainMarginStart
 			currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd
 		} else {
-			item.node.Rect.Y = currentPos + item.mainMarginStart
+			// Y position already includes padding.Top from cross-axis positioning
+			// Add main-axis offset and margin
+			item.node.Rect.Y += currentPos + item.mainMarginStart
 			currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd
 		}
 	}

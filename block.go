@@ -12,8 +12,15 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
 
+	// Clamp content size to >= 0
 	contentWidth := availableWidth - horizontalPadding - horizontalBorder
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
 	contentHeight := availableHeight - verticalPadding - verticalBorder
+	if contentHeight < 0 {
+		contentHeight = 0
+	}
 
 	// Determine node size
 	nodeWidth := node.Style.Width
@@ -95,6 +102,11 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	}
 
 	for _, child := range children {
+		// Skip display:none children
+		if child.Style.Display == DisplayNone {
+			continue
+		}
+
 		var childSize Size
 		if child.Style.Display == DisplayFlex {
 			childSize = LayoutFlexbox(child, childConstraints)
@@ -104,9 +116,10 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			childSize = LayoutBlock(child, childConstraints)
 		}
 
+		// Position child with padding offset
 		child.Rect = Rect{
-			X:      0,
-			Y:      currentY,
+			X:      node.Style.Padding.Left,
+			Y:      node.Style.Padding.Top + currentY,
 			Width:  childSize.Width,
 			Height: childSize.Height,
 		}
@@ -140,7 +153,7 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			// Aspect ratio didn't calculate width, so use children width
 			nodeWidth = maxChildWidth
 		}
-		// Ensure MinWidth is still respected
+		// Ensure MinWidth is still respected (even if aspect ratio calculated width)
 		if node.Style.MinWidth > 0 {
 			nodeWidth = max(nodeWidth, node.Style.MinWidth)
 		}
@@ -150,17 +163,20 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	finalWidth := nodeWidth + horizontalPadding + horizontalBorder
 	finalHeight := nodeHeight + verticalPadding + verticalBorder
 
-	node.Rect = Rect{
-		X:      0,
-		Y:      0,
-		Width:  finalWidth,
-		Height: finalHeight,
-	}
-
-	return constraints.Constrain(Size{
+	// Constrain size and apply to Rect
+	constrainedSize := constraints.Constrain(Size{
 		Width:  finalWidth,
 		Height: finalHeight,
 	})
+
+	node.Rect = Rect{
+		X:      0,
+		Y:      0,
+		Width:  constrainedSize.Width,
+		Height: constrainedSize.Height,
+	}
+
+	return constrainedSize
 }
 
 func min(a, b float64) float64 {

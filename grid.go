@@ -21,8 +21,15 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
 
+	// Clamp content size to >= 0
 	contentWidth := availableWidth - horizontalPadding - horizontalBorder
+	if contentWidth < 0 {
+		contentWidth = 0
+	}
 	contentHeight := availableHeight - verticalPadding - verticalBorder
+	if contentHeight < 0 {
+		contentHeight = 0
+	}
 
 	// Get grid template
 	rows := node.Style.GridTemplateRows
@@ -75,10 +82,14 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		return constraints.Constrain(resultSize)
 	}
 
-	// Determine grid positions for children
-	gridItems := make([]*gridItem, len(children))
-
-	for i, child := range children {
+	// Determine grid positions for children (filter DisplayNone)
+	gridItems := make([]*gridItem, 0, len(children))
+	itemIndex := 0
+	for _, child := range children {
+		// Skip display:none children
+		if child.Style.Display == DisplayNone {
+			continue
+		}
 		item := &gridItem{
 			node: child,
 		}
@@ -98,10 +109,10 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		needsAutoCol := colStart < 0 || (colStart == 0 && colEnd <= 0)
 
 		if needsAutoRow {
-			rowStart = i / len(columns)
+			rowStart = itemIndex / len(columns)
 		}
 		if needsAutoCol {
-			colStart = i % len(columns)
+			colStart = itemIndex % len(columns)
 		}
 		// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
 		// Note: rowEnd=0 is invalid in CSS Grid (would be same as rowStart), so treat as auto
@@ -139,7 +150,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		item.colStart = colStart
 		item.colEnd = colEnd
 
-		gridItems[i] = item
+		gridItems = append(gridItems, item)
 	}
 
 	// Step 3: Measure children to determine row sizes
@@ -182,7 +193,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// Note: childSize.Height does NOT include margins - margins are handled separately in positioning
 		itemHeight := childSize.Height
 		spanRows := item.rowEnd - item.rowStart
-		
+
 		// For spanning items, the item height needs to be distributed across rows
 		// The item height is the content height, and the cell height (which includes gaps)
 		// is: row0 + gap + row1 + gap + ... + rowN
@@ -194,6 +205,10 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			// Account for gaps between rows
 			totalGaps := rowGap * float64(spanRows-1)
 			heightPerRow = (itemHeight - totalGaps) / float64(spanRows)
+			// Clamp to >= 0 to prevent negative row heights
+			if heightPerRow < 0 {
+				heightPerRow = 0
+			}
 		} else {
 			// Single row: item height is the row height
 			heightPerRow = itemHeight
@@ -303,27 +318,53 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Position item within grid cell, accounting for margins
 		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
-		// This applies to all items, regardless of whether they span or are in auto/fixed rows
-		// The row height is determined by the maximum intrinsic size of items in that row,
-		// but once the row height is determined, all items in that row stretch to fill it
+		// However, if an item has an aspect ratio, it should maintain that ratio while fitting within the cell
+		maxItemWidth := cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right
 		maxItemHeight := cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom
-		itemHeight := maxItemHeight
-		
-		// Position item within grid cell, accounting for margins
+
+		var itemWidth, itemHeight float64
+
+		// If item has aspect ratio, maintain it while fitting within cell
+		// In CSS Grid, items with aspect ratio maintain their ratio but fit within the cell
+		if item.node.Style.AspectRatio > 0 {
+			// Calculate dimensions that maintain aspect ratio and fit within cell
+			// Try width-based first (fill cell width)
+			itemWidth = maxItemWidth
+			itemHeight = itemWidth / item.node.Style.AspectRatio
+
+			// If height exceeds cell, constrain by height instead
+			if itemHeight > maxItemHeight {
+				itemHeight = maxItemHeight
+				itemWidth = itemHeight * item.node.Style.AspectRatio
+			}
+
+			// Ensure we don't exceed cell width (might happen if constrained by height)
+			if itemWidth > maxItemWidth {
+				itemWidth = maxItemWidth
+				itemHeight = itemWidth / item.node.Style.AspectRatio
+			}
+		} else {
+			// No aspect ratio: stretch to fill cell (default CSS Grid behavior)
+			itemWidth = maxItemWidth
+			itemHeight = maxItemHeight
+		}
+
+		// Position item within grid cell, accounting for margins and padding
 		// Margins are applied within the cell boundaries, not extending into gaps
 		// For spanning items, margins are still contained within the spanned cell area
+		// Add padding offsets to position items within the container's content area
 		item.node.Rect = Rect{
-			X:      cellX + item.node.Style.Margin.Left,
-			Y:      cellY + item.node.Style.Margin.Top,
-			Width:  cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right,
+			X:      node.Style.Padding.Left + cellX + item.node.Style.Margin.Left,
+			Y:      node.Style.Padding.Top + cellY + item.node.Style.Margin.Top,
+			Width:  itemWidth,
 			Height: itemHeight,
 		}
-		
+
 		// Note: The margin is already accounted for in maxItemHeight calculation above,
 		// so itemHeight is the content height, and the margin positions the item within the cell.
 		// The cell boundaries (cellY, cellY + cellHeight) define the grid structure,
 		// and margins are purely internal to the cell.
-		
+
 		// Ensure size doesn't go negative
 		if item.node.Rect.Width < 0 {
 			item.node.Rect.Width = 0
@@ -342,14 +383,17 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		Height: totalHeight + verticalPadding + verticalBorder,
 	}
 
+	// Constrain size and apply to Rect
+	constrainedSize := constraints.Constrain(containerSize)
+
 	node.Rect = Rect{
 		X:      0,
 		Y:      0,
-		Width:  containerSize.Width,
-		Height: containerSize.Height,
+		Width:  constrainedSize.Width,
+		Height: constrainedSize.Height,
 	}
 
-	return constraints.Constrain(containerSize)
+	return constrainedSize
 }
 
 type gridItem struct {
@@ -368,7 +412,11 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 
 	sizes := make([]float64, len(tracks))
 	totalGap := gap * float64(len(tracks)-1)
+	// Clamp available space to >= 0
 	availableForTracks := availableSize - totalGap
+	if availableForTracks < 0 {
+		availableForTracks = 0
+	}
 
 	// Separate fixed and fractional tracks
 	totalFixed := 0.0
@@ -406,10 +454,19 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		}
 	} else {
 		// All fixed, may need to shrink if total exceeds available
-		if totalFixed > availableForTracks {
+		if totalFixed > availableForTracks && availableForTracks > 0 {
 			scale := availableForTracks / totalFixed
 			for _, i := range fixedIndices {
 				sizes[i] *= scale
+				// Clamp to >= 0
+				if sizes[i] < 0 {
+					sizes[i] = 0
+				}
+			}
+		} else if availableForTracks <= 0 {
+			// No available space, set all to min size (or 0)
+			for _, i := range fixedIndices {
+				sizes[i] = math.Max(0, tracks[i].MinSize)
 			}
 		}
 	}
@@ -424,4 +481,3 @@ func sumSizes(sizes []float64) float64 {
 	}
 	return sum
 }
-

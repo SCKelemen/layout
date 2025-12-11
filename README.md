@@ -24,6 +24,12 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
 
 - **Block Layout**: Basic block layout for non-flex/grid elements
 
+- **Post-Layout Alignment & Distribution**: Design-tool-like operations for aligning and distributing nodes after layout:
+  - Align to edges (left, right, top, bottom) or centers
+  - Distribute with even spacing
+  - Snap to grid boundaries (primarily for block/absolute layouts)
+  - Based on [CSS Box Alignment Module Level 3](https://www.w3.org/TR/css-align-3/)
+
 ## Installation
 
 ```bash

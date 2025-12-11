@@ -11,23 +11,32 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	verticalPadding := node.Style.Padding.Top + node.Style.Padding.Bottom
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
+	horizontalPaddingBorder := horizontalPadding + horizontalBorder
+	verticalPaddingBorder := verticalPadding + verticalBorder
 
 	// Clamp content size to >= 0
-	contentWidth := availableWidth - horizontalPadding - horizontalBorder
+	contentWidth := availableWidth - horizontalPaddingBorder
 	if contentWidth < 0 {
 		contentWidth = 0
 	}
-	contentHeight := availableHeight - verticalPadding - verticalBorder
+	contentHeight := availableHeight - verticalPaddingBorder
 	if contentHeight < 0 {
 		contentHeight = 0
 	}
 
-	// Determine node size
-	nodeWidth := node.Style.Width
+	// Convert width/height from specified box-sizing to content-box for internal calculations
+	// According to W3C CSS Box Sizing spec:
+	// - content-box: width/height = content size only
+	// - border-box: width/height = content + padding + border
+	specifiedWidth := convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	specifiedHeight := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+
+	// Determine node size (now in content-box units)
+	nodeWidth := specifiedWidth
 	if nodeWidth < 0 {
 		nodeWidth = contentWidth // auto
 	}
-	nodeHeight := node.Style.Height
+	nodeHeight := specifiedHeight
 	if nodeHeight < 0 {
 		// For auto height, don't set to Unbounded initially if aspect ratio will calculate it
 		// Aspect ratio calculation happens next and will set height based on width
@@ -86,32 +95,38 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 	}
 
 	// Apply min/max constraints
+	// Min/Max constraints also respect box-sizing (they apply to the same box as width/height)
+	minWidthContent := convertMinMaxToContentSize(node.Style.MinWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	maxWidthContent := convertMinMaxToContentSize(node.Style.MaxWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	minHeightContent := convertMinMaxToContentSize(node.Style.MinHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+	maxHeightContent := convertMinMaxToContentSize(node.Style.MaxHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+
 	// If aspect ratio calculated dimensions, we need to maintain the ratio when min/max are applied
-	if node.Style.MinWidth > 0 {
-		nodeWidth = max(nodeWidth, node.Style.MinWidth)
+	if minWidthContent > 0 {
+		nodeWidth = max(nodeWidth, minWidthContent)
 		// If aspect ratio calculated width, recalculate height to maintain ratio
 		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
 			nodeHeight = nodeWidth / node.Style.AspectRatio
 		}
 	}
-	if node.Style.MaxWidth > 0 && node.Style.MaxWidth < Unbounded {
-		nodeWidth = min(nodeWidth, node.Style.MaxWidth)
+	if maxWidthContent > 0 && maxWidthContent < Unbounded {
+		nodeWidth = min(nodeWidth, maxWidthContent)
 		// If aspect ratio calculated width, recalculate height to maintain ratio
 		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
 			nodeHeight = nodeWidth / node.Style.AspectRatio
 		}
 	}
-	if node.Style.MinHeight > 0 {
+	if minHeightContent > 0 {
 		oldHeight := nodeHeight
-		nodeHeight = max(nodeHeight, node.Style.MinHeight)
+		nodeHeight = max(nodeHeight, minHeightContent)
 		// If aspect ratio calculated height and MinHeight increased it, recalculate width to maintain ratio
 		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight > oldHeight {
 			nodeWidth = nodeHeight * node.Style.AspectRatio
 		}
 	}
-	if node.Style.MaxHeight > 0 && node.Style.MaxHeight < Unbounded {
+	if maxHeightContent > 0 && maxHeightContent < Unbounded {
 		oldHeight := nodeHeight
-		nodeHeight = min(nodeHeight, node.Style.MaxHeight)
+		nodeHeight = min(nodeHeight, maxHeightContent)
 		// If aspect ratio calculated height and MaxHeight decreased it, recalculate width to maintain ratio
 		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight < oldHeight {
 			nodeWidth = nodeHeight * node.Style.AspectRatio
@@ -154,10 +169,11 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			childSize = LayoutBlock(child, childConstraints)
 		}
 
-		// Position child with padding offset
+		// Position child with padding and border offset
+		// Children are positioned in the content area, which starts after padding + border
 		child.Rect = Rect{
-			X:      node.Style.Padding.Left,
-			Y:      node.Style.Padding.Top + currentY,
+			X:      node.Style.Padding.Left + node.Style.Border.Left,
+			Y:      node.Style.Padding.Top + node.Style.Border.Top + currentY,
 			Width:  childSize.Width,
 			Height: childSize.Height,
 		}
@@ -173,16 +189,16 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		// Aspect ratio didn't calculate height, so use children height
 		nodeHeight = currentY
 		// Ensure MinHeight is still respected even when using children height
-		if node.Style.MinHeight > 0 {
-			nodeHeight = max(nodeHeight, node.Style.MinHeight)
+		if minHeightContent > 0 {
+			nodeHeight = max(nodeHeight, minHeightContent)
 		}
 		// If no children and no MinHeight and no aspect ratio, height is 0 (which is correct)
 		// But this can cause issues in auto-sized grid rows
 	} else if node.Style.Height < 0 {
 		// Aspect ratio calculated height, but ensure MinHeight is still respected
-		if node.Style.MinHeight > 0 {
+		if minHeightContent > 0 {
 			oldHeight := nodeHeight
-			nodeHeight = max(nodeHeight, node.Style.MinHeight)
+			nodeHeight = max(nodeHeight, minHeightContent)
 			// If MinHeight increased height and aspect ratio is set, recalculate width to maintain ratio
 			if node.Style.AspectRatio > 0 && nodeHeight > oldHeight {
 				nodeWidth = nodeHeight * node.Style.AspectRatio
@@ -202,9 +218,9 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			}
 		}
 		// Ensure MinWidth is still respected (even if aspect ratio calculated width)
-		if node.Style.MinWidth > 0 {
+		if minWidthContent > 0 {
 			oldWidth := nodeWidth
-			nodeWidth = max(nodeWidth, node.Style.MinWidth)
+			nodeWidth = max(nodeWidth, minWidthContent)
 			// If MinWidth increased width and aspect ratio is set, recalculate height to maintain ratio
 			if node.Style.AspectRatio > 0 && nodeWidth > oldWidth && aspectRatioCalculatedHeight {
 				nodeHeight = nodeWidth / node.Style.AspectRatio
@@ -212,11 +228,16 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 		}
 	}
 
-	// Calculate final size including padding and border
-	finalWidth := nodeWidth + horizontalPadding + horizontalBorder
-	finalHeight := nodeHeight + verticalPadding + verticalBorder
+	// Calculate final size
+	// nodeWidth and nodeHeight are in content-box units
+	// For border-box, we need to convert back to total size (add padding + border)
+	// For content-box, we add padding and border to get total size
+	// Both approaches result in the same total size
+	finalWidth := nodeWidth + horizontalPaddingBorder
+	finalHeight := nodeHeight + verticalPaddingBorder
 
 	// Constrain size and apply to Rect
+	// CRITICAL: node.Rect must respect constraints to match the returned Size
 	constrainedSize := constraints.Constrain(Size{
 		Width:  finalWidth,
 		Height: finalHeight,

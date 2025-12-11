@@ -473,3 +473,81 @@ func (t Transform) ToSVGString() string {
 func (t Transform) IsIdentity() bool {
 	return t.A == 1 && t.B == 0 && t.C == 0 && t.D == 1 && t.E == 0 && t.F == 0
 }
+
+// getHorizontalPaddingBorder returns the sum of horizontal padding and border
+func getHorizontalPaddingBorder(padding, border Spacing) float64 {
+	return padding.Left + padding.Right + border.Left + border.Right
+}
+
+// getVerticalPaddingBorder returns the sum of vertical padding and border
+func getVerticalPaddingBorder(padding, border Spacing) float64 {
+	return padding.Top + padding.Bottom + border.Top + border.Bottom
+}
+
+// convertToContentSize converts a width/height from border-box to content-box
+// If boxSizing is content-box, returns the value unchanged
+// If boxSizing is border-box, subtracts padding and border to get content size
+func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
+	if size < 0 {
+		// Auto values are passed through unchanged
+		return size
+	}
+	if boxSizing == BoxSizingBorderBox {
+		// border-box: size includes padding + border, so subtract to get content size
+		if isWidth {
+			return size - horizontalPaddingBorder
+		} else {
+			return size - verticalPaddingBorder
+		}
+	}
+	// content-box: size is already content size
+	return size
+}
+
+// convertFromContentSize converts a content size to the appropriate box-sizing format
+// If boxSizing is content-box, returns content size unchanged
+// If boxSizing is border-box, adds padding and border to get total size
+func convertFromContentSize(contentSize float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
+	if contentSize < 0 {
+		// Auto values are passed through unchanged
+		return contentSize
+	}
+	if boxSizing == BoxSizingBorderBox {
+		// border-box: add padding + border to get total size
+		if isWidth {
+			return contentSize + horizontalPaddingBorder
+		} else {
+			return contentSize + verticalPaddingBorder
+		}
+	}
+	// content-box: content size is the total size
+	return contentSize
+}
+
+// convertMinMaxToContentSize converts min/max constraints from border-box to content-box
+// Min/Max constraints in CSS are always interpreted as border-box when box-sizing is border-box
+func convertMinMaxToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
+	if size <= 0 {
+		// 0 or negative values are passed through unchanged
+		return size
+	}
+	if boxSizing == BoxSizingBorderBox {
+		// border-box: min/max includes padding + border, so subtract to get content size
+		if isWidth {
+			converted := size - horizontalPaddingBorder
+			// Clamp to >= 0 to prevent negative content sizes
+			if converted < 0 {
+				return 0
+			}
+			return converted
+		} else {
+			converted := size - verticalPaddingBorder
+			if converted < 0 {
+				return 0
+			}
+			return converted
+		}
+	}
+	// content-box: min/max is already content size
+	return size
+}

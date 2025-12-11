@@ -208,7 +208,11 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 				lineCrossSize = itemCrossSizeWithMargins
 			}
 		}
-		if node.Style.AlignItems == AlignItemsStretch {
+		// CRITICAL FIX: Only apply stretch to single-line containers
+		// For multi-line containers, stretch would require align-content support
+		// to properly distribute cross size across lines. Without that, applying
+		// full crossSize to each line causes totalCrossSize to multiply incorrectly.
+		if node.Style.AlignItems == AlignItemsStretch && len(lines) == 1 {
 			lineCrossSize = crossSize
 		}
 
@@ -243,18 +247,19 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			}
 
 			// Set cross-axis position and size (main-axis will be set by justifyContent)
-			// Add padding offsets to child positions
+			// Add padding and border offsets to child positions
+			// Children are positioned in the content area, which starts after padding + border
 			if isRow {
 				item.node.Rect = Rect{
-					X:      node.Style.Padding.Left,
-					Y:      node.Style.Padding.Top + lineStartCrossOffset + crossOffset,
+					X:      node.Style.Padding.Left + node.Style.Border.Left,
+					Y:      node.Style.Padding.Top + node.Style.Border.Top + lineStartCrossOffset + crossOffset,
 					Width:  item.mainSize,
 					Height: item.crossSize,
 				}
 			} else {
 				item.node.Rect = Rect{
-					X:      node.Style.Padding.Left + lineStartCrossOffset + crossOffset,
-					Y:      node.Style.Padding.Top,
+					X:      node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset,
+					Y:      node.Style.Padding.Top + node.Style.Border.Top,
 					Width:  item.crossSize,
 					Height: item.mainSize,
 				}
@@ -316,6 +321,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	}
 
 	// Constrain size and apply to Rect
+	// CRITICAL: node.Rect must respect constraints to match the returned Size
 	constrainedSize := constraints.Constrain(containerSize)
 
 	// Set container rect

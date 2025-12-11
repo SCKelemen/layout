@@ -333,26 +333,81 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		maxItemWidth := cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right
 		maxItemHeight := cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom
 
+		// Clamp to >= 0 to prevent negative sizes
+		if maxItemWidth < 0 {
+			maxItemWidth = 0
+		}
+		if maxItemHeight < 0 {
+			maxItemHeight = 0
+		}
+
 		var itemWidth, itemHeight float64
 
 		// If item has aspect ratio, maintain it while fitting within cell
 		// In CSS Grid, items with aspect ratio maintain their ratio but fit within the cell
+		// For spanning items, we should use the measured size if it's valid and maintains aspect ratio
 		if item.node.Style.AspectRatio > 0 {
-			// Calculate dimensions that maintain aspect ratio and fit within cell
-			// Try width-based first (fill cell width)
-			itemWidth = maxItemWidth
-			itemHeight = itemWidth / item.node.Style.AspectRatio
-
-			// If height exceeds cell, constrain by height instead
-			if itemHeight > maxItemHeight {
-				itemHeight = maxItemHeight
-				itemWidth = itemHeight * item.node.Style.AspectRatio
+			// Check if we have a valid measured size that maintains aspect ratio
+			measuredRatio := 0.0
+			if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
+				measuredRatio = item.measuredSize.Width / item.measuredSize.Height
 			}
 
-			// Ensure we don't exceed cell width (might happen if constrained by height)
-			if itemWidth > maxItemWidth {
-				itemWidth = maxItemWidth
-				itemHeight = itemWidth / item.node.Style.AspectRatio
+			// If measured size maintains aspect ratio, prefer it (especially for spanning items)
+			// This ensures consistency between measurement and positioning phases
+			// For spanning items, the measured size determines row/column sizes, so we should use it
+			if measuredRatio > 0 && math.Abs(measuredRatio-item.node.Style.AspectRatio) < 0.01 {
+				// Use measured size, but ensure it fits within cell
+				itemWidth = item.measuredSize.Width
+				itemHeight = item.measuredSize.Height
+
+				// For spanning items, if cell size is smaller than measured (shouldn't happen),
+				// we still want to use measured size to maintain aspect ratio
+				// But if cell is larger, we can use measured size as-is
+				if maxItemWidth > 0 && itemWidth > maxItemWidth {
+					// Cell is smaller than measured - constrain to cell
+					itemWidth = maxItemWidth
+					itemHeight = itemWidth / item.node.Style.AspectRatio
+				}
+				if maxItemHeight > 0 && itemHeight > maxItemHeight {
+					// Cell is smaller than measured - constrain to cell
+					itemHeight = maxItemHeight
+					itemWidth = itemHeight * item.node.Style.AspectRatio
+				}
+			} else if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
+				// Measured size exists but doesn't maintain aspect ratio - use it as fallback
+				// This can happen if min/max constraints were applied
+				itemWidth = item.measuredSize.Width
+				itemHeight = item.measuredSize.Height
+			} else {
+				// Calculate dimensions that maintain aspect ratio and fit within cell
+				// Try width-based first (fill cell width)
+				if maxItemWidth > 0 {
+					itemWidth = maxItemWidth
+					itemHeight = itemWidth / item.node.Style.AspectRatio
+
+					// If height exceeds cell, constrain by height instead
+					if itemHeight > maxItemHeight && maxItemHeight > 0 {
+						itemHeight = maxItemHeight
+						itemWidth = itemHeight * item.node.Style.AspectRatio
+					}
+
+					// Ensure we don't exceed cell width (might happen if constrained by height)
+					if itemWidth > maxItemWidth {
+						itemWidth = maxItemWidth
+						itemHeight = itemWidth / item.node.Style.AspectRatio
+					}
+				} else if maxItemHeight > 0 {
+					// Cell width is 0, use height-based calculation
+					itemHeight = maxItemHeight
+					itemWidth = itemHeight * item.node.Style.AspectRatio
+				} else {
+					// Both are 0, use measured size if available
+					if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
+						itemWidth = item.measuredSize.Width
+						itemHeight = item.measuredSize.Height
+					}
+				}
 			}
 		} else {
 			// No aspect ratio: stretch to fill cell (default CSS Grid behavior)
@@ -360,13 +415,13 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			itemHeight = maxItemHeight
 		}
 
-		// Position item within grid cell, accounting for margins and padding
+		// Position item within grid cell, accounting for margins, padding, and border
 		// Margins are applied within the cell boundaries, not extending into gaps
 		// For spanning items, margins are still contained within the spanned cell area
-		// Add padding offsets to position items within the container's content area
+		// Add padding and border offsets to position items within the container's content area
 		item.node.Rect = Rect{
-			X:      node.Style.Padding.Left + cellX + item.node.Style.Margin.Left,
-			Y:      node.Style.Padding.Top + cellY + item.node.Style.Margin.Top,
+			X:      node.Style.Padding.Left + node.Style.Border.Left + cellX + item.node.Style.Margin.Left,
+			Y:      node.Style.Padding.Top + node.Style.Border.Top + cellY + item.node.Style.Margin.Top,
 			Width:  itemWidth,
 			Height: itemHeight,
 		}
@@ -395,6 +450,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	}
 
 	// Constrain size and apply to Rect
+	// CRITICAL: node.Rect must respect constraints to match the returned Size
 	constrainedSize := constraints.Constrain(containerSize)
 
 	node.Rect = Rect{
@@ -429,6 +485,11 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		availableForTracks = 0
 	}
 
+	// CRITICAL FIX: Handle Unbounded constraints for fractional tracks
+	// When availableSize is Unbounded, fractional tracks can't be distributed proportionally
+	// Instead, treat them as auto tracks (they'll be sized based on content)
+	isUnbounded := availableSize >= Unbounded*0.9 // Use 90% threshold to avoid float precision issues
+
 	// Separate fixed and fractional tracks
 	totalFixed := 0.0
 	totalFraction := 0.0
@@ -439,6 +500,9 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		if track.Fraction > 0 {
 			fractionIndices = append(fractionIndices, i)
 			totalFraction += track.Fraction
+			// For unbounded constraints, fractional tracks will be treated as auto
+			// (sized based on content, not distributed proportionally)
+			// Don't set sizes[i] here - it will be handled below
 		} else {
 			fixedIndices = append(fixedIndices, i)
 			size := track.MinSize
@@ -450,8 +514,8 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		}
 	}
 
-	// Distribute fractional space
-	if totalFraction > 0 {
+	// Distribute fractional space (only when not unbounded)
+	if totalFraction > 0 && !isUnbounded {
 		remainingSize := availableForTracks - totalFixed
 		if remainingSize > 0 {
 			for _, i := range fractionIndices {
@@ -462,6 +526,14 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 			for _, i := range fractionIndices {
 				sizes[i] = tracks[i].MinSize
 			}
+		}
+	} else if totalFraction > 0 && isUnbounded {
+		// When unbounded, fractional tracks can't be distributed proportionally
+		// They should be sized based on content (treated as auto)
+		// For now, use MinSize as a fallback (content-based sizing would require
+		// measuring children first, which happens later in the grid algorithm)
+		for _, i := range fractionIndices {
+			sizes[i] = tracks[i].MinSize
 		}
 	} else {
 		// All fixed, may need to shrink if total exceeds available

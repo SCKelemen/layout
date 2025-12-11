@@ -20,13 +20,18 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 		positioningContext = parentRect
 	}
 
-	// Calculate offsets (treat zero as auto when the opposite side is provided)
+	// Calculate offsets
+	// Treat < 0 as auto, >= 0 as explicit value
+	// Note: Since the zero value of float64 is 0, we need a heuristic:
+	// If a side is 0 and the opposite side is set, treat 0 as auto (unset)
+	// This allows users to set only Right/Bottom without explicitly setting Left/Top to -1
 	left := node.Style.Left
 	right := node.Style.Right
 	top := node.Style.Top
 	bottom := node.Style.Bottom
 
-	// Determine if sides are explicitly set. Default zero should behave like auto when the opposite side is provided.
+	// Determine if sides are explicitly set
+	// If a side is 0 and the opposite is set, treat 0 as auto (unset)
 	hasLeft := left >= 0
 	hasRight := right >= 0
 	if left == 0 && hasRight {
@@ -68,6 +73,9 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 		} else if hasLeft && hasRight {
 			// Both set - constrain width
 			availableWidth := positioningContext.Width - left - right
+			if availableWidth < 0 {
+				availableWidth = 0
+			}
 			if node.Rect.Width > availableWidth {
 				node.Rect.Width = availableWidth
 			}
@@ -94,6 +102,9 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 		} else if hasTop && hasBottom {
 			// Both set - constrain height
 			availableHeight := positioningContext.Height - top - bottom
+			if availableHeight < 0 {
+				availableHeight = 0
+			}
 			if node.Rect.Height > availableHeight {
 				node.Rect.Height = availableHeight
 			}

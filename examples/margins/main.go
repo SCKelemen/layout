@@ -85,4 +85,3 @@ func main() {
 	fmt.Println("   - Margins work with HStack, VStack, and Grid")
 	fmt.Println("   - Margins don't collapse (CSS-compliant behavior)")
 }
-

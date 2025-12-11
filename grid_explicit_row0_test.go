@@ -113,4 +113,3 @@ func TestGridAutoPlacementVsExplicit0(t *testing.T) {
 			root.Children[2].Rect.Y, root.Children[0].Rect.Y)
 	}
 }
-

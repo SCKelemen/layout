@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -208,4 +209,3 @@ func main() {
 		fmt.Printf("\n✅ Layout looks correct! Total height: %.2f\n", root.Rect.Height)
 	}
 }
-

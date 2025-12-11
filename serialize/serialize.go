@@ -25,6 +25,9 @@ type StyleJSON struct {
 	FlexGrow       float64 `json:"flexGrow,omitempty"`
 	FlexShrink     float64 `json:"flexShrink,omitempty"`
 	FlexBasis      float64 `json:"flexBasis,omitempty"`
+	FlexGap        float64 `json:"flexGap,omitempty"`
+	FlexRowGap     float64 `json:"flexRowGap,omitempty"`
+	FlexColumnGap  float64 `json:"flexColumnGap,omitempty"`
 
 	// Grid
 	GridTemplateRows    []TrackJSON `json:"gridTemplateRows,omitempty"`
@@ -171,6 +174,9 @@ func styleToJSON(s *layout.Style) StyleJSON {
 		FlexGrow:        s.FlexGrow,
 		FlexShrink:      s.FlexShrink,
 		FlexBasis:       s.FlexBasis,
+		FlexGap:         s.FlexGap,
+		FlexRowGap:      s.FlexRowGap,
+		FlexColumnGap:   s.FlexColumnGap,
 		GridGap:         s.GridGap,
 		GridRowGap:      s.GridRowGap,
 		GridColumnGap:   s.GridColumnGap,
@@ -254,6 +260,9 @@ func jsonToStyle(sj *StyleJSON) layout.Style {
 		FlexGrow:        sj.FlexGrow,
 		FlexShrink:      sj.FlexShrink,
 		FlexBasis:       sj.FlexBasis,
+		FlexGap:         sj.FlexGap,
+		FlexRowGap:      sj.FlexRowGap,
+		FlexColumnGap:   sj.FlexColumnGap,
 		GridGap:         sj.GridGap,
 		GridRowGap:      sj.GridRowGap,
 		GridColumnGap:   sj.GridColumnGap,

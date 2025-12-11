@@ -51,4 +51,3 @@ func main() {
 		fmt.Printf("Item %d: x=%.2f, y=%.2f\n", i, item.Rect.X, item.Rect.Y)
 	}
 }
-

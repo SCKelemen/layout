@@ -113,6 +113,9 @@ type Style struct {
 	FlexGrow       float64
 	FlexShrink     float64
 	FlexBasis      float64 // or "auto" represented as -1
+	FlexGap        float64 // Gap between flex items (0 means no gap)
+	FlexRowGap     float64 // Row gap (cross-axis gap, 0 means use FlexGap)
+	FlexColumnGap  float64 // Column gap (main-axis gap, 0 means use FlexGap)
 
 	// Grid properties
 	GridTemplateRows    []GridTrack

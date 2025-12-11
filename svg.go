@@ -13,14 +13,14 @@ func GetSVGTransform(node *Node) string {
 // This accounts for both positioning and transforms
 func GetFinalRect(node *Node) Rect {
 	rect := node.Rect
-	
+
 	// If there's a transform, apply it to get the bounding box
 	if !node.Style.Transform.IsIdentity() {
 		// For layout purposes, we might want the original rect
 		// But for rendering, we want the transformed bounding box
 		return node.Style.Transform.ApplyToRect(rect)
 	}
-	
+
 	return rect
 }
 
@@ -32,4 +32,3 @@ func CollectNodesForSVG(root *Node, nodes *[]*Node) {
 		CollectNodesForSVG(child, nodes)
 	}
 }
-

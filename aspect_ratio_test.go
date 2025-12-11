@@ -9,8 +9,8 @@ func TestAspectRatioWidthSet(t *testing.T) {
 	// When width is set and height is auto, aspect ratio should calculate height
 	node := &Node{
 		Style: Style{
-			Width:      800,
-			Height:     -1, // auto
+			Width:       800,
+			Height:      -1, // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -28,8 +28,8 @@ func TestAspectRatioHeightSet(t *testing.T) {
 	// When height is set and width is auto, aspect ratio should calculate width
 	node := &Node{
 		Style: Style{
-			Width:      -1, // auto
-			Height:     450,
+			Width:       -1, // auto
+			Height:      450,
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -47,8 +47,8 @@ func TestAspectRatioBothAuto(t *testing.T) {
 	// When both width and height are auto, aspect ratio should use available space
 	node := &Node{
 		Style: Style{
-			Width:      -1, // auto
-			Height:     -1, // auto
+			Width:       -1, // auto
+			Height:      -1, // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -70,8 +70,8 @@ func TestAspectRatioConstrainedByHeight(t *testing.T) {
 	// When both are auto but calculated height exceeds available height
 	node := &Node{
 		Style: Style{
-			Width:      -1, // auto
-			Height:     -1, // auto
+			Width:       -1, // auto
+			Height:      -1, // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -93,8 +93,8 @@ func TestAspectRatioBothSet(t *testing.T) {
 	// When both width and height are explicitly set, aspect ratio should be ignored
 	node := &Node{
 		Style: Style{
-			Width:      800,
-			Height:     600,
+			Width:       800,
+			Height:      600,
 			AspectRatio: 16.0 / 9.0, // Should be ignored
 		},
 	}
@@ -115,10 +115,10 @@ func TestAspectRatioRespectsMinMax(t *testing.T) {
 	// Aspect ratio should respect min/max constraints
 	node := &Node{
 		Style: Style{
-			Width:      800,
-			Height:     -1, // auto
+			Width:       800,
+			Height:      -1, // auto
 			AspectRatio: 16.0 / 9.0,
-			MinHeight:  500, // Should override calculated height
+			MinHeight:   500, // Should override calculated height
 		},
 	}
 
@@ -135,8 +135,8 @@ func TestAspectRatioSquare(t *testing.T) {
 	// Test 1:1 aspect ratio (square)
 	node := &Node{
 		Style: Style{
-			Width:      200,
-			Height:     -1, // auto
+			Width:       200,
+			Height:      -1, // auto
 			AspectRatio: 1.0,
 		},
 	}
@@ -149,4 +149,3 @@ func TestAspectRatioSquare(t *testing.T) {
 		t.Errorf("Expected height %.2f, got %.2f", expectedHeight, node.Rect.Height)
 	}
 }
-

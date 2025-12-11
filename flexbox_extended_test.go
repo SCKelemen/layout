@@ -99,9 +99,9 @@ func TestFlexboxColumnReverse(t *testing.T) {
 func TestFlexboxWrap(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Display:      DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			FlexWrap:     FlexWrapWrap,
+			FlexWrap:      FlexWrapWrap,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 100, Height: 50}},
@@ -127,10 +127,10 @@ func TestFlexboxWrap(t *testing.T) {
 func TestFlexboxAlignContent(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Display:      DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			FlexWrap:     FlexWrapWrap,
-			AlignContent: AlignContentCenter,
+			FlexWrap:      FlexWrapWrap,
+			AlignContent:  AlignContentCenter,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 50, Height: 50}},
@@ -152,9 +152,9 @@ func TestFlexboxAlignContent(t *testing.T) {
 func TestFlexboxAlignItemsFlexEnd(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Display:     DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			AlignItems:  AlignItemsFlexEnd,
+			AlignItems:    AlignItemsFlexEnd,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 50, Height: 30}},
@@ -170,4 +170,3 @@ func TestFlexboxAlignItemsFlexEnd(t *testing.T) {
 		t.Errorf("Expected Y=%.2f (flex-end), got %.2f", expectedY, root.Children[0].Rect.Y)
 	}
 }
-

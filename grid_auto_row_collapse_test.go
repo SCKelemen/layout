@@ -9,7 +9,7 @@ func TestGridAutoRowCollapseWithoutMinHeight(t *testing.T) {
 	// Test demonstrates expected behavior: items without MinHeight and no content
 	// will measure to 0 height, causing rows to collapse.
 	// This is correct CSS Grid behavior - items in auto rows should have MinHeight set.
-	
+
 	root := &Node{
 		Style: Style{
 			Display: DisplayGrid,
@@ -52,12 +52,12 @@ func TestGridAutoRowCollapseWithoutMinHeight(t *testing.T) {
 	if root.Children[1].Rect.Height != 0 {
 		t.Logf("Note: Second item has height %.2f (expected 0 when no MinHeight and no content)", root.Children[1].Rect.Height)
 	}
-	
+
 	// The row itself might collapse or have minimal height depending on our safeguards
 	// But the item will be 0 height, which is correct CSS behavior
 	row1Y := root.Children[1].Rect.Y
 	row0End := root.Children[0].Rect.Y + root.Children[0].Rect.Height
-	
+
 	// With our safeguards, the row should still be positioned, but the item is 0 height
 	// This test documents the expected behavior: set MinHeight on all items in auto rows
 	if row1Y < row0End {
@@ -122,4 +122,3 @@ func TestGridAutoRowWithMinHeight(t *testing.T) {
 		t.Errorf("Root height should be %.2f, got %.2f", expectedHeight, root.Rect.Height)
 	}
 }
-

@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/SCKelemen/layout"
 )
 
 func main() {
 	// Example: Multi-column grid (3 columns, 2 rows)
 	// This demonstrates that Grid DOES support multiple columns!
-	
+
 	root := &layout.Node{
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
@@ -17,9 +18,9 @@ func main() {
 				layout.FixedTrack(100),
 			},
 			GridTemplateColumns: []layout.GridTrack{
-				layout.FixedTrack(150),  // Column 1
-				layout.FixedTrack(150),  // Column 2
-				layout.FixedTrack(150),  // Column 3
+				layout.FixedTrack(150), // Column 1
+				layout.FixedTrack(150), // Column 2
+				layout.FixedTrack(150), // Column 3
 			},
 			GridGap: 10,
 			Padding: layout.Uniform(10),
@@ -41,14 +42,13 @@ func main() {
 
 	fmt.Printf("Multi-column grid (3 columns x 2 rows):\n")
 	fmt.Printf("Container size: %.2f x %.2f\n\n", size.Width, size.Height)
-	
+
 	for i, child := range root.Children {
 		row := i / 3
 		col := i % 3
 		fmt.Printf("Row %d, Col %d: (%.2f, %.2f) %.2f x %.2f\n",
 			row, col, child.Rect.X, child.Rect.Y, child.Rect.Width, child.Rect.Height)
 	}
-	
+
 	fmt.Println("\n✅ Grid supports multiple columns! This is a 3-column grid.")
 }
-

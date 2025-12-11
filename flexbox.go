@@ -21,6 +21,27 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
 	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
 
+	// If container has explicit width/height, use it to constrain available space
+	// Similar to grid layout
+	if node.Style.Width >= 0 {
+		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPadding+horizontalBorder, verticalPadding+verticalBorder, true)
+		totalSpecifiedWidth := specifiedWidthContent + horizontalPadding + horizontalBorder
+		if availableWidth >= Unbounded {
+			availableWidth = totalSpecifiedWidth
+		} else if totalSpecifiedWidth <= availableWidth {
+			availableWidth = totalSpecifiedWidth
+		}
+	}
+	if node.Style.Height >= 0 {
+		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPadding+horizontalBorder, verticalPadding+verticalBorder, false)
+		totalSpecifiedHeight := specifiedHeightContent + verticalPadding + verticalBorder
+		if availableHeight >= Unbounded {
+			availableHeight = totalSpecifiedHeight
+		} else if totalSpecifiedHeight <= availableHeight {
+			availableHeight = totalSpecifiedHeight
+		}
+	}
+
 	// Clamp content size to >= 0
 	contentWidth := availableWidth - horizontalPadding - horizontalBorder
 	if contentWidth < 0 {
@@ -116,9 +137,24 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		if isRow {
 			item.mainSize = childSize.Width
 			item.crossSize = childSize.Height
+			// Use explicit dimensions if measured size is 0 or Unbounded
+			// This handles cases where LayoutBlock returns 0 or Unbounded for items with explicit dimensions
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Width >= 0 {
+				item.mainSize = child.Style.Width
+			}
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Height >= 0 {
+				item.crossSize = child.Style.Height
+			}
 		} else {
 			item.mainSize = childSize.Height
 			item.crossSize = childSize.Width
+			// Use explicit dimensions if measured size is 0 or Unbounded
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Height >= 0 {
+				item.mainSize = child.Style.Height
+			}
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Width >= 0 {
+				item.crossSize = child.Style.Width
+			}
 		}
 
 		// Store the measured size as a fallback
@@ -140,21 +176,44 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 		item.baseSize = item.flexBasis
 
-		// Ensure baseSize is never 0 if we have a measured size
-		if item.baseSize == 0 && measuredMainSize > 0 {
-			item.baseSize = measuredMainSize
-			item.flexBasis = measuredMainSize
+		// Ensure baseSize is never 0 if we have a measured size or explicit width/height
+		if item.baseSize == 0 {
+			if measuredMainSize > 0 {
+				item.baseSize = measuredMainSize
+				item.flexBasis = measuredMainSize
+			} else if isRow && child.Style.Width >= 0 {
+				// Use explicit width for baseSize
+				item.baseSize = child.Style.Width
+				item.flexBasis = child.Style.Width
+			} else if !isRow && child.Style.Height >= 0 {
+				// Use explicit height for baseSize
+				item.baseSize = child.Style.Height
+				item.flexBasis = child.Style.Height
+			}
 		}
 		flexItems = append(flexItems, item)
 	}
 
 	// Step 2: Calculate flex line (for wrapping)
-	lines := calculateFlexLines(flexItems, mainSize, node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse)
+	hasWrap := node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse
+	lines := calculateFlexLines(flexItems, mainSize, hasWrap)
+	wrapReverse := node.Style.FlexWrap == FlexWrapWrapReverse
 
 	// Step 3: Layout each line
+	// First pass: calculate line cross sizes and total cross size
+	lineCrossSizes := make([]float64, len(lines))
 	totalCrossSize := 0.0
 	maxLineMainSize := 0.0
-	lineStartCrossOffset := 0.0
+
+	// Get gap values
+	rowGap := node.Style.FlexRowGap
+	if rowGap == 0 {
+		rowGap = node.Style.FlexGap
+	}
+	columnGap := node.Style.FlexColumnGap
+	if columnGap == 0 {
+		columnGap = node.Style.FlexGap
+	}
 
 	for lineIdx, line := range lines {
 		// Calculate total flex grow and shrink
@@ -208,21 +267,241 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 				lineCrossSize = itemCrossSizeWithMargins
 			}
 		}
-		// CRITICAL FIX: Only apply stretch to single-line containers
-		// For multi-line containers, stretch would require align-content support
-		// to properly distribute cross size across lines. Without that, applying
-		// full crossSize to each line causes totalCrossSize to multiply incorrectly.
+		// For single-line containers, apply stretch if align-items is stretch
+		// For multi-line, align-content will handle stretching
 		if node.Style.AlignItems == AlignItemsStretch && len(lines) == 1 {
 			lineCrossSize = crossSize
 		}
 
-		// Align items in cross axis
-		// For alignment, use the container's cross size, not the line's cross size
+		// Store line cross size for align-content calculation
+		lineCrossSizes[lineIdx] = lineCrossSize
+		totalCrossSize += lineCrossSize
+		if lineIdx < len(lines)-1 {
+			totalCrossSize += rowGap
+		}
+	}
+
+	// Debug: Check if we have multiple lines and what the sizes are
+	// For align-content to work, we need multiple lines AND the container cross size must be larger than total
+
+	// Step 4: Apply align-content to distribute lines along cross axis
+	// align-content only applies when there are multiple lines
+	lineOffsets := make([]float64, len(lines))
+	// align-content requires multiple lines AND a bounded cross size (not Unbounded)
+	// Check if crossSize is effectively bounded (not the Unbounded constant)
+	if len(lines) > 1 && hasWrap {
+		alignContent := node.Style.AlignContent
+		if alignContent == 0 {
+			alignContent = AlignContentStretch // Default
+		}
+
+		// Calculate free cross space
+		freeCrossSpace := crossSize - totalCrossSize
+		if freeCrossSpace < 0 {
+			freeCrossSpace = 0
+		}
+
+		var startOffset float64
+		switch alignContent {
+		case AlignContentFlexStart:
+			startOffset = 0
+		case AlignContentFlexEnd:
+			startOffset = freeCrossSpace
+		case AlignContentCenter:
+			startOffset = freeCrossSpace / 2
+		case AlignContentSpaceBetween:
+			if len(lines) > 1 {
+				startOffset = 0
+				spaceBetween := freeCrossSpace / float64(len(lines)-1)
+				currentOffset := 0.0
+				for i := range lines {
+					lineOffsets[i] = currentOffset
+					currentOffset += lineCrossSizes[i]
+					if i < len(lines)-1 {
+						currentOffset += rowGap + spaceBetween
+					}
+				}
+			} else {
+				startOffset = 0
+			}
+		case AlignContentSpaceAround:
+			if len(lines) > 0 {
+				spaceAround := freeCrossSpace / float64(len(lines))
+				currentOffset := spaceAround / 2
+				for i := range lines {
+					lineOffsets[i] = currentOffset
+					currentOffset += lineCrossSizes[i]
+					if i < len(lines)-1 {
+						currentOffset += rowGap + spaceAround
+					}
+				}
+			}
+		case AlignContentStretch:
+			// Distribute free space equally to each line
+			if freeCrossSpace > 0 && len(lines) > 0 {
+				extraPerLine := freeCrossSpace / float64(len(lines))
+				for i := range lineCrossSizes {
+					lineCrossSizes[i] += extraPerLine
+				}
+			}
+			startOffset = 0
+		default:
+			startOffset = 0
+		}
+
+		// Calculate line offsets for non-space-between/space-around
+		if alignContent != AlignContentSpaceBetween && alignContent != AlignContentSpaceAround {
+			currentOffset := startOffset
+			for i := range lines {
+				lineOffsets[i] = currentOffset
+				currentOffset += lineCrossSizes[i]
+				if i < len(lines)-1 {
+					currentOffset += rowGap
+				}
+			}
+		}
+
+		// Update total cross size if stretch was applied
+		if alignContent == AlignContentStretch {
+			totalCrossSize = crossSize
+		}
+	} else {
+		// Single line - no align-content needed
+		for i := range lines {
+			lineOffsets[i] = 0
+		}
+	}
+
+	// Handle flex-wrap: wrap-reverse - reverse line order AFTER calculating align-content
+	// For wrap-reverse, lines are visually reversed (last line becomes first visually)
+	// We reverse the lines and recalculate offsets so the last line is at the top
+	if wrapReverse && len(lines) > 1 {
+		// Reverse the order of lines and their corresponding data
+		for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
+			lines[i], lines[j] = lines[j], lines[i]
+			lineCrossSizes[i], lineCrossSizes[j] = lineCrossSizes[j], lineCrossSizes[i]
+		}
+		// Recalculate offsets for reversed visual order
+		// The last line (now first visually) should be at offset 0
+		// Recalculate total cross size for reversed order (using reversed lineCrossSizes)
+		totalReversedCrossSize := 0.0
+		for i := range lineCrossSizes {
+			totalReversedCrossSize += lineCrossSizes[i]
+			if i < len(lineCrossSizes)-1 {
+				totalReversedCrossSize += rowGap
+			}
+		}
+		// Recalculate align-content offsets for reversed order
+		freeCrossSpace := crossSize - totalReversedCrossSize
+		if freeCrossSpace < 0 {
+			freeCrossSpace = 0
+		}
+		alignContent := node.Style.AlignContent
+		if alignContent == 0 {
+			alignContent = AlignContentStretch
+		}
+		var startOffset float64
+		switch alignContent {
+		case AlignContentFlexStart:
+			startOffset = 0
+		case AlignContentFlexEnd:
+			startOffset = freeCrossSpace
+		case AlignContentCenter:
+			startOffset = freeCrossSpace / 2
+		case AlignContentStretch:
+			if freeCrossSpace > 0 {
+				extraPerLine := freeCrossSpace / float64(len(lines))
+				for i := range lineCrossSizes {
+					lineCrossSizes[i] += extraPerLine
+				}
+			}
+			startOffset = 0
+		case AlignContentSpaceBetween:
+			if len(lines) > 1 {
+				spaceBetween := freeCrossSpace / float64(len(lines)-1)
+				currentOffset := 0.0
+				for i := range lines {
+					lineOffsets[i] = currentOffset
+					currentOffset += lineCrossSizes[i]
+					if i < len(lines)-1 {
+						currentOffset += rowGap + spaceBetween
+					}
+				}
+				startOffset = 0 // Set but won't be used
+			} else {
+				startOffset = 0
+			}
+		case AlignContentSpaceAround:
+			if len(lines) > 0 {
+				spaceAround := freeCrossSpace / float64(len(lines))
+				currentOffset := spaceAround / 2
+				for i := range lines {
+					lineOffsets[i] = currentOffset
+					currentOffset += lineCrossSizes[i]
+					if i < len(lines)-1 {
+						currentOffset += rowGap + spaceAround
+					}
+				}
+				startOffset = 0 // Set but won't be used
+			} else {
+				startOffset = 0
+			}
+		default:
+			startOffset = 0
+		}
+		// Calculate offsets from startOffset for non-space-between/space-around
+		if alignContent != AlignContentSpaceBetween && alignContent != AlignContentSpaceAround {
+			currentOffset := startOffset
+			for i := range lines {
+				lineOffsets[i] = currentOffset
+				currentOffset += lineCrossSizes[i]
+				if i < len(lines)-1 {
+					currentOffset += rowGap
+				}
+			}
+		}
+		// Update total cross size for reversed order
+		if alignContent == AlignContentStretch {
+			totalCrossSize = crossSize
+		} else {
+			totalCrossSize = totalReversedCrossSize
+		}
+	}
+
+	// Step 5: Second pass - apply align-content offsets and handle reverse direction
+	for lineIdx, line := range lines {
+		// Handle flex-direction reverse - reverse items in line
+		// For reverse, we reverse the items and then position from the end
+		isReverse := node.Style.FlexDirection == FlexDirectionRowReverse || node.Style.FlexDirection == FlexDirectionColumnReverse
+		if isReverse {
+			// Reverse the order of items in this line
+			for i, j := 0, len(line)-1; i < j; i, j = i+1, j-1 {
+				line[i], line[j] = line[j], line[i]
+			}
+		}
+
+		// Get the updated line cross size (may have been stretched by align-content)
+		lineCrossSize := lineCrossSizes[lineIdx]
+		lineStartCrossOffset := lineOffsets[lineIdx]
+
+		// Re-apply align-items stretch if needed (for multi-line with align-content stretch)
+		if node.Style.AlignItems == AlignItemsStretch {
+			// Update item cross sizes to fill line
+			for _, item := range line {
+				item.crossSize = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
+				if item.crossSize < 0 {
+					item.crossSize = 0
+				}
+			}
+		}
+
+		// Re-align items in cross axis with updated line cross size
 		alignmentCrossSize := crossSize
-		if node.Style.AlignItems != AlignItemsStretch {
-			// For non-stretch, we can use lineCrossSize if it's smaller than container
-			// But for proper centering, we should use container size
+		if len(lines) == 1 {
 			alignmentCrossSize = crossSize
+		} else {
+			// For multi-line, use line cross size for alignment
+			alignmentCrossSize = lineCrossSize
 		}
 
 		for _, item := range line {
@@ -236,52 +515,126 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			case AlignItemsCenter:
 				crossOffset = (alignmentCrossSize-itemCrossSizeWithMargins)/2 + item.crossMarginStart
 			case AlignItemsStretch:
-				// Stretch: item fills cross axis, but margins are still applied
-				item.crossSize = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
-				if item.crossSize < 0 {
-					item.crossSize = 0
-				}
 				crossOffset = item.crossMarginStart
 			default:
 				crossOffset = item.crossMarginStart
 			}
 
-			// Set cross-axis position and size (main-axis will be set by justifyContent)
-			// Add padding and border offsets to child positions
-			// Children are positioned in the content area, which starts after padding + border
+			// Set initial rect (will be updated by justify-content or reverse positioning)
+			// For reverse, we'll position from the end, so X/Y will be set there
+			// Safeguard: if mainSize/crossSize is 0 but explicit dimensions are set, use them for rect
+			// This is a last-resort fix for cases where LayoutBlock returned 0
+			// Note: We don't update item.mainSize here as it may have been calculated from flex grow/shrink
+			rectWidth := item.mainSize
+			rectHeight := item.crossSize
 			if isRow {
-				item.node.Rect = Rect{
-					X:      node.Style.Padding.Left + node.Style.Border.Left,
-					Y:      node.Style.Padding.Top + node.Style.Border.Top + lineStartCrossOffset + crossOffset,
-					Width:  item.mainSize,
-					Height: item.crossSize,
+				if rectWidth == 0 && item.node.Style.Width >= 0 {
+					rectWidth = item.node.Style.Width
+				}
+				if rectHeight == 0 && item.node.Style.Height >= 0 {
+					rectHeight = item.node.Style.Height
 				}
 			} else {
-				item.node.Rect = Rect{
-					X:      node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset,
-					Y:      node.Style.Padding.Top + node.Style.Border.Top,
-					Width:  item.crossSize,
-					Height: item.mainSize,
+				if rectHeight == 0 && item.node.Style.Height >= 0 {
+					rectHeight = item.node.Style.Height
+				}
+				if rectWidth == 0 && item.node.Style.Width >= 0 {
+					rectWidth = item.node.Style.Width
+				}
+			}
+			if !isReverse {
+				if isRow {
+					item.node.Rect = Rect{
+						X:      node.Style.Padding.Left + node.Style.Border.Left,
+						Y:      node.Style.Padding.Top + node.Style.Border.Top + lineStartCrossOffset + crossOffset,
+						Width:  rectWidth,
+						Height: rectHeight,
+					}
+				} else {
+					item.node.Rect = Rect{
+						X:      node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset,
+						Y:      node.Style.Padding.Top + node.Style.Border.Top,
+						Width:  rectWidth,
+						Height: rectHeight,
+					}
+				}
+			} else {
+				// For reverse, set cross-axis position now, main-axis will be set below
+				if isRow {
+					item.node.Rect = Rect{
+						X:      0, // Will be set by reverse positioning
+						Y:      node.Style.Padding.Top + node.Style.Border.Top + lineStartCrossOffset + crossOffset,
+						Width:  rectWidth,
+						Height: rectHeight,
+					}
+				} else {
+					item.node.Rect = Rect{
+						X:      node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset,
+						Y:      0, // Will be set by reverse positioning
+						Width:  rectWidth,
+						Height: rectHeight,
+					}
 				}
 			}
 		}
 
-		// Justify content (main axis alignment) - this sets main-axis positions
-		// All lines start at the same main origin (0 in local coordinates)
-		justifyContent(node.Style.JustifyContent, line, 0, mainSize, isRow)
+		// Apply justify-content with gap support
+		// For reverse direction, position items from the end (right for row, bottom for column)
+		if isReverse {
+			// Calculate total line size including gaps
+			totalLineSize := 0.0
+			for i, item := range line {
+				totalLineSize += item.mainSize + item.mainMarginStart + item.mainMarginEnd
+				if i < len(line)-1 {
+					totalLineSize += columnGap
+				}
+			}
+			// Position from the end (right to left for row, bottom to top for column)
+			// Items are already reversed in the array, so position them sequentially from right
+			// The last item in the reversed array (which is first in original) should be at rightmost
+			currentPos := mainSize
+			// Work backwards through the reversed array (which is forward through original)
+			for i := len(line) - 1; i >= 0; i-- {
+				item := line[i]
+				currentPos -= item.mainSize + item.mainMarginEnd
+				if isRow {
+					item.node.Rect.X = node.Style.Padding.Left + node.Style.Border.Left + currentPos
+				} else {
+					item.node.Rect.Y = node.Style.Padding.Top + node.Style.Border.Top + currentPos
+				}
+				currentPos -= item.mainMarginStart
+				if i > 0 {
+					currentPos -= columnGap
+				}
+			}
+		} else {
+			justifyContentWithGap(node.Style.JustifyContent, line, 0, mainSize, isRow, columnGap)
+		}
 
-		// Calculate this line's main extent (including margins)
+		// Calculate this line's main extent (including margins and gaps)
+		// Note: item.node.Rect.X/Y are absolute positions including padding/border
+		// We need to calculate the extent relative to the content area start
 		lineMainSize := 0.0
+		contentAreaStart := 0.0
+		if isRow {
+			contentAreaStart = node.Style.Padding.Left + node.Style.Border.Left
+		} else {
+			contentAreaStart = node.Style.Padding.Top + node.Style.Border.Top
+		}
 		for _, item := range line {
 			if isRow {
 				itemEnd := item.node.Rect.X + item.node.Rect.Width + item.mainMarginEnd
-				if itemEnd > lineMainSize {
-					lineMainSize = itemEnd
+				// Convert to content-area relative
+				itemEndRelative := itemEnd - contentAreaStart
+				if itemEndRelative > lineMainSize {
+					lineMainSize = itemEndRelative
 				}
 			} else {
 				itemEnd := item.node.Rect.Y + item.node.Rect.Height + item.mainMarginEnd
-				if itemEnd > lineMainSize {
-					lineMainSize = itemEnd
+				// Convert to content-area relative
+				itemEndRelative := itemEnd - contentAreaStart
+				if itemEndRelative > lineMainSize {
+					lineMainSize = itemEndRelative
 				}
 			}
 		}
@@ -289,18 +642,6 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		// Track maximum line main size (for container main dimension)
 		if lineMainSize > maxLineMainSize {
 			maxLineMainSize = lineMainSize
-		}
-
-		// Update cross-axis stacking for wrapping
-		if node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse {
-			totalCrossSize += lineCrossSize
-			if lineIdx < len(lines)-1 {
-				// Add gap if specified (simplified, assuming 0 for now)
-			}
-			lineStartCrossOffset = totalCrossSize - lineCrossSize
-		} else {
-			totalCrossSize = lineCrossSize
-			lineStartCrossOffset = 0
 		}
 	}
 
@@ -377,7 +718,8 @@ func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool)
 	return lines
 }
 
-func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isRow bool) {
+// justifyContentWithGap applies justify-content with gap support
+func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isRow bool, gap float64) {
 	if len(line) == 0 {
 		return
 	}
@@ -391,9 +733,12 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 			totalItemSize += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd
 		}
 	}
+	// Add gaps between items
+	if len(line) > 1 {
+		totalItemSize += gap * float64(len(line)-1)
+	}
 
-	// Free space is the container's main size minus total item size
-	// For wrapping flex, containerSize is the full available space, not per-line
+	// Free space is the container's main size minus total item size (including gaps)
 	freeSpace := containerSize - totalItemSize
 	var offset float64
 
@@ -406,18 +751,16 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 		offset = freeSpace / 2
 	case JustifyContentSpaceBetween:
 		if len(line) > 1 {
-			gap := freeSpace / float64(len(line)-1)
-			offset = 0
+			// Distribute free space between items (not including gap)
+			spaceBetween := freeSpace / float64(len(line)-1)
 			currentPos := startOffset
 			for _, item := range line {
 				if isRow {
-					// X already includes padding.Left, add main-axis position
 					item.node.Rect.X += currentPos + item.mainMarginStart
-					currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd + gap
+					currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				} else {
-					// Y already includes padding.Top, add main-axis position
 					item.node.Rect.Y += currentPos + item.mainMarginStart
-					currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd + gap
+					currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				}
 			}
 			return
@@ -425,30 +768,42 @@ func justifyContent(justify JustifyContent, line []*flexItem, startOffset, conta
 		offset = 0
 	case JustifyContentSpaceAround:
 		if len(line) > 0 {
-			gap := freeSpace / float64(len(line))
-			offset = gap / 2
+			// Distribute free space around items
+			spaceAround := freeSpace / float64(len(line))
+			offset = spaceAround / 2
 		}
 	case JustifyContentSpaceEvenly:
 		if len(line) > 0 {
-			gap := freeSpace / float64(len(line)+1)
-			offset = gap
+			// Distribute free space evenly (including edges)
+			spaceEvenly := freeSpace / float64(len(line)+1)
+			offset = spaceEvenly
 		}
 	}
 
-	// Apply offset (accounting for margins and padding)
-	// startOffset is 0 for all lines (lines don't accumulate main offset)
+	// Apply offset (accounting for margins, padding, and gap)
+	// Note: For row direction, we only modify X. For column direction, we only modify Y.
+	// The cross-axis position (Y for row, X for column) is set separately and should not be modified here.
 	currentPos := startOffset + offset
-	for _, item := range line {
+	for i, item := range line {
 		if isRow {
-			// X position already includes padding.Left from cross-axis positioning
-			// Add main-axis offset and margin
+			// Row direction: modify X (main axis), preserve Y (cross axis)
 			item.node.Rect.X += currentPos + item.mainMarginStart
 			currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd
+			if i < len(line)-1 {
+				currentPos += gap
+			}
 		} else {
-			// Y position already includes padding.Top from cross-axis positioning
-			// Add main-axis offset and margin
+			// Column direction: modify Y (main axis), preserve X (cross axis)
 			item.node.Rect.Y += currentPos + item.mainMarginStart
 			currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd
+			if i < len(line)-1 {
+				currentPos += gap
+			}
 		}
 	}
+}
+
+// justifyContent is kept for backward compatibility but now calls justifyContentWithGap with 0 gap
+func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isRow bool) {
+	justifyContentWithGap(justify, line, startOffset, containerSize, isRow, 0)
 }

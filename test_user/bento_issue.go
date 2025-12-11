@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+
 	"github.com/SCKelemen/layout"
 )
 
 func main() {
 	// Simulate a bento layout with spanning items
 	// This should help identify the issue
-	
+
 	columns := 3
 	gap := 8.0
 	width := 1000.0
@@ -155,4 +156,3 @@ func main() {
 		log.Printf("ERROR: Root height (%.2f) is too small! Expected ~470px\n", root.Rect.Height)
 	}
 }
-

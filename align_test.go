@@ -212,4 +212,3 @@ func TestDistributeNodesLessThanThree(t *testing.T) {
 		t.Error("Two nodes should not be modified")
 	}
 }
-

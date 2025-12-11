@@ -16,7 +16,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	// Otherwise, use constraints (similar to block layout)
 	availableWidth := constraints.MaxWidth
 	availableHeight := constraints.MaxHeight
-	
+
 	// Account for padding and border
 	horizontalPadding := node.Style.Padding.Left + node.Style.Padding.Right
 	verticalPadding := node.Style.Padding.Top + node.Style.Padding.Bottom
@@ -45,7 +45,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			}
 		}
 	}
-	
+
 	// If container has explicit height, use it to constrain available height
 	if node.Style.Height >= 0 {
 		// Convert to content size first

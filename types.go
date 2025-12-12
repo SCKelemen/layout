@@ -533,6 +533,19 @@ func AutoTrack() GridTrack {
 	}
 }
 
+// RepeatTrack represents a repeating track pattern for grid templates
+// Used with auto-fill and auto-fit grid track generation (Feature 4)
+type RepeatTrack struct {
+	Count  int         // Number of repetitions, or special values (RepeatCountAutoFill, RepeatCountAutoFit)
+	Tracks []GridTrack // Track pattern to repeat
+}
+
+// RepeatCount constants for auto-fill and auto-fit
+const (
+	RepeatCountAutoFill = -1 // Auto-fill: create as many tracks as fit
+	RepeatCountAutoFit  = -2 // Auto-fit: auto-fill + collapse empty tracks
+)
+
 // Transform represents a 2D transformation matrix
 // Used for rotating, scaling, translating, and skewing elements
 // Useful for SVG rendering and visual effects

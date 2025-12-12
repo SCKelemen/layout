@@ -320,3 +320,144 @@ func TestGridNested(t *testing.T) {
 	}
 }
 
+
+// TestRepeatTracksBasic tests basic repeat() functionality
+func TestRepeatTracksBasic(t *testing.T) {
+	// Test basic repeat with single track
+	tracks := RepeatTracks(3, FixedTrack(100))
+	
+	if len(tracks) != 3 {
+		t.Errorf("Expected 3 tracks, got %d", len(tracks))
+	}
+	
+	for i, track := range tracks {
+		if track.MinSize != 100 || track.MaxSize != 100 {
+			t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v", 
+				i, track.MinSize, track.MaxSize)
+		}
+	}
+}
+
+// TestRepeatTracksMultiplePattern tests repeat() with multiple tracks
+func TestRepeatTracksMultiplePattern(t *testing.T) {
+	// Test repeat with pattern: [100px, 1fr, 100px, 1fr, 100px, 1fr]
+	tracks := RepeatTracks(3, FixedTrack(100), FractionTrack(1))
+	
+	if len(tracks) != 6 {
+		t.Errorf("Expected 6 tracks (3 repetitions * 2 tracks), got %d", len(tracks))
+	}
+	
+	// Check pattern: fixed, fraction, fixed, fraction, fixed, fraction
+	for i := 0; i < 6; i++ {
+		if i%2 == 0 {
+			// Even indices should be fixed tracks
+			if tracks[i].MinSize != 100 || tracks[i].MaxSize != 100 {
+				t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v", 
+					i, tracks[i].MinSize, tracks[i].MaxSize)
+			}
+		} else {
+			// Odd indices should be fractional tracks
+			if tracks[i].Fraction != 1 {
+				t.Errorf("Track %d: expected 1fr track, got Fraction=%v", i, tracks[i].Fraction)
+			}
+		}
+	}
+}
+
+// TestRepeatTracksZeroCount tests repeat() with zero count (edge case)
+func TestRepeatTracksZeroCount(t *testing.T) {
+	tracks := RepeatTracks(0, FixedTrack(100))
+	
+	if len(tracks) != 0 {
+		t.Errorf("Expected empty tracks array for count=0, got %d tracks", len(tracks))
+	}
+}
+
+// TestRepeatTracksNegativeCount tests repeat() with negative count (edge case)
+func TestRepeatTracksNegativeCount(t *testing.T) {
+	tracks := RepeatTracks(-1, FixedTrack(100))
+	
+	if len(tracks) != 0 {
+		t.Errorf("Expected empty tracks array for count=-1, got %d tracks", len(tracks))
+	}
+}
+
+// TestRepeatTracksEmptyPattern tests repeat() with empty track pattern (edge case)
+func TestRepeatTracksEmptyPattern(t *testing.T) {
+	tracks := RepeatTracks(3)
+	
+	if len(tracks) != 0 {
+		t.Errorf("Expected empty tracks array for empty pattern, got %d tracks", len(tracks))
+	}
+}
+
+// TestRepeatTracksGridIntegration tests RepeatTracks with actual grid layout
+func TestRepeatTracksGridIntegration(t *testing.T) {
+	// Create a grid with repeated columns: [100px, 100px, 100px]
+	container := &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateColumns: RepeatTracks(3, FixedTrack(100)),
+			GridTemplateRows:    []GridTrack{FixedTrack(50)},
+			Width:               300,
+			Height:              50,
+		},
+		Children: []*Node{
+			{Style: Style{Width: 50, Height: 50}}, // (0,0)
+			{Style: Style{Width: 50, Height: 50}}, // (0,1)
+			{Style: Style{Width: 50, Height: 50}}, // (0,2)
+		},
+	}
+
+	LayoutGrid(container, Loose(300, 50))
+
+	// Verify items are placed correctly in repeated columns
+	expectedX := []float64{0, 100, 200}
+	for i, child := range container.Children {
+		if child.Rect.X != expectedX[i] {
+			t.Errorf("Child %d: expected X=%v, got X=%v", i, expectedX[i], child.Rect.X)
+		}
+		if child.Rect.Y != 0 {
+			t.Errorf("Child %d: expected Y=0, got Y=%v", i, child.Rect.Y)
+		}
+	}
+}
+
+// TestRepeatTracksMixedPattern tests complex repeat pattern with mixed track types
+func TestRepeatTracksMixedPattern(t *testing.T) {
+	// Create pattern: [100px, auto, 1fr]
+	tracks := RepeatTracks(2, FixedTrack(100), AutoTrack(), FractionTrack(1))
+	
+	if len(tracks) != 6 {
+		t.Errorf("Expected 6 tracks (2 repetitions * 3 tracks), got %d", len(tracks))
+	}
+	
+	// Verify pattern: fixed, auto, fr, fixed, auto, fr
+	expected := []struct{ fixed, auto, fr bool }{
+		{fixed: true},
+		{auto: true},
+		{fr: true},
+		{fixed: true},
+		{auto: true},
+		{fr: true},
+	}
+	
+	for i, exp := range expected {
+		track := tracks[i]
+		if exp.fixed {
+			if track.MinSize != 100 || track.MaxSize != 100 {
+				t.Errorf("Track %d: expected fixed 100px, got MinSize=%v MaxSize=%v", 
+					i, track.MinSize, track.MaxSize)
+			}
+		} else if exp.auto {
+			if track.MinSize != 0 || track.MaxSize != Unbounded || track.Fraction != 0 {
+				t.Errorf("Track %d: expected auto track, got MinSize=%v MaxSize=%v Fraction=%v", 
+					i, track.MinSize, track.MaxSize, track.Fraction)
+			}
+		} else if exp.fr {
+			if track.Fraction != 1 {
+				t.Errorf("Track %d: expected 1fr, got Fraction=%v", i, track.Fraction)
+			}
+		}
+	}
+}

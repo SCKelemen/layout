@@ -534,3 +534,27 @@ func GridFractional(rows, cols int) *Node {
 		},
 	}
 }
+
+// RepeatTracks creates a repeated pattern of grid tracks.
+// This is equivalent to the CSS repeat() function.
+//
+// Example:
+//
+//	// Creates: [100px, 100px, 100px]
+//	columns := layout.RepeatTracks(3, layout.FixedTrack(100))
+//
+//	// Creates: [100px, 1fr, 100px, 1fr, 100px, 1fr]
+//	columns := layout.RepeatTracks(3, layout.FixedTrack(100), layout.FractionTrack(1))
+//
+// See: CSS Grid Layout Module Level 1 §5.1.2 (repeat() notation)
+// https://www.w3.org/TR/css-grid-1/#repeat-notation
+func RepeatTracks(count int, tracks ...GridTrack) []GridTrack {
+	if count <= 0 {
+		return []GridTrack{}
+	}
+	result := make([]GridTrack, 0, count*len(tracks))
+	for i := 0; i < count; i++ {
+		result = append(result, tracks...)
+	}
+	return result
+}

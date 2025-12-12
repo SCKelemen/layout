@@ -514,7 +514,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 					item.crossSize = 0
 				}
 			}
-			
+
 			itemCrossSizeWithMargins := item.crossSize + item.crossMarginStart + item.crossMarginEnd
 			switch node.Style.AlignItems {
 			case AlignItemsFlexStart:
@@ -536,7 +536,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			// We also update item.mainSize/crossSize if they're 0, so justify-content calculations work correctly
 			rectWidth := item.mainSize
 			rectHeight := item.crossSize
-			
+
 			// Apply align-items stretch if needed (for cross-size)
 			// Zero value is stretch (CSS Flexbox default)
 			if node.Style.AlignItems == AlignItemsStretch {
@@ -564,7 +564,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 					item.crossSize = rectWidth
 				}
 			}
-			
+
 			if isRow {
 				if rectWidth == 0 && item.node.Style.Width >= 0 {
 					rectWidth = item.node.Style.Width

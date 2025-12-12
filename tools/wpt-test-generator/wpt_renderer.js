@@ -41,10 +41,26 @@ async function renderWPTTest(htmlFile) {
         elements: []
       };
 
-      // Find all elements with IDs or that are layout containers
-      const elements = document.querySelectorAll('[id], [style*="display: flex"], [style*="display: grid"]');
+      // Find all elements - we'll filter by computed display later
+      // Start with elements that have IDs or are divs (common test containers)
+      const candidates = document.querySelectorAll('div, [id], section, article, main');
 
-      elements.forEach((el, index) => {
+      const elementsToProcess = [];
+      candidates.forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const display = computed.display;
+
+        // Include flex/grid containers, or elements with IDs, or elements with data-expected-* attributes
+        if (display === 'flex' || display === 'grid' ||
+            display === 'inline-flex' || display === 'inline-grid' ||
+            el.id ||
+            el.hasAttribute('data-expected-width') ||
+            el.hasAttribute('data-expected-height')) {
+          elementsToProcess.push(el);
+        }
+      });
+
+      elementsToProcess.forEach((el, index) => {
         const rect = el.getBoundingClientRect();
         const computed = window.getComputedStyle(el);
 
@@ -56,6 +72,7 @@ async function renderWPTTest(htmlFile) {
         const elementData = {
           selector: el.id ? `#${el.id}` : `element-${index}`,
           tagName: el.tagName.toLowerCase(),
+          dataExpected: {},
           rect: {
             x: rect.x,
             y: rect.y,
@@ -100,6 +117,14 @@ async function renderWPTTest(htmlFile) {
             }
           }
         };
+
+        // Capture data-expected-* attributes if present
+        ['width', 'height', 'client-width', 'client-height', 'offset-width', 'offset-height'].forEach(attr => {
+          const dataAttr = `data-expected-${attr}`;
+          if (el.hasAttribute(dataAttr)) {
+            elementData.dataExpected[attr] = parseFloat(el.getAttribute(dataAttr));
+          }
+        });
 
         // Add children info if it's a flex/grid container
         if (computed.display === 'flex' || computed.display === 'grid' ||

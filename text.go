@@ -108,9 +108,9 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	// 3. Perform line breaking (§4) with textMetrics.Measure
 	lines := breakIntoLines(processedText, contentWidth, *style)
 
-	// 4. Compute per-line positions (x,y) based on text-align (§7.1) and text-indent (§7.2.1)
+	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), and text-indent (§7.2.1)
 	lineHeight := resolveLineHeight(style.LineHeight, style.FontSize)
-	positionLines(lines, contentWidth, style.TextAlign, style.TextIndent, lineHeight)
+	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, lineHeight)
 
 	// 5. Compute total height from line count and line-height (§4.4.1)
 	// If no lines, use at least one line height for empty text
@@ -212,6 +212,24 @@ func preprocessText(text string, whiteSpace WhiteSpace) string {
 	case WhiteSpacePre:
 		// §3.1: Preserve spaces and newlines, no wrapping
 		return text
+
+	case WhiteSpacePreWrap:
+		// §3.1: Preserve all whitespace, allow wrapping
+		// Don't collapse anything, don't convert newlines
+		return text
+
+	case WhiteSpacePreLine:
+		// §3.1: Preserve newlines, collapse spaces, allow wrapping
+		// Normalize line endings but DON'T convert to spaces
+		text = strings.ReplaceAll(text, "\r\n", "\n")
+		text = strings.ReplaceAll(text, "\r", "\n")
+
+		// Collapse whitespace on each line separately
+		lines := strings.Split(text, "\n")
+		for i, line := range lines {
+			lines[i] = strings.TrimSpace(collapseWhitespace(line))
+		}
+		return strings.Join(lines, "\n")
 
 	default:
 		return text
@@ -341,6 +359,11 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 		return breakIntoLinesPre(text, maxWidth, style)
 	}
 
+	// For pre-wrap and pre-line, split on newlines then wrap each segment
+	if style.WhiteSpace == WhiteSpacePreWrap || style.WhiteSpace == WhiteSpacePreLine {
+		return breakIntoLinesPreWrap(text, maxWidth, style)
+	}
+
 	// Use UAX #14 to find line break opportunities
 	return breakIntoLinesUAX14(text, maxWidth, style)
 }
@@ -437,6 +460,52 @@ func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextL
 			firstLineIndent = 0.0 // Only first line gets indent
 		}
 
+		// Check if word is too long and should be broken (overflow-wrap or word-break)
+		// Only break if it's the first word on line and exceeds maxWidth
+		if len(current.Boxes) == 0 && maxWidth > 0 && maxWidth < Unbounded && wordWidth > maxWidth {
+			if style.OverflowWrap == OverflowWrapBreakWord || style.OverflowWrap == OverflowWrapAnywhere ||
+				style.WordBreak == WordBreakBreakAll {
+				// Break word into smaller pieces
+				pieces := breakWordToFit(wordText, maxWidth, style)
+				for j, piece := range pieces {
+					if j > 0 {
+						// Start new line for subsequent pieces
+						current.Width = currentWidth
+						lines = append(lines, current)
+						current = TextLine{
+							Boxes:      []InlineBox{},
+							SpaceCount: 0,
+							SpaceWidth: 0.0,
+						}
+						currentWidth = 0.0
+						lastWordHadTrailingSpace = false
+					}
+
+					pieceWidth, ascent, descent := textMetrics.Measure(piece, style)
+					current.Boxes = append(current.Boxes, InlineBox{
+						Kind:    InlineBoxText,
+						Text:    piece,
+						Width:   pieceWidth,
+						Ascent:  ascent,
+						Descent: descent,
+					})
+					currentWidth += pieceWidth
+				}
+
+				// Handle trailing space if word had one
+				if hasTrailingSpace {
+					current.SpaceCount++
+					current.SpaceWidth += spaceWidth
+					currentWidth += spaceWidth
+					lastWordHadTrailingSpace = true
+				} else {
+					lastWordHadTrailingSpace = false
+				}
+
+				continue // Skip normal word addition
+			}
+		}
+
 		// Add the word to current line
 		box := InlineBox{
 			Kind:    InlineBoxText,
@@ -484,7 +553,8 @@ func canBreakBefore(whiteSpace WhiteSpace) bool {
 	if whiteSpace == WhiteSpaceNowrap {
 		return false // §3.1: No wrapping in nowrap
 	}
-	return true // §4: Can break before word tokens in normal mode
+	// §3.1: pre-wrap, pre-line, and normal modes all allow wrapping
+	return true
 }
 
 // breakIntoLinesPre breaks text into lines preserving newlines and spaces (pre mode)
@@ -513,9 +583,195 @@ func breakIntoLinesPre(text string, maxWidth float64, style TextStyle) []TextLin
 	return lines
 }
 
-// positionLines positions lines based on text-align and text-indent.
-// Based on CSS Text Module Level 3 §7.1: https://www.w3.org/TR/css-text-3/#text-align-property
-func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, textIndent float64, lineHeight float64) {
+// breakIntoLinesPreWrap handles pre-wrap and pre-line modes
+// Split on newlines, then wrap each segment
+func breakIntoLinesPreWrap(text string, maxWidth float64, style TextStyle) []TextLine {
+	lines := []TextLine{}
+
+	// Split by newlines
+	segments := strings.Split(text, "\n")
+
+	for _, segment := range segments {
+		if segment == "" {
+			// Empty line from consecutive newlines or trailing newline
+			lines = append(lines, TextLine{
+				Boxes: []InlineBox{},
+				Width: 0,
+			})
+			continue
+		}
+
+		// Wrap this segment if it exceeds maxWidth
+		// For pre-wrap: preserve spaces within the segment
+		// For pre-line: spaces already collapsed in preprocessText
+		segmentLines := wrapSegment(segment, maxWidth, style)
+		lines = append(lines, segmentLines...)
+	}
+
+	return lines
+}
+
+// wrapSegment wraps a single segment (between newlines) with preserved spaces
+func wrapSegment(segment string, maxWidth float64, style TextStyle) []TextLine {
+	// If unlimited width or segment fits, return as single line
+	segmentWidth, ascent, descent := textMetrics.Measure(segment, style)
+
+	if maxWidth >= Unbounded || segmentWidth <= maxWidth {
+		return []TextLine{{
+			Boxes: []InlineBox{{
+				Kind:    InlineBoxText,
+				Text:    segment,
+				Width:   segmentWidth,
+				Ascent:  ascent,
+				Descent: descent,
+			}},
+			Width: segmentWidth,
+		}}
+	}
+
+	// Need to wrap
+	// For pre-wrap mode, preserve all spaces including multiple consecutive ones
+	if style.WhiteSpace == WhiteSpacePreWrap {
+		return wrapSegmentPreserveSpaces(segment, maxWidth, style)
+	}
+
+	// For pre-line, use UAX #14 (spaces already collapsed in preprocessText)
+	return breakIntoLinesUAX14(segment, maxWidth, style)
+}
+
+// wrapSegmentPreserveSpaces wraps text while preserving all spaces (for pre-wrap mode)
+func wrapSegmentPreserveSpaces(segment string, maxWidth float64, style TextStyle) []TextLine {
+	lines := []TextLine{}
+	current := TextLine{Boxes: []InlineBox{}}
+	currentWidth := 0.0
+
+	// Build words with preserved spaces by splitting on grapheme boundaries
+	// We need to track characters and spaces separately
+	runes := []rune(segment)
+	wordStart := 0
+
+	for i := 0; i < len(runes); i++ {
+		// Find next space or end
+		if runes[i] == ' ' || i == len(runes)-1 {
+			// Extract word (include trailing char if at end and not space)
+			wordEnd := i
+			if i == len(runes)-1 && runes[i] != ' ' {
+				wordEnd = i + 1
+			}
+
+			if wordEnd > wordStart {
+				word := string(runes[wordStart:wordEnd])
+				wordWidth, ascent, descent := textMetrics.Measure(word, style)
+
+				// Check if adding this word would exceed maxWidth
+				if currentWidth > 0 && currentWidth+wordWidth > maxWidth {
+					// Start new line
+					current.Width = currentWidth
+					lines = append(lines, current)
+					current = TextLine{Boxes: []InlineBox{}}
+					currentWidth = 0.0
+				}
+
+				// Add word to current line
+				current.Boxes = append(current.Boxes, InlineBox{
+					Kind:    InlineBoxText,
+					Text:    word,
+					Width:   wordWidth,
+					Ascent:  ascent,
+					Descent: descent,
+				})
+				currentWidth += wordWidth
+			}
+
+			// If current char is a space, add it
+			if runes[i] == ' ' {
+				spaceWidth, ascent, descent := textMetrics.Measure(" ", style)
+
+				// Check if space fits on current line
+				if currentWidth+spaceWidth > maxWidth && currentWidth > 0 {
+					// Start new line
+					current.Width = currentWidth
+					lines = append(lines, current)
+					current = TextLine{Boxes: []InlineBox{}}
+					currentWidth = 0.0
+				}
+
+				// Add space
+				current.Boxes = append(current.Boxes, InlineBox{
+					Kind:    InlineBoxText,
+					Text:    " ",
+					Width:   spaceWidth,
+					Ascent:  ascent,
+					Descent: descent,
+				})
+				currentWidth += spaceWidth
+			}
+
+			wordStart = i + 1
+		}
+	}
+
+	// Add final line if not empty
+	if len(current.Boxes) > 0 {
+		current.Width = currentWidth
+		lines = append(lines, current)
+	}
+
+	return lines
+}
+
+// breakWordToFit breaks a word into pieces that fit maxWidth
+// Used for overflow-wrap: break-word and word-break: break-all
+func breakWordToFit(word string, maxWidth float64, style TextStyle) []string {
+	pieces := []string{}
+	runes := []rune(word)
+
+	currentPiece := strings.Builder{}
+	currentWidth := 0.0
+
+	for _, r := range runes {
+		charStr := string(r)
+		charWidth, _, _ := textMetrics.Measure(charStr, style)
+
+		if currentWidth+charWidth > maxWidth && currentPiece.Len() > 0 {
+			// Finish current piece
+			pieces = append(pieces, currentPiece.String())
+			currentPiece.Reset()
+			currentWidth = 0.0
+		}
+
+		currentPiece.WriteRune(r)
+		currentWidth += charWidth
+	}
+
+	if currentPiece.Len() > 0 {
+		pieces = append(pieces, currentPiece.String())
+	}
+
+	return pieces
+}
+
+// resolveTextAlignLast resolves text-align-last auto to actual alignment
+// CSS Text Module Level 3 §7.2.2: https://www.w3.org/TR/css-text-3/#text-align-last-property
+func resolveTextAlignLast(last TextAlignLast, textAlign TextAlign) TextAlignLast {
+	if last != TextAlignLastAuto {
+		return last
+	}
+
+	// Auto follows text-align, but never justify for last line
+	switch textAlign {
+	case TextAlignRight:
+		return TextAlignLastRight
+	case TextAlignCenter:
+		return TextAlignLastCenter
+	default:
+		return TextAlignLastLeft
+	}
+}
+
+// positionLines positions lines based on text-align, text-align-last, text-justify, and text-indent.
+// Based on CSS Text Module Level 3 §7.1, §7.2.2, and §7.3
+func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, lineHeight float64) {
 	// Resolve TextAlignDefault to left (LTR context for v1)
 	align := textAlign
 	if align == TextAlignDefault {
@@ -553,29 +809,83 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 			line.OffsetX = indent + (availableWidth-lineWidth)/2
 
 		case TextAlignJustify:
-			// Justified: distribute extra space evenly across inter-word spaces
-			// Per CSS Text Module Level 3 §7.1.1: last line is NOT justified
+			// Justified: distribute extra space using text-justify algorithm
+			// Per CSS Text Module Level 3 §7.1.1, §7.2.2, and §7.3
 			isLastLine := (i == len(lines)-1)
 			hasMultipleWords := line.SpaceCount > 0
 
+			// Resolve text-justify
+			justifyMode := textJustify
+			if justifyMode == TextJustifyAuto {
+				justifyMode = TextJustifyInterWord
+			}
+
+			// Handle text-justify: none
+			if justifyMode == TextJustifyNone {
+				line.OffsetX = indent
+				continue
+			}
+
 			if !isLastLine && hasMultipleWords {
-				// Calculate available width (accounting for text-indent)
+				// Middle lines: apply justification algorithm
 				availableWidth := contentWidth
 				if i == 0 && indent != 0 {
 					availableWidth -= indent
 				}
 
-				// Distribute extra space evenly across all inter-word spaces
 				extraSpace := availableWidth - lineWidth
 				if extraSpace > 0 {
-					line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
-					line.Width = availableWidth // Update to fill width
+					switch justifyMode {
+					case TextJustifyInterWord:
+						// Distribute across word spaces only (current implementation)
+						line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
+						line.Width = availableWidth
+
+					case TextJustifyInterCharacter, TextJustifyDistribute:
+						// TODO: Inter-character justification requires:
+						// 1. Adding CharacterAdjustment field to TextLine
+						// 2. Updating renderers to apply spacing between characters
+						// For now, fall back to inter-word
+						line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
+						line.Width = availableWidth
+					}
 				}
-				// Justified text starts at indent position (like left-align)
 				line.OffsetX = indent
 			} else {
-				// Last line or single word: treat as left-aligned
-				line.OffsetX = indent
+				// Last line or single word: use text-align-last
+				lastAlign := resolveTextAlignLast(textAlignLast, align)
+
+				switch lastAlign {
+				case TextAlignLastLeft:
+					line.OffsetX = indent
+				case TextAlignLastRight:
+					line.OffsetX = contentWidth - lineWidth
+					if i == 0 {
+						line.OffsetX -= indent
+					}
+				case TextAlignLastCenter:
+					availableWidth := contentWidth
+					if i == 0 {
+						availableWidth -= indent
+					}
+					line.OffsetX = indent + (availableWidth-lineWidth)/2
+				case TextAlignLastJustify:
+					// Justify even last line
+					if hasMultipleWords {
+						availableWidth := contentWidth
+						if i == 0 && indent != 0 {
+							availableWidth -= indent
+						}
+						extraSpace := availableWidth - lineWidth
+						if extraSpace > 0 {
+							line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
+							line.Width = availableWidth
+						}
+					}
+					line.OffsetX = indent
+				default:
+					line.OffsetX = indent
+				}
 			}
 
 		default:

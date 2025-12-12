@@ -481,6 +481,208 @@ func TestJustifyWithWordSpacing(t *testing.T) {
 	}
 }
 
+func TestTextAlignLastLeft(t *testing.T) {
+	setupFakeMetrics()
+
+	// Justify with explicit left-alignment for last line
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastLeft,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// Last line should be left-aligned (not justified)
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	if lastLine.OffsetX != 0.0 {
+		t.Errorf("Last line should be left-aligned (OffsetX=0), got %.2f", lastLine.OffsetX)
+	}
+
+	// Last line should NOT be justified (width less than contentWidth)
+	if lastLine.Width >= 120.0 {
+		t.Errorf("Last line should not be justified, got width %.2f", lastLine.Width)
+	}
+}
+
+func TestTextAlignLastCenter(t *testing.T) {
+	setupFakeMetrics()
+
+	// Justify with center-alignment for last line
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastCenter,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should be justified
+	firstLine := node.TextLayout.Lines[0]
+	if math.Abs(firstLine.Width-120.0) > 0.1 {
+		t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+	}
+
+	// Last line should be centered (not left-aligned at 0)
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	if lastLine.OffsetX <= 0.1 {
+		t.Errorf("Last line should be centered (OffsetX > 0), got %.2f", lastLine.OffsetX)
+	}
+
+	// Last line should NOT be justified
+	if lastLine.Width >= 120.0 {
+		t.Errorf("Last line should not be justified, got width %.2f", lastLine.Width)
+	}
+}
+
+func TestTextAlignLastJustify(t *testing.T) {
+	setupFakeMetrics()
+
+	// Justify including last line
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastJustify,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// All lines should be justified
+	for i, line := range node.TextLayout.Lines {
+		// Only check lines with multiple words
+		if line.SpaceCount > 0 {
+			if math.Abs(line.Width-120.0) > 0.1 {
+				t.Errorf("Line %d should be justified to 120px, got %.2f", i, line.Width)
+			}
+		}
+	}
+
+	// Last line should also be justified if it has spaces
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	if lastLine.SpaceCount > 0 {
+		if math.Abs(lastLine.Width-120.0) > 0.1 {
+			t.Errorf("Last line should be justified to 120px, got %.2f", lastLine.Width)
+		}
+	}
+}
+
+func TestTextJustifyInterWord(t *testing.T) {
+	setupFakeMetrics()
+
+	// Default justification - expand word spaces only
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyInterWord,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should be justified
+	firstLine := node.TextLayout.Lines[0]
+	if firstLine.SpaceCount > 0 {
+		if math.Abs(firstLine.Width-120.0) > 0.1 {
+			t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+		}
+	}
+}
+
+func TestTextJustifyNone(t *testing.T) {
+	setupFakeMetrics()
+
+	// No justification despite text-align: justify
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyNone,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// Lines should NOT be justified (left-aligned instead)
+	for i, line := range node.TextLayout.Lines {
+		// Lines should not fill the width
+		if line.SpaceCount > 0 && math.Abs(line.Width-120.0) < 0.1 {
+			t.Errorf("Line %d should not be justified with text-justify: none, but got width %.2f", i, line.Width)
+		}
+	}
+}
+
+func TestTextJustifyAuto(t *testing.T) {
+	setupFakeMetrics()
+
+	// Auto should resolve to inter-word
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyAuto, // Should behave like inter-word
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should be justified
+	firstLine := node.TextLayout.Lines[0]
+	if firstLine.SpaceCount > 0 {
+		if math.Abs(firstLine.Width-120.0) > 0.1 {
+			t.Errorf("First line should be justified with auto (inter-word), got %.2f", firstLine.Width)
+		}
+	}
+}
+
 // TestTextAlignDefault tests that default resolves to left in LTR
 func TestTextAlignDefault(t *testing.T) {
 	setupFakeMetrics()
@@ -593,6 +795,228 @@ func TestWhiteSpacePre(t *testing.T) {
 	// Should have multiple lines due to newlines
 	if len(node.TextLayout.Lines) < 2 {
 		t.Errorf("Pre with newlines should produce multiple lines, got %d", len(node.TextLayout.Lines))
+	}
+}
+
+func TestWhiteSpacePreWrap(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test that spaces are preserved and wrapping occurs
+	text := "Hello    world test"
+	node := Text(text, Style{
+		Width: 60, // Narrow width to force wrapping
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(60, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-wrap should preserve spaces but allow wrapping
+	// With narrow width, should wrap into multiple lines
+	if len(node.TextLayout.Lines) < 2 {
+		t.Errorf("Pre-wrap with narrow width should wrap, got %d lines", len(node.TextLayout.Lines))
+	}
+
+	// Check that spaces are preserved in the text
+	// Count total spaces across all boxes
+	totalSpaces := 0
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			for _, r := range box.Text {
+				if r == ' ' {
+					totalSpaces++
+				}
+			}
+		}
+	}
+	// Original text "Hello    world test" has 5 spaces total (4 between Hello and world, 1 between world and test)
+	if totalSpaces < 5 {
+		t.Errorf("Pre-wrap should preserve all spaces, expected at least 5 spaces, got %d", totalSpaces)
+	}
+}
+
+func TestWhiteSpacePreWrapNewlines(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test that newlines create explicit breaks
+	text := "Line1\nLine2\nLine3"
+	node := Text(text, Style{
+		Width: 200, // Wide enough to fit each line
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-wrap should create line breaks at newlines
+	if len(node.TextLayout.Lines) != 3 {
+		t.Errorf("Pre-wrap with 2 newlines should create 3 lines, got %d", len(node.TextLayout.Lines))
+	}
+}
+
+func TestWhiteSpacePreLine(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test that spaces collapse but newlines preserved
+	text := "Hello    world\nTest    line"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-line should preserve newlines (2 lines)
+	if len(node.TextLayout.Lines) != 2 {
+		t.Errorf("Pre-line should preserve newline, got %d lines", len(node.TextLayout.Lines))
+	}
+
+	// Check that multiple spaces are collapsed
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "    ") {
+				t.Error("Pre-line should collapse multiple spaces")
+			}
+		}
+	}
+}
+
+func TestWhiteSpacePreLineWrapping(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test wrapping with pre-line
+	text := "This is a very long line that should wrap\nShort line"
+	node := Text(text, Style{
+		Width: 60, // Narrow width to force wrapping
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+
+	constraints := Loose(60, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-line should wrap long lines and preserve newlines
+	// First segment wraps into multiple lines, second is one line
+	if len(node.TextLayout.Lines) < 3 {
+		t.Errorf("Pre-line should wrap long line and preserve newline, got %d lines", len(node.TextLayout.Lines))
+	}
+}
+
+func TestOverflowWrapBreakWord(t *testing.T) {
+	setupFakeMetrics()
+
+	// Very long word should break with overflow-wrap: break-word
+	text := "supercalifragilisticexpialidocious"
+	node := Text(text, Style{
+		Width: 60, // Narrow width, word is ~280px (35 chars * 8px)
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			OverflowWrap: OverflowWrapBreakWord,
+		},
+	})
+
+	constraints := Loose(60, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Long word should break into multiple lines
+	if len(node.TextLayout.Lines) < 5 {
+		t.Errorf("Long word with overflow-wrap: break-word should break into multiple lines, got %d", len(node.TextLayout.Lines))
+	}
+
+	// Each piece should fit within the width (except possibly last)
+	for i, line := range node.TextLayout.Lines {
+		if i < len(node.TextLayout.Lines)-1 && line.Width > 60.0 {
+			t.Errorf("Line %d should fit within 60px, got %.2f", i, line.Width)
+		}
+	}
+}
+
+func TestWordBreakBreakAll(t *testing.T) {
+	setupFakeMetrics()
+
+	// Break between any characters with word-break: break-all
+	text := "verylongword"
+	node := Text(text, Style{
+		Width: 50,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			WordBreak: WordBreakBreakAll,
+		},
+	})
+
+	constraints := Loose(50, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Word should break into multiple lines
+	if len(node.TextLayout.Lines) < 2 {
+		t.Errorf("Long word with word-break: break-all should break, got %d lines", len(node.TextLayout.Lines))
+	}
+}
+
+func TestOverflowWrapNormal(t *testing.T) {
+	setupFakeMetrics()
+
+	// Long word overflows without breaking (normal behavior)
+	text := "verylongwordthatdoesnotfit"
+	node := Text(text, Style{
+		Width: 50,
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			OverflowWrap: OverflowWrapNormal, // Default
+		},
+	})
+
+	constraints := Loose(50, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Word should remain on single line (overflowing)
+	if len(node.TextLayout.Lines) != 1 {
+		t.Errorf("Long word with overflow-wrap: normal should stay on one line, got %d lines", len(node.TextLayout.Lines))
+	}
+
+	// Line width should exceed container width (overflow)
+	if node.TextLayout.Lines[0].Width <= 50.0 {
+		t.Errorf("Line should overflow (width > 50), got %.2f", node.TextLayout.Lines[0].Width)
 	}
 }
 

@@ -317,6 +317,30 @@ const (
 	TextAlignJustify // Stretches text to fill the line width (§7.1.1)
 )
 
+// TextAlignLast controls alignment of the last line in a block
+// CSS Text Module Level 3 §7.2.2: https://www.w3.org/TR/css-text-3/#text-align-last-property
+type TextAlignLast int
+
+const (
+	TextAlignLastAuto TextAlignLast = iota // Follow text-align (but not justify)
+	TextAlignLastLeft
+	TextAlignLastRight
+	TextAlignLastCenter
+	TextAlignLastJustify // Also justify the last line
+)
+
+// TextJustify controls the justification algorithm
+// CSS Text Module Level 3 §7.3: https://www.w3.org/TR/css-text-3/#text-justify-property
+type TextJustify int
+
+const (
+	TextJustifyAuto TextJustify = iota // Browser chooses (we use inter-word)
+	TextJustifyInterWord               // Expand spaces between words only
+	TextJustifyInterCharacter          // Expand spaces between characters
+	TextJustifyDistribute              // Like inter-character but optimized for CJK
+	TextJustifyNone                    // Disable justification
+)
+
 // WhiteSpace controls how whitespace and line breaks are handled.
 // Based on CSS Text Module Level 3 §3.1: https://www.w3.org/TR/css-text-3/#white-space-property
 type WhiteSpace int
@@ -325,8 +349,28 @@ const (
 	WhiteSpaceNormal WhiteSpace = iota // CSS default (zero value)
 	WhiteSpaceNowrap
 	WhiteSpacePre
-	// WhiteSpacePreWrap deferred
-	// WhiteSpacePreLine deferred
+	WhiteSpacePreWrap // Preserve whitespace, allow wrapping
+	WhiteSpacePreLine // Collapse whitespace, preserve newlines, allow wrapping
+)
+
+// OverflowWrap controls breaking of long words
+// CSS Text Module Level 3 §5.3: https://www.w3.org/TR/css-text-3/#overflow-wrap-property
+type OverflowWrap int
+
+const (
+	OverflowWrapNormal OverflowWrap = iota // Break only at allowed break points
+	OverflowWrapBreakWord                  // Break anywhere if word would overflow
+	OverflowWrapAnywhere                   // Like break-word but affects intrinsic sizing
+)
+
+// WordBreak controls word breaking behavior
+// CSS Text Module Level 3 §5.4: https://www.w3.org/TR/css-text-3/#word-break-property
+type WordBreak int
+
+const (
+	WordBreakNormal WordBreak = iota // Break at word boundaries (default)
+	WordBreakBreakAll                // Break between any characters
+	WordBreakKeepAll                 // Don't break between CJK characters
 )
 
 // Direction controls text direction.
@@ -349,8 +393,10 @@ const (
 // TextStyle contains text-specific style properties.
 // Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
 type TextStyle struct {
-	// Alignment (§7.1)
-	TextAlign TextAlign
+	// Alignment (§7.1, §7.2.2, §7.3)
+	TextAlign     TextAlign
+	TextAlignLast TextAlignLast // Controls alignment of the last line
+	TextJustify   TextJustify   // Controls justification algorithm
 
 	// Spacing (§4.4.1, §5.1, §5.2, §7.2.1)
 	// LineHeight: <=0 = normal (1.2×), 0<x<10 = multiplier, >=10 = absolute px
@@ -360,8 +406,10 @@ type TextStyle struct {
 	LetterSpacing float64 // -1 = normal, otherwise spacing in px (can be negative)
 	TextIndent    float64 // First line indent in px (0 = none, can be negative for hanging indent)
 
-	// Wrapping (§3.1)
-	WhiteSpace WhiteSpace
+	// Wrapping (§3.1, §5.3, §5.4)
+	WhiteSpace   WhiteSpace
+	OverflowWrap OverflowWrap // Controls breaking of long words
+	WordBreak    WordBreak    // Controls word breaking behavior
 
 	// Font (for measurement)
 	FontSize   float64

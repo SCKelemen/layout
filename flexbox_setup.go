@@ -46,10 +46,42 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 	setup.horizontalBorder = node.Style.Border.Left + node.Style.Border.Right
 	setup.verticalBorder = node.Style.Border.Top + node.Style.Border.Bottom
 
-	// If container has explicit width/height, use it to constrain available space
-	// Similar to grid layout
-	// If constraints are zero/unbounded and we have explicit dimensions, use the explicit dimensions
-	if node.Style.Width > 0 {
+	// Check for intrinsic sizing (min-content, max-content, fit-content)
+	// These override auto sizing and explicit dimensions
+	constraintsForIntrinsic := Loose(availableWidth, availableHeight)
+
+	// Handle width intrinsic sizing
+	intrinsicWidth := -1.0
+	if node.Style.Width == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMinContent)
+	} else if node.Style.Width == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMaxContent)
+	} else if node.Style.Width == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeFitContent)
+	}
+
+	// Handle height intrinsic sizing
+	intrinsicHeight := -1.0
+	if node.Style.Height == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMinContent)
+	} else if node.Style.Height == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMaxContent)
+	} else if node.Style.Height == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeFitContent)
+	}
+
+	// Apply intrinsic width if calculated
+	if intrinsicWidth > 0 {
+		totalIntrinsicWidth := intrinsicWidth + setup.horizontalPadding + setup.horizontalBorder
+		if availableWidth >= Unbounded || availableWidth == 0 {
+			availableWidth = totalIntrinsicWidth
+		} else if totalIntrinsicWidth <= availableWidth {
+			availableWidth = totalIntrinsicWidth
+		}
+	} else if node.Style.Width > 0 {
+		// If container has explicit width/height, use it to constrain available space
+		// Similar to grid layout
+		// If constraints are zero/unbounded and we have explicit dimensions, use the explicit dimensions
 		// Only use explicit width if it's > 0 (not auto/unspecified)
 		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, true)
 		totalSpecifiedWidth := specifiedWidthContent + setup.horizontalPadding + setup.horizontalBorder
@@ -60,7 +92,16 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 			availableWidth = totalSpecifiedWidth
 		}
 	}
-	if node.Style.Height > 0 {
+
+	// Apply intrinsic height if calculated
+	if intrinsicHeight > 0 {
+		totalIntrinsicHeight := intrinsicHeight + setup.verticalPadding + setup.verticalBorder
+		if availableHeight >= Unbounded || availableHeight == 0 {
+			availableHeight = totalIntrinsicHeight
+		} else if totalIntrinsicHeight <= availableHeight {
+			availableHeight = totalIntrinsicHeight
+		}
+	} else if node.Style.Height > 0 {
 		// Only use explicit height if it's > 0 (not auto/unspecified)
 		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, false)
 		totalSpecifiedHeight := specifiedHeightContent + setup.verticalPadding + setup.verticalBorder

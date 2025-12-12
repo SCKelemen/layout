@@ -186,7 +186,13 @@ func calculateFlexMinContentWidth(node *Node, constraints Constraints) float64 {
 			if child.Style.Display == DisplayNone {
 				continue
 			}
-			childWidth := CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent)
+			// If child has explicit width, use it; otherwise calculate intrinsically
+			childWidth := 0.0
+			if child.Style.Width > 0 {
+				childWidth = child.Style.Width
+			} else {
+				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent)
+			}
 			childWidth += child.Style.Margin.Left + child.Style.Margin.Right
 			totalWidth += childWidth
 		}
@@ -209,7 +215,13 @@ func calculateFlexMinContentWidth(node *Node, constraints Constraints) float64 {
 			if child.Style.Display == DisplayNone {
 				continue
 			}
-			childWidth := CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent)
+			// If child has explicit width, use it; otherwise calculate intrinsically
+			childWidth := 0.0
+			if child.Style.Width > 0 {
+				childWidth = child.Style.Width
+			} else {
+				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent)
+			}
 			childWidth += child.Style.Margin.Left + child.Style.Margin.Right
 			if childWidth > maxWidth {
 				maxWidth = childWidth
@@ -232,7 +244,13 @@ func calculateFlexMaxContentWidth(node *Node, constraints Constraints) float64 {
 			if child.Style.Display == DisplayNone {
 				continue
 			}
-			childWidth := CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent)
+			// If child has explicit width, use it; otherwise calculate intrinsically
+			childWidth := 0.0
+			if child.Style.Width > 0 {
+				childWidth = child.Style.Width
+			} else {
+				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent)
+			}
 			childWidth += child.Style.Margin.Left + child.Style.Margin.Right
 			totalWidth += childWidth
 		}
@@ -255,7 +273,13 @@ func calculateFlexMaxContentWidth(node *Node, constraints Constraints) float64 {
 			if child.Style.Display == DisplayNone {
 				continue
 			}
-			childWidth := CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent)
+			// If child has explicit width, use it; otherwise calculate intrinsically
+			childWidth := 0.0
+			if child.Style.Width > 0 {
+				childWidth = child.Style.Width
+			} else {
+				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent)
+			}
 			childWidth += child.Style.Margin.Left + child.Style.Margin.Right
 			if childWidth > maxWidth {
 				maxWidth = childWidth

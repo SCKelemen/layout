@@ -2269,3 +2269,360 @@ func TestCombinedTextAlignLastAndJustify(t *testing.T) {
 		t.Errorf("Last line should be right-aligned at X=%.2f, got %.2f", expectedOffsetX, lastLine.OffsetX)
 	}
 }
+
+// TestWhiteSpacePreWrapTabs tests pre-wrap with tab characters
+func TestWhiteSpacePreWrapTabs(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello\tworld\ttest"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Tabs should be preserved
+	foundTab := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "\t") {
+				foundTab = true
+				break
+			}
+		}
+	}
+	if !foundTab {
+		t.Error("Pre-wrap should preserve tab characters")
+	}
+}
+
+// TestWhiteSpacePreWrapLeadingTrailingSpaces tests preservation of leading/trailing spaces
+func TestWhiteSpacePreWrapLeadingTrailingSpaces(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "  Hello world  "
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
+		t.Fatal("TextLayout should have lines")
+	}
+
+	// Leading and trailing spaces should be preserved
+	firstLine := node.TextLayout.Lines[0]
+	if len(firstLine.Boxes) == 0 {
+		t.Fatal("Should have boxes")
+	}
+
+	// Check for spaces in the text
+	allText := ""
+	for _, box := range firstLine.Boxes {
+		allText += box.Text
+	}
+	if !strings.HasPrefix(allText, "  ") || !strings.HasSuffix(allText, "  ") {
+		t.Errorf("Pre-wrap should preserve leading/trailing spaces, got %q", allText)
+	}
+}
+
+// TestWhiteSpacePreLineConsecutiveNewlines tests multiple consecutive newlines
+func TestWhiteSpacePreLineConsecutiveNewlines(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Line1\n\n\nLine2"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-line should preserve all newlines, creating empty lines
+	// "Line1\n\n\nLine2" should create 4 lines (Line1, empty, empty, Line2)
+	if len(node.TextLayout.Lines) != 4 {
+		t.Errorf("Pre-line with 3 newlines should create 4 lines, got %d", len(node.TextLayout.Lines))
+	}
+
+	// Check that middle lines are empty
+	if len(node.TextLayout.Lines) >= 3 {
+		if len(node.TextLayout.Lines[1].Boxes) != 0 {
+			t.Error("Second line should be empty")
+		}
+		if len(node.TextLayout.Lines[2].Boxes) != 0 {
+			t.Error("Third line should be empty")
+		}
+	}
+}
+
+// TestWhiteSpacePreWrapLongUnbreakableWord tests pre-wrap with long word
+func TestWhiteSpacePreWrapLongUnbreakableWord(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test that pre-wrap allows long words to overflow (without overflow-wrap)
+	text := "supercalifragilisticexpialidocious"
+	node := Text(text, Style{
+		Width: 80, // Word is ~280px with fake metrics (35 chars * 8px), much wider than container
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(80, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Without overflow-wrap, the long word should overflow on a single line
+	if len(node.TextLayout.Lines) != 1 {
+		t.Errorf("Pre-wrap without overflow-wrap should keep long word on one line, got %d lines", len(node.TextLayout.Lines))
+	}
+
+	// The line width should exceed the container width (overflow)
+	if len(node.TextLayout.Lines) > 0 {
+		lineWidth := node.TextLayout.Lines[0].Width
+		if lineWidth <= 80.0 {
+			t.Errorf("Long unbreakable word should overflow, but width %.2f <= 80", lineWidth)
+		}
+	}
+}
+
+// TestWhiteSpacePreWrapOnlySpaces tests pre-wrap with text that's only spaces
+func TestWhiteSpacePreWrapOnlySpaces(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "          " // Only spaces
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should preserve all spaces
+	if len(node.TextLayout.Lines) == 0 {
+		t.Error("Pre-wrap with only spaces should still create a line")
+	}
+
+	// Check that spaces are preserved
+	if len(node.TextLayout.Lines) > 0 {
+		totalSpaces := 0
+		for _, box := range node.TextLayout.Lines[0].Boxes {
+			for _, r := range box.Text {
+				if r == ' ' {
+					totalSpaces++
+				}
+			}
+		}
+		if totalSpaces != 10 {
+			t.Errorf("Pre-wrap should preserve all 10 spaces, got %d", totalSpaces)
+		}
+	}
+}
+
+// TestWhiteSpacePreLineMixedContent tests pre-line with tabs and multiple spaces
+func TestWhiteSpacePreLineMixedContent(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello\t\t   world\nTest    line\tmore"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Pre-line should preserve newlines but collapse other whitespace
+	if len(node.TextLayout.Lines) != 2 {
+		t.Errorf("Pre-line should create 2 lines, got %d", len(node.TextLayout.Lines))
+	}
+
+	// Check that tabs and multiple spaces are collapsed
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "\t") {
+				t.Error("Pre-line should collapse tabs to spaces")
+			}
+			if strings.Contains(box.Text, "  ") {
+				t.Error("Pre-line should collapse multiple spaces")
+			}
+		}
+	}
+}
+
+// TestWhiteSpacePreWrapEmptyLines tests pre-wrap with empty lines between content
+func TestWhiteSpacePreWrapEmptyLines(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "First\n\nThird"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should create 3 lines: First, empty, Third
+	if len(node.TextLayout.Lines) != 3 {
+		t.Errorf("Pre-wrap should create 3 lines (including empty), got %d", len(node.TextLayout.Lines))
+	}
+
+	// Check middle line is empty
+	if len(node.TextLayout.Lines) >= 2 {
+		if len(node.TextLayout.Lines[1].Boxes) != 0 {
+			t.Error("Middle line should be empty")
+		}
+	}
+}
+
+// TestWhiteSpacePreLineLeadingTrailingSpaces tests that pre-line trims line spaces
+func TestWhiteSpacePreLineLeadingTrailingSpaces(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "  Hello world  \n  Second line  "
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) != 2 {
+		t.Fatal("TextLayout should have 2 lines")
+	}
+
+	// Pre-line should trim leading/trailing spaces on each line
+	for i, line := range node.TextLayout.Lines {
+		if len(line.Boxes) > 0 {
+			firstBox := line.Boxes[0]
+			lastBox := line.Boxes[len(line.Boxes)-1]
+
+			// Check no leading spaces
+			if strings.HasPrefix(firstBox.Text, " ") {
+				t.Errorf("Line %d should not have leading spaces", i)
+			}
+
+			// Check no trailing spaces
+			if strings.HasSuffix(lastBox.Text, " ") {
+				t.Errorf("Line %d should not have trailing spaces", i)
+			}
+		}
+	}
+}
+
+// TestWhiteSpacePreWrapVsPreLine compares pre-wrap and pre-line behavior
+func TestWhiteSpacePreWrapVsPreLine(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello    world"
+
+	// Test pre-wrap
+	nodePreWrap := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreWrap,
+		},
+	})
+	LayoutText(nodePreWrap, Loose(200, 200))
+
+	// Test pre-line
+	nodePreLine := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpacePreLine,
+		},
+	})
+	LayoutText(nodePreLine, Loose(200, 200))
+
+	// Pre-wrap should preserve multiple spaces
+	preWrapSpaces := 0
+	for _, line := range nodePreWrap.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			for _, r := range box.Text {
+				if r == ' ' {
+					preWrapSpaces++
+				}
+			}
+		}
+	}
+
+	// Pre-line should collapse multiple spaces to one
+	preLineSpaces := 0
+	for _, line := range nodePreLine.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			for _, r := range box.Text {
+				if r == ' ' {
+					preLineSpaces++
+				}
+			}
+		}
+	}
+
+	// Pre-wrap should have more spaces (4) than pre-line (1)
+	if preWrapSpaces <= preLineSpaces {
+		t.Errorf("Pre-wrap should preserve more spaces (%d) than pre-line (%d)",
+			preWrapSpaces, preLineSpaces)
+	}
+	if preWrapSpaces != 4 {
+		t.Errorf("Pre-wrap should preserve 4 spaces, got %d", preWrapSpaces)
+	}
+	if preLineSpaces != 1 {
+		t.Errorf("Pre-line should collapse to 1 space, got %d", preLineSpaces)
+	}
+}

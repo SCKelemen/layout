@@ -314,7 +314,7 @@ const (
 	TextAlignLeft
 	TextAlignRight
 	TextAlignCenter
-	// TextAlignJustify deferred
+	TextAlignJustify // Stretches text to fill the line width (§7.1.1)
 )
 
 // WhiteSpace controls how whitespace and line breaks are handled.
@@ -381,10 +381,13 @@ type TextLayout struct {
 
 // TextLine represents a single line of text with its boxes and positioning.
 type TextLine struct {
-	Boxes   []InlineBox
-	Width   float64
-	OffsetX float64 // X offset for text-align
-	OffsetY float64 // Y position (cumulative)
+	Boxes           []InlineBox
+	Width           float64
+	SpaceCount      int     // Number of inter-word spaces (for justify)
+	SpaceWidth      float64 // Total width of all spaces (for justify)
+	SpaceAdjustment float64 // Extra pixels to add per space (for justify)
+	OffsetX         float64 // X offset for text-align
+	OffsetY         float64 // Y position (cumulative)
 }
 
 // InlineBoxKind represents the type of inline box.

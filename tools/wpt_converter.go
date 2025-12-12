@@ -415,7 +415,12 @@ func generateTextTest(test WPTTest, idx int) string {
 
 	testName := fmt.Sprintf("TestWPT_Text_%d", idx+1)
 	if test.Name != "" {
-		testName = test.Name
+		// Ensure test name starts with "Test"
+		if !strings.HasPrefix(test.Name, "Test") {
+			testName = "Test" + test.Name
+		} else {
+			testName = test.Name
+		}
 	}
 
 	sb.WriteString(fmt.Sprintf("func %s(t *testing.T) {\n", testName))
@@ -495,9 +500,14 @@ func generateTextTest(test WPTTest, idx int) string {
 func generateFlexboxTest(test WPTTest, idx int) string {
 	var sb strings.Builder
 
-	testName := fmt.Sprintf("TestWPT_%d", idx+1)
+	testName := fmt.Sprintf("TestWPT_Flexbox_%d", idx+1)
 	if test.Name != "" {
-		testName = test.Name
+		// Ensure test name starts with "Test"
+		if !strings.HasPrefix(test.Name, "Test") {
+			testName = "Test" + test.Name
+		} else {
+			testName = test.Name
+		}
 	}
 
 	sb.WriteString(fmt.Sprintf("func %s(t *testing.T) {\n", testName))

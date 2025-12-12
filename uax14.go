@@ -315,13 +315,19 @@ func findLineBreakOpportunities(text string) []int {
 				breakPoints = append(breakPoints, bytePos)
 			}
 		case BreakDirect:
-			// Direct break - only add for explicit break characters (hyphens, etc.)
-			// Don't break between regular characters
+			// Direct break - add for explicit break characters and ideographic text
+			// Don't break between regular alphabetic characters (to keep words together)
 			if prevClass == ClassHY || prevClass == ClassCB || prevClass == ClassBA || prevClass == ClassB2 {
+				// Explicit break opportunities (hyphens, soft hyphens, etc.)
 				bytePos := len(string(runes[:i]))
 				breakPoints = append(breakPoints, bytePos)
 			} else if prevClass == ClassSP {
-				// Also break after spaces
+				// Break after spaces (word boundaries)
+				bytePos := len(string(runes[:i]))
+				breakPoints = append(breakPoints, bytePos)
+			} else if prevClass == ClassID || currClass == ClassID {
+				// Allow breaks involving ideographic characters (CJK text)
+				// Per UAX #14, ideographic characters can break between each other
 				bytePos := len(string(runes[:i]))
 				breakPoints = append(breakPoints, bytePos)
 			}

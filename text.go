@@ -23,12 +23,15 @@ type approxMetrics struct{}
 
 func (a *approxMetrics) Measure(text string, style TextStyle) (advance, ascent, descent float64) {
 	// Simple approximation: fixed char width
+	// Count runes (characters), not bytes, to handle Unicode correctly
+	runeCount := len([]rune(text))
 	charWidth := style.FontSize * 0.6 // Rough average
-	advance = float64(len(text)) * charWidth
+	advance = float64(runeCount) * charWidth
 
 	// Add letter spacing (can be positive or negative)
-	if style.LetterSpacing != -1 && len(text) > 0 {
-		advance += float64(len(text)-1) * style.LetterSpacing
+	// Letter spacing applies between characters (not after last one)
+	if style.LetterSpacing != -1 && runeCount > 0 {
+		advance += float64(runeCount-1) * style.LetterSpacing
 	}
 
 	// Line metrics (based on typical font metrics)

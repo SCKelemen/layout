@@ -97,6 +97,14 @@ type Node struct {
 
 	// Children are the child nodes in the layout tree.
 	Children []*Node
+
+	// Text contains text content for text leaf nodes (DisplayInlineText).
+	// Empty string means this is not a text node.
+	Text string
+
+	// TextLayout contains line box information populated by LayoutText.
+	// Used by renderers to position text. Nil for non-text nodes.
+	TextLayout *TextLayout
 }
 
 // Style contains CSS-like layout properties
@@ -158,6 +166,10 @@ type Style struct {
 
 	// Transform (for SVG rendering and visual effects)
 	Transform Transform
+
+	// TextStyle contains text-specific properties (nil for non-text nodes).
+	// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
+	TextStyle *TextStyle
 }
 
 // Spacing represents spacing on all sides
@@ -205,6 +217,7 @@ const (
 	DisplayBlock Display = iota
 	DisplayFlex
 	DisplayGrid
+	DisplayInlineText // Text leaf node
 	DisplayNone
 )
 
@@ -291,6 +304,104 @@ const (
 	PositionFixed
 	PositionSticky
 )
+
+// TextAlign controls horizontal alignment of text within line boxes.
+// Based on CSS Text Module Level 3 §7.1: https://www.w3.org/TR/css-text-3/#text-align-property
+type TextAlign int
+
+const (
+	TextAlignDefault TextAlign = iota // CSS default: 'start' (contextual - left in LTR)
+	TextAlignLeft
+	TextAlignRight
+	TextAlignCenter
+	// TextAlignJustify deferred
+)
+
+// WhiteSpace controls how whitespace and line breaks are handled.
+// Based on CSS Text Module Level 3 §3.1: https://www.w3.org/TR/css-text-3/#white-space-property
+type WhiteSpace int
+
+const (
+	WhiteSpaceNormal WhiteSpace = iota // CSS default (zero value)
+	WhiteSpaceNowrap
+	WhiteSpacePre
+	// WhiteSpacePreWrap deferred
+	// WhiteSpacePreLine deferred
+)
+
+// Direction controls text direction.
+// Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
+type Direction int
+
+const (
+	DirectionLTR Direction = iota // CSS default (zero value)
+	// DirectionRTL deferred
+)
+
+// FontWeight represents font weight (numeric or named).
+type FontWeight int
+
+const (
+	FontWeightNormal FontWeight = 400
+	FontWeightBold   FontWeight = 700
+)
+
+// TextStyle contains text-specific style properties.
+// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
+type TextStyle struct {
+	// Alignment (§7.1)
+	TextAlign TextAlign
+
+	// Spacing (§4.4.1, §5.1, §5.2, §7.2.1)
+	LineHeight    float64 // <=0 = normal (1.2), 0<x<10 = multiplier, >=10 = absolute px
+	WordSpacing   float64 // -1 = normal, otherwise spacing in px
+	LetterSpacing float64 // -1 = normal, otherwise spacing in px
+	TextIndent    float64 // First line indent (0 = none)
+
+	// Wrapping (§3.1)
+	WhiteSpace WhiteSpace
+
+	// Font (for measurement)
+	FontSize   float64
+	FontFamily string
+	FontWeight FontWeight
+
+	// Direction (§2) - LTR only for v1
+	Direction Direction
+}
+
+// TextLayout contains line box information for text nodes.
+// Populated by LayoutText, used by renderers to position text.
+type TextLayout struct {
+	Lines      []TextLine
+	LineHeight float64
+}
+
+// TextLine represents a single line of text with its boxes and positioning.
+type TextLine struct {
+	Boxes   []InlineBox
+	Width   float64
+	OffsetX float64 // X offset for text-align
+	OffsetY float64 // Y position (cumulative)
+}
+
+// InlineBoxKind represents the type of inline box.
+type InlineBoxKind int
+
+const (
+	InlineBoxText InlineBoxKind = iota
+	// InlineBoxInlineNode deferred (for future: spans, inline images)
+)
+
+// InlineBox represents a single inline box (text run or inline element).
+type InlineBox struct {
+	Kind    InlineBoxKind
+	Text    string // for InlineBoxText
+	Node    *Node  // for InlineBoxInlineNode (future)
+	Width   float64
+	Ascent  float64
+	Descent float64
+}
 
 // GridTrack represents a grid track (row or column)
 type GridTrack struct {

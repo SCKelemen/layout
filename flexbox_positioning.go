@@ -76,6 +76,14 @@ func flexboxAlignmentMainAxis(
 		}
 	}
 
+	// Calculate content area start offset (accounting for padding and border)
+	contentAreaStart := 0.0
+	if setup.isRow {
+		contentAreaStart = node.Style.Padding.Left + node.Style.Border.Left
+	} else {
+		contentAreaStart = node.Style.Padding.Top + node.Style.Border.Top
+	}
+
 	// Apply justify-content with gap support
 	// For reverse direction, we need special handling to ensure gaps are correctly positioned
 	// The items array is already reversed, so we position from the start but apply justify-content logic
@@ -92,21 +100,15 @@ func flexboxAlignmentMainAxis(
 			reversedJustify = JustifyContentFlexStart
 		}
 		// Use normal justify logic with reversed semantics
-		justifyContentWithGap(reversedJustify, line, 0, mainSize, setup.isRow, columnGap)
+		justifyContentWithGap(reversedJustify, line, contentAreaStart, mainSize, setup.isRow, columnGap)
 	} else {
-		justifyContentWithGap(node.Style.JustifyContent, line, 0, mainSize, setup.isRow, columnGap)
+		justifyContentWithGap(node.Style.JustifyContent, line, contentAreaStart, mainSize, setup.isRow, columnGap)
 	}
 
 	// Calculate this line's main extent (including margins and gaps)
 	// Note: item.node.Rect.X/Y are absolute positions including padding/border
 	// We need to calculate the extent relative to the content area start
 	lineMainSize := 0.0
-	contentAreaStart := 0.0
-	if setup.isRow {
-		contentAreaStart = node.Style.Padding.Left + node.Style.Border.Left
-	} else {
-		contentAreaStart = node.Style.Padding.Top + node.Style.Border.Top
-	}
 	for _, item := range line {
 		if setup.isRow {
 			itemEnd := item.node.Rect.X + item.node.Rect.Width + item.mainMarginEnd
@@ -125,6 +127,8 @@ func flexboxAlignmentMainAxis(
 		}
 	}
 
+	// DEBUG
+	// fmt.Printf("DEBUG lineMainSize: %.2f, contentAreaStart: %.2f\n", lineMainSize, contentAreaStart)
 	return lineMainSize
 }
 

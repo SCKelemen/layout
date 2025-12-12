@@ -85,8 +85,23 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	}
 
 	// §10.4: Aligning with align-content - distribute lines along cross axis
+	// For wrap-reverse, swap flex-start/flex-end since cross-axis direction is reversed
+	alignContent := node.Style.AlignContent
+	isWrapReverse := node.Style.FlexWrap == FlexWrapWrapReverse
+	if isWrapReverse {
+		if alignContent == AlignContentFlexStart {
+			alignContent = AlignContentFlexEnd
+		} else if alignContent == AlignContentFlexEnd {
+			alignContent = AlignContentFlexStart
+		}
+	}
+
+	// Temporarily modify node's AlignContent for the calculation
+	originalAlignContent := node.Style.AlignContent
+	node.Style.AlignContent = alignContent
 	lineOffsets, totalCrossSize := flexboxAlignWithAlignContent(
 		node, lines, lineCrossSizes, setup.crossSize, totalCrossSize, rowGap, setup.hasExplicitCrossSize)
+	node.Style.AlignContent = originalAlignContent
 
 	// §9.2: Line Length Determination - Handle flex-wrap: wrap-reverse
 	// For wrap-reverse, we reverse line order and mirror offsets (no need for originalLineCrossSizes)
@@ -130,16 +145,24 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 	// Step 7: Calculate container size
 	// Main dimension = max line main extent (not sum)
-	// Cross dimension = sum of line cross sizes
+	// Cross dimension = use explicit cross size if available, otherwise sum of line cross sizes
 	var containerSize Size
 	if setup.isRow {
+		crossDimension := totalCrossSize
+		if setup.hasExplicitCrossSize {
+			crossDimension = setup.crossSize
+		}
 		containerSize = Size{
 			Width:  maxLineMainSize + setup.horizontalPadding + setup.horizontalBorder,
-			Height: totalCrossSize + setup.verticalPadding + setup.verticalBorder,
+			Height: crossDimension + setup.verticalPadding + setup.verticalBorder,
 		}
 	} else {
+		crossDimension := totalCrossSize
+		if setup.hasExplicitCrossSize {
+			crossDimension = setup.crossSize
+		}
 		containerSize = Size{
-			Width:  totalCrossSize + setup.horizontalPadding + setup.horizontalBorder,
+			Width:  crossDimension + setup.horizontalPadding + setup.horizontalBorder,
 			Height: maxLineMainSize + setup.verticalPadding + setup.verticalBorder,
 		}
 	}

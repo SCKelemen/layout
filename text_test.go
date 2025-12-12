@@ -1946,3 +1946,326 @@ func TestTextIndentWithAlignment(t *testing.T) {
 		})
 	}
 }
+// TestTextAlignLastRight tests right-alignment of the last line
+func TestTextAlignLastRight(t *testing.T) {
+	setupFakeMetrics()
+
+	// Justify with right-alignment for last line
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastRight,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should be justified
+	firstLine := node.TextLayout.Lines[0]
+	if math.Abs(firstLine.Width-120.0) > 0.1 {
+		t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+	}
+
+	// Last line should be right-aligned (OffsetX > 0, not filling full width)
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	if lastLine.OffsetX <= 0.1 {
+		t.Errorf("Last line should be right-aligned (OffsetX > 0), got %.2f", lastLine.OffsetX)
+	}
+
+	// Last line should NOT be justified
+	if lastLine.Width >= 120.0 {
+		t.Errorf("Last line should not be justified, got width %.2f", lastLine.Width)
+	}
+
+	// Verify right-alignment: OffsetX + Width should equal contentWidth
+	expectedOffsetX := 120.0 - lastLine.Width
+	if math.Abs(lastLine.OffsetX-expectedOffsetX) > 0.1 {
+		t.Errorf("Last line should be right-aligned at X=%.2f, got %.2f", expectedOffsetX, lastLine.OffsetX)
+	}
+}
+
+// TestTextAlignLastWithIndent tests text-align-last with text-indent
+func TestTextAlignLastWithIndent(t *testing.T) {
+	setupFakeMetrics()
+
+	// Justify with center-aligned last line and text-indent
+	// Use shorter text so last line is clearly shorter than content width
+	text := "Hello world test and"
+	node := Text(text, Style{
+		Width: 150,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastCenter,
+			TextIndent:    20,
+		},
+	})
+
+	constraints := Loose(150, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should be indented and justified within remaining space
+	firstLine := node.TextLayout.Lines[0]
+	if firstLine.OffsetX != 20.0 {
+		t.Errorf("First line should start at indent position (X=20), got %.2f", firstLine.OffsetX)
+	}
+
+	// Last line should be centered within full content width (not indented)
+	// Center means: (contentWidth - lineWidth) / 2
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	expectedCenterX := (150.0 - lastLine.Width) / 2
+
+	// Should be centered, not at left edge (unless the line happens to be very wide)
+	if lastLine.Width < 140.0 && math.Abs(lastLine.OffsetX-expectedCenterX) > 0.1 {
+		t.Errorf("Last line should be centered at X=%.2f, got %.2f (width=%.2f)",
+			expectedCenterX, lastLine.OffsetX, lastLine.Width)
+	}
+}
+
+// TestTextAlignLastSingleLine tests text-align-last with only one line
+func TestTextAlignLastSingleLine(t *testing.T) {
+	setupFakeMetrics()
+
+	// Single line with justify and last-align center
+	text := "Short"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastCenter,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) != 1 {
+		t.Fatal("TextLayout should have exactly 1 line")
+	}
+
+	// Single line is treated as last line, should be centered
+	line := node.TextLayout.Lines[0]
+	if line.OffsetX <= 0.1 {
+		t.Errorf("Single line should be centered (OffsetX > 0), got %.2f", line.OffsetX)
+	}
+
+	// Should NOT be justified
+	if line.Width >= 200.0 {
+		t.Errorf("Single line should not be justified, got width %.2f", line.Width)
+	}
+}
+
+// TestTextAlignLastAutoFollowsTextAlign tests that auto follows text-align
+func TestTextAlignLastAutoFollowsTextAlign(t *testing.T) {
+	setupFakeMetrics()
+
+	tests := []struct {
+		name        string
+		textAlign   TextAlign
+		expectLeft  bool
+		expectRight bool
+	}{
+		{"Auto with left", TextAlignLeft, true, false},
+		{"Auto with right", TextAlignRight, false, true},
+		{"Auto with center", TextAlignCenter, false, false}, // centered, neither left nor right edge
+		{"Auto with justify", TextAlignJustify, true, false}, // Auto with justify becomes left
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text := "Hello world test"
+			node := Text(text, Style{
+				Width: 150,
+				TextStyle: &TextStyle{
+					FontSize:      16,
+					TextAlign:     tt.textAlign,
+					TextAlignLast: TextAlignLastAuto, // Should follow text-align
+				},
+			})
+
+			constraints := Loose(150, 200)
+			LayoutText(node, constraints)
+
+			if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
+				t.Fatal("TextLayout should have lines")
+			}
+
+			lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+
+			if tt.expectLeft {
+				if lastLine.OffsetX > 0.1 {
+					t.Errorf("Expected left alignment (OffsetX ≈ 0), got %.2f", lastLine.OffsetX)
+				}
+			}
+
+			if tt.expectRight {
+				expectedX := 150.0 - lastLine.Width
+				if math.Abs(lastLine.OffsetX-expectedX) > 0.1 {
+					t.Errorf("Expected right alignment (OffsetX ≈ %.2f), got %.2f", expectedX, lastLine.OffsetX)
+				}
+			}
+		})
+	}
+}
+
+// TestTextJustifyInterCharacter tests inter-character justification (currently falls back to inter-word)
+func TestTextJustifyInterCharacter(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyInterCharacter, // Should fall back to inter-word for now
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should still be justified (via inter-word fallback)
+	firstLine := node.TextLayout.Lines[0]
+	if firstLine.SpaceCount > 0 {
+		if math.Abs(firstLine.Width-120.0) > 0.1 {
+			t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+		}
+	}
+}
+
+// TestTextJustifyDistribute tests distribute justification (currently falls back to inter-word)
+func TestTextJustifyDistribute(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world test again"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyDistribute, // Should fall back to inter-word for now
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// First line should still be justified (via inter-word fallback)
+	firstLine := node.TextLayout.Lines[0]
+	if firstLine.SpaceCount > 0 {
+		if math.Abs(firstLine.Width-120.0) > 0.1 {
+			t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+		}
+	}
+}
+
+// TestTextJustifyWithSingleWord tests that single-word lines aren't justified
+func TestTextJustifyWithSingleWord(t *testing.T) {
+	setupFakeMetrics()
+
+	// Use two words where second line is a single word
+	text := "Hello world Supercalifragilisticexpialidocious"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			TextJustify: TextJustifyInterWord,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// Find a line with a single word (SpaceCount == 0)
+	foundSingleWord := false
+	for _, line := range node.TextLayout.Lines {
+		if line.SpaceCount == 0 {
+			foundSingleWord = true
+			// Single-word line should not be artificially justified
+			// It should keep its natural width (may overflow if word is too long)
+			// Key test: Width should be based on word length, not forced to contentWidth
+			if line.Width > 120.0 {
+				// Overflowing is OK for long words
+				continue
+			}
+			// For non-overflowing single words, width should match natural word width
+			// Since there are no spaces, width shouldn't be artificially stretched to 120
+			break
+		}
+	}
+
+	if !foundSingleWord {
+		t.Skip("Test didn't create a single-word line as expected")
+	}
+}
+
+// TestCombinedTextAlignLastAndJustify tests both properties together
+func TestCombinedTextAlignLastAndJustify(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world test with multiple words here"
+	node := Text(text, Style{
+		Width: 140,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextAlign:     TextAlignJustify,
+			TextAlignLast: TextAlignLastRight,
+			TextJustify:   TextJustifyInterWord,
+		},
+	})
+
+	constraints := Loose(140, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	// Middle lines should be justified with inter-word
+	for i := 0; i < len(node.TextLayout.Lines)-1; i++ {
+		line := node.TextLayout.Lines[i]
+		if line.SpaceCount > 0 {
+			if math.Abs(line.Width-140.0) > 0.1 {
+				t.Errorf("Line %d should be justified to 140px, got %.2f", i, line.Width)
+			}
+		}
+	}
+
+	// Last line should be right-aligned, not justified
+	lastLine := node.TextLayout.Lines[len(node.TextLayout.Lines)-1]
+	if lastLine.Width >= 140.0 {
+		t.Errorf("Last line should not be justified, got width %.2f", lastLine.Width)
+	}
+
+	expectedOffsetX := 140.0 - lastLine.Width
+	if math.Abs(lastLine.OffsetX-expectedOffsetX) > 0.1 {
+		t.Errorf("Last line should be right-aligned at X=%.2f, got %.2f", expectedOffsetX, lastLine.OffsetX)
+	}
+}

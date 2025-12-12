@@ -184,6 +184,7 @@ layout.Layout(root, constraints)
 - [Common Gotchas](docs/gotchas.md) - Common pitfalls and how to avoid them ⚠️
 - [SVG Rendering](docs/svg-rendering.md) - Rendering layouts to SVG
 - [Limitations](docs/limitations.md) - Known limitations and design decisions
+- [WPT Sync](docs/wpt-sync.md) - Web Platform Tests integration and tracking
 
 ## Learning Resources
 
@@ -205,6 +206,19 @@ This library implements CSS specifications. For deeper understanding of layout c
 - **PDF Generation**: Layout content for PDFs
 - **Game UIs**: Layout game interface elements
 - **Offscreen Rendering**: Layout for image generation
+
+## Testing & Quality
+
+- **321/321 tests passing (100%)** 🎉
+- Comprehensive CSS spec compliance
+- [Spec Compliance Status](SPEC_COMPLIANCE_STATUS.md)
+- [Specification Gaps](SPECIFICATION_GAPS.md)
+- Weekly [Web Platform Tests sync](.github/workflows/wpt-sync.yml) via CI
+
+Run tests:
+```bash
+go test -v ./...
+```
 
 ## License
 

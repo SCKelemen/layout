@@ -2,6 +2,7 @@ package layout
 
 import (
 	"testing"
+	"time"
 )
 
 // =============================================================================
@@ -1097,6 +1098,513 @@ func BenchmarkFindAll(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = root.FindAll(func(n *Node) bool {
 			return n.Style.Display == DisplayBlock
+		})
+	}
+}
+
+// =============================================================================
+// Phase 4: Transformation Tests
+// =============================================================================
+
+func TestTransform(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("transform flex containers", func(t *testing.T) {
+		doubled := root.Transform(
+			func(n *Node) bool {
+				return n.Style.Display == DisplayFlex && n.Style.Width > 0
+			},
+			func(n *Node) *Node {
+				return n.WithWidth(n.Style.Width * 2)
+			},
+		)
+
+		// child1 is flex with width 100 -> should be 200
+		if doubled.Children[0].Style.Width != 200 {
+			t.Errorf("Expected child1 width 200, got %.2f", doubled.Children[0].Style.Width)
+		}
+
+		// child3 is flex with width 150 -> should be 300
+		if doubled.Children[2].Style.Width != 300 {
+			t.Errorf("Expected child3 width 300, got %.2f", doubled.Children[2].Style.Width)
+		}
+
+		// child2 is grid, not flex -> should be unchanged
+		if doubled.Children[1].Style.Width != 200 {
+			t.Errorf("Expected child2 (grid) unchanged at 200, got %.2f", doubled.Children[1].Style.Width)
+		}
+	})
+
+	t.Run("transform with no matches", func(t *testing.T) {
+		transformed := root.Transform(
+			func(n *Node) bool {
+				return n.Style.Width > 1000 // No nodes match
+			},
+			func(n *Node) *Node {
+				return n.WithWidth(999)
+			},
+		)
+
+		// All widths should be unchanged
+		if transformed.Children[0].Style.Width != 100 {
+			t.Errorf("Should be unchanged")
+		}
+	})
+
+	t.Run("nil predicate returns original", func(t *testing.T) {
+		result := root.Transform(nil, func(n *Node) *Node {
+			return n.WithWidth(999)
+		})
+
+		if result != root {
+			t.Errorf("Should return original when predicate is nil")
+		}
+	})
+
+	t.Run("nil transform returns original", func(t *testing.T) {
+		result := root.Transform(func(n *Node) bool { return true }, nil)
+
+		if result != root {
+			t.Errorf("Should return original when transform is nil")
+		}
+	})
+}
+
+func TestTransformOriginalUnchanged(t *testing.T) {
+	original := createTestTree()
+	originalChildWidth := original.Children[0].Style.Width
+
+	_ = original.Transform(
+		func(n *Node) bool {
+			return n.Style.Display == DisplayFlex
+		},
+		func(n *Node) *Node {
+			return n.WithWidth(n.Style.Width * 10)
+		},
+	)
+
+	// Original should be unchanged
+	if original.Children[0].Style.Width != originalChildWidth {
+		t.Errorf("Original was modified by Transform")
+	}
+}
+
+func TestMap(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("scale all nodes", func(t *testing.T) {
+		scaled := root.Map(func(n *Node) *Node {
+			return n.
+				WithWidth(n.Style.Width * 1.5).
+				WithHeight(n.Style.Height * 1.5)
+		})
+
+		// child1 width 100 -> 150
+		if scaled.Children[0].Style.Width != 150 {
+			t.Errorf("Expected child1 width 150, got %.2f", scaled.Children[0].Style.Width)
+		}
+
+		// child2 width 200 -> 300
+		if scaled.Children[1].Style.Width != 300 {
+			t.Errorf("Expected child2 width 300, got %.2f", scaled.Children[1].Style.Width)
+		}
+
+		// child3 width 150 -> 225
+		if scaled.Children[2].Style.Width != 225 {
+			t.Errorf("Expected child3 width 225, got %.2f", scaled.Children[2].Style.Width)
+		}
+	})
+
+	t.Run("add padding to all nodes", func(t *testing.T) {
+		padded := root.Map(func(n *Node) *Node {
+			return n.WithPadding(10)
+		})
+
+		// All nodes should have padding
+		if padded.Style.Padding.Top != 10 {
+			t.Errorf("Root should have padding")
+		}
+		if padded.Children[0].Style.Padding.Top != 10 {
+			t.Errorf("Child should have padding")
+		}
+	})
+
+	t.Run("nil transform returns original", func(t *testing.T) {
+		result := root.Map(nil)
+
+		if result != root {
+			t.Errorf("Should return original when transform is nil")
+		}
+	})
+}
+
+func TestMapIdentity(t *testing.T) {
+	root := createTestTree()
+
+	identity := root.Map(func(n *Node) *Node {
+		return n.Clone()
+	})
+
+	// Structure should be identical
+	if len(identity.Children) != len(root.Children) {
+		t.Errorf("Identity map should preserve structure")
+	}
+
+	// Values should be the same
+	if identity.Children[0].Style.Width != root.Children[0].Style.Width {
+		t.Errorf("Identity map should preserve values")
+	}
+}
+
+func TestMapOriginalUnchanged(t *testing.T) {
+	original := createTestTree()
+	originalWidth := original.Children[0].Style.Width
+
+	_ = original.Map(func(n *Node) *Node {
+		return n.WithWidth(n.Style.Width * 100)
+	})
+
+	// Original should be unchanged
+	if original.Children[0].Style.Width != originalWidth {
+		t.Errorf("Original was modified by Map")
+	}
+}
+
+func TestFilter(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("keep only flex containers", func(t *testing.T) {
+		flexOnly := root.Filter(func(n *Node) bool {
+			return n.Style.Display == DisplayFlex
+		})
+
+		// Should have 2 children (child1 and child3, both flex)
+		if len(flexOnly.Children) != 2 {
+			t.Errorf("Expected 2 flex children, got %d", len(flexOnly.Children))
+		}
+
+		// Both should be flex
+		if flexOnly.Children[0].Style.Display != DisplayFlex {
+			t.Errorf("First child should be flex")
+		}
+		if flexOnly.Children[1].Style.Display != DisplayFlex {
+			t.Errorf("Second child should be flex")
+		}
+
+		// child1 should still have its grandchildren (entire subtree kept)
+		if len(flexOnly.Children[0].Children) != 2 {
+			t.Errorf("Filtered child should keep its descendants")
+		}
+	})
+
+	t.Run("filter all nodes", func(t *testing.T) {
+		none := root.Filter(func(n *Node) bool {
+			return n.Style.Width > 1000 // No children match
+		})
+
+		// Should have no children
+		if len(none.Children) != 0 {
+			t.Errorf("Expected no children, got %d", len(none.Children))
+		}
+	})
+
+	t.Run("keep all nodes", func(t *testing.T) {
+		all := root.Filter(func(n *Node) bool {
+			return true
+		})
+
+		// Should have all 3 children
+		if len(all.Children) != 3 {
+			t.Errorf("Expected 3 children, got %d", len(all.Children))
+		}
+	})
+
+	t.Run("nil predicate returns original", func(t *testing.T) {
+		result := root.Filter(nil)
+
+		if result != root {
+			t.Errorf("Should return original when predicate is nil")
+		}
+	})
+}
+
+func TestFilterDeep(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("keep only nodes with text", func(t *testing.T) {
+		textOnly := root.FilterDeep(func(n *Node) bool {
+			return n.Text != ""
+		})
+
+		// FilterDeep removes all nodes without text at every level
+		// child1 has no text (grandchild1 does, but child1 doesn't), so child1 is removed
+		// child3 has text="text2", so it should be kept
+
+		// Should have 1 child (child3 with text)
+		if len(textOnly.Children) != 1 {
+			t.Errorf("Expected 1 child with text, got %d", len(textOnly.Children))
+		}
+
+		if len(textOnly.Children) > 0 && textOnly.Children[0].Text != "text2" {
+			t.Errorf("Expected child with text2, got %q", textOnly.Children[0].Text)
+		}
+	})
+
+	t.Run("remove hidden nodes at all levels", func(t *testing.T) {
+		// Create tree with hidden nodes
+		hidden := &Node{
+			Style: Style{Display: DisplayBlock},
+			Children: []*Node{
+				{Style: Style{Display: DisplayNone}},
+				{Style: Style{Display: DisplayBlock}},
+				{
+					Style: Style{Display: DisplayBlock},
+					Children: []*Node{
+						{Style: Style{Display: DisplayNone}},
+						{Style: Style{Display: DisplayBlock}},
+					},
+				},
+			},
+		}
+
+		visible := hidden.FilterDeep(func(n *Node) bool {
+			return n.Style.Display != DisplayNone
+		})
+
+		// Should have 2 children (second and third, not first)
+		if len(visible.Children) != 2 {
+			t.Errorf("Expected 2 visible children, got %d", len(visible.Children))
+		}
+
+		// Third child should have only 1 child (second, not first)
+		if len(visible.Children[1].Children) != 1 {
+			t.Errorf("Expected nested child to be filtered, got %d children", len(visible.Children[1].Children))
+		}
+	})
+}
+
+func TestFilterOriginalUnchanged(t *testing.T) {
+	original := createTestTree()
+	originalChildCount := len(original.Children)
+
+	_ = original.Filter(func(n *Node) bool {
+		return n.Style.Display == DisplayFlex
+	})
+
+	// Original should be unchanged
+	if len(original.Children) != originalChildCount {
+		t.Errorf("Original was modified by Filter")
+	}
+}
+
+func TestFold(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("sum all widths", func(t *testing.T) {
+		totalWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
+			return acc.(float64) + n.Style.Width
+		}).(float64)
+
+		// root(0) + child1(100) + grandchild1(50) + grandchild2(60) + child2(200) + child3(150)
+		expected := 0 + 100 + 50 + 60 + 200 + 150
+		if totalWidth != float64(expected) {
+			t.Errorf("Expected total width %d, got %.2f", expected, totalWidth)
+		}
+	})
+
+	t.Run("count all nodes", func(t *testing.T) {
+		count := root.Fold(0, func(acc interface{}, n *Node) interface{} {
+			return acc.(int) + 1
+		}).(int)
+
+		// root + 3 children + 2 grandchildren = 6
+		if count != 6 {
+			t.Errorf("Expected 6 nodes, got %d", count)
+		}
+	})
+
+	t.Run("collect all displays", func(t *testing.T) {
+		displays := root.Fold([]Display{}, func(acc interface{}, n *Node) interface{} {
+			list := acc.([]Display)
+			return append(list, n.Style.Display)
+		}).([]Display)
+
+		// Should have 6 display values
+		if len(displays) != 6 {
+			t.Errorf("Expected 6 displays, got %d", len(displays))
+		}
+	})
+
+	t.Run("find max width", func(t *testing.T) {
+		maxWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
+			current := acc.(float64)
+			if n.Style.Width > current {
+				return n.Style.Width
+			}
+			return current
+		}).(float64)
+
+		// child2 has width 200 (largest)
+		if maxWidth != 200 {
+			t.Errorf("Expected max width 200, got %.2f", maxWidth)
+		}
+	})
+
+	t.Run("nil function returns initial", func(t *testing.T) {
+		result := root.Fold(42, nil)
+
+		if result.(int) != 42 {
+			t.Errorf("Should return initial when function is nil")
+		}
+	})
+}
+
+func TestFoldWithContext(t *testing.T) {
+	root := createTestTree()
+
+	t.Run("count nodes at each depth", func(t *testing.T) {
+		depthMap := root.FoldWithContext(
+			make(map[int]int),
+			func(acc interface{}, n *Node, depth int) interface{} {
+				m := acc.(map[int]int)
+				m[depth]++
+				return m
+			},
+		).(map[int]int)
+
+		// Depth 0: 1 (root)
+		// Depth 1: 3 (child1, child2, child3)
+		// Depth 2: 2 (grandchild1, grandchild2)
+		if depthMap[0] != 1 {
+			t.Errorf("Expected 1 node at depth 0, got %d", depthMap[0])
+		}
+		if depthMap[1] != 3 {
+			t.Errorf("Expected 3 nodes at depth 1, got %d", depthMap[1])
+		}
+		if depthMap[2] != 2 {
+			t.Errorf("Expected 2 nodes at depth 2, got %d", depthMap[2])
+		}
+	})
+
+	t.Run("sum widths by depth", func(t *testing.T) {
+		depthWidths := root.FoldWithContext(
+			make(map[int]float64),
+			func(acc interface{}, n *Node, depth int) interface{} {
+				m := acc.(map[int]float64)
+				m[depth] += n.Style.Width
+				return m
+			},
+		).(map[int]float64)
+
+		// Depth 1: child1(100) + child2(200) + child3(150) = 450
+		// Depth 2: grandchild1(50) + grandchild2(60) = 110
+		if depthWidths[1] != 450 {
+			t.Errorf("Expected depth 1 width 450, got %.2f", depthWidths[1])
+		}
+		if depthWidths[2] != 110 {
+			t.Errorf("Expected depth 2 width 110, got %.2f", depthWidths[2])
+		}
+	})
+
+	t.Run("build depth-annotated list", func(t *testing.T) {
+		type DepthNode struct {
+			Node  *Node
+			Depth int
+		}
+
+		list := root.FoldWithContext(
+			[]DepthNode{},
+			func(acc interface{}, n *Node, depth int) interface{} {
+				l := acc.([]DepthNode)
+				return append(l, DepthNode{Node: n, Depth: depth})
+			},
+		).([]DepthNode)
+
+		// Should have all 6 nodes
+		if len(list) != 6 {
+			t.Errorf("Expected 6 nodes, got %d", len(list))
+		}
+
+		// First node (root) should be at depth 0
+		if list[0].Depth != 0 {
+			t.Errorf("Root should be at depth 0, got %d", list[0].Depth)
+		}
+	})
+}
+
+// =============================================================================
+// Performance Tests for Transformations
+// =============================================================================
+
+func TestPerformanceTransform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping performance test in short mode")
+	}
+
+	largeTree := createLargeTree(4)
+
+	// Transform should complete in reasonable time
+	start := time.Now()
+	_ = largeTree.Transform(
+		func(n *Node) bool {
+			return n.Style.Display == DisplayBlock
+		},
+		func(n *Node) *Node {
+			return n.WithWidth(n.Style.Width * 2)
+		},
+	)
+	elapsed := time.Since(start)
+
+	if elapsed > time.Second {
+		t.Errorf("Transform took too long: %v", elapsed)
+	}
+}
+
+func BenchmarkTransform(b *testing.B) {
+	root := createLargeTree(4)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = root.Transform(
+			func(n *Node) bool {
+				return n.Style.Display == DisplayBlock
+			},
+			func(n *Node) *Node {
+				return n.WithWidth(n.Style.Width * 2)
+			},
+		)
+	}
+}
+
+func BenchmarkMap(b *testing.B) {
+	root := createLargeTree(4)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = root.Map(func(n *Node) *Node {
+			return n.WithWidth(n.Style.Width * 1.5)
+		})
+	}
+}
+
+func BenchmarkFilter(b *testing.B) {
+	root := createLargeTree(4)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = root.Filter(func(n *Node) bool {
+			return n.Style.Display == DisplayBlock
+		})
+	}
+}
+
+func BenchmarkFold(b *testing.B) {
+	root := createLargeTree(4)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
+			return acc.(float64) + n.Style.Width
 		})
 	}
 }

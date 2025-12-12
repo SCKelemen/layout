@@ -628,3 +628,210 @@ func (n *Node) InsertChildAt(index int, child *Node) *Node {
 	copy.Children = append(copy.Children, n.Children[index:]...)
 	return copy
 }
+
+// =============================================================================
+// Phase 4: Transformations
+// =============================================================================
+
+// Transform returns a new tree with nodes selectively transformed.
+// Walks the tree and applies the transform function to nodes matching the predicate.
+// Returns a deep copy with transformations applied.
+//
+// Example:
+//
+//	// Double widths in flex containers
+//	doubled := root.Transform(
+//	    func(n *Node) bool {
+//	        return n.Style.Display == DisplayFlex && n.Style.Width > 0
+//	    },
+//	    func(n *Node) *Node {
+//	        return n.WithWidth(n.Style.Width * 2)
+//	    },
+//	)
+func (n *Node) Transform(predicate func(*Node) bool, transform func(*Node) *Node) *Node {
+	if n == nil || predicate == nil || transform == nil {
+		return n
+	}
+
+	// Create a copy of this node
+	result := n.Clone()
+
+	// Apply transformation if predicate matches
+	if predicate(n) {
+		result = transform(result)
+	}
+
+	// Recursively transform children
+	if len(n.Children) > 0 {
+		result.Children = make([]*Node, len(n.Children))
+		for i, child := range n.Children {
+			result.Children[i] = child.Transform(predicate, transform)
+		}
+	}
+
+	return result
+}
+
+// Map returns a new tree with the transform function applied to all nodes.
+// This is equivalent to Transform with a predicate that always returns true.
+//
+// Example:
+//
+//	// Scale entire tree by 1.5x
+//	scaled := root.Map(func(n *Node) *Node {
+//	    return n.
+//	        WithWidth(n.Style.Width * 1.5).
+//	        WithHeight(n.Style.Height * 1.5)
+//	})
+func (n *Node) Map(transform func(*Node) *Node) *Node {
+	if n == nil || transform == nil {
+		return n
+	}
+
+	// Apply transformation to this node
+	result := transform(n.Clone())
+
+	// Recursively map children
+	if len(n.Children) > 0 {
+		result.Children = make([]*Node, len(n.Children))
+		for i, child := range n.Children {
+			result.Children[i] = child.Map(transform)
+		}
+	}
+
+	return result
+}
+
+// Filter returns a new tree with only nodes matching the predicate.
+// Removes children that don't match the predicate.
+// If a node matches, all its descendants are kept (no recursive filtering).
+// Use FilterDeep for recursive filtering through the entire tree.
+//
+// Example:
+//
+//	// Keep only flex containers
+//	flexOnly := root.Filter(func(n *Node) bool {
+//	    return n.Style.Display == DisplayFlex
+//	})
+func (n *Node) Filter(predicate func(*Node) bool) *Node {
+	if n == nil || predicate == nil {
+		return n
+	}
+
+	// Create a copy of this node
+	result := n.Clone()
+
+	// Filter immediate children
+	if len(n.Children) > 0 {
+		filtered := make([]*Node, 0, len(n.Children))
+		for _, child := range n.Children {
+			if predicate(child) {
+				// Keep the entire subtree if the child matches
+				filtered = append(filtered, child.CloneDeep())
+			}
+		}
+		result.Children = filtered
+	}
+
+	return result
+}
+
+// FilterDeep returns a new tree with recursive filtering.
+// Removes all nodes (at any level) that don't match the predicate.
+// This recursively filters through the entire tree structure.
+//
+// Example:
+//
+//	// Remove all hidden nodes throughout the tree
+//	visible := root.FilterDeep(func(n *Node) bool {
+//	    return n.Style.Display != DisplayNone
+//	})
+func (n *Node) FilterDeep(predicate func(*Node) bool) *Node {
+	if n == nil || predicate == nil {
+		return n
+	}
+
+	// Create a copy of this node
+	result := n.Clone()
+
+	// Recursively filter children
+	if len(n.Children) > 0 {
+		filtered := make([]*Node, 0, len(n.Children))
+		for _, child := range n.Children {
+			// First recursively filter the child's subtree
+			filteredChild := child.FilterDeep(predicate)
+			// Then check if the child itself matches
+			if predicate(filteredChild) {
+				filtered = append(filtered, filteredChild)
+			}
+		}
+		result.Children = filtered
+	}
+
+	return result
+}
+
+// Fold reduces the tree to a single value by accumulating over all nodes.
+// Applies the accumulator function to each node in depth-first order.
+//
+// Example:
+//
+//	// Sum all widths in the tree
+//	totalWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
+//	    return acc.(float64) + n.Style.Width
+//	}).(float64)
+//
+//	// Count nodes
+//	count := root.Fold(0, func(acc interface{}, n *Node) interface{} {
+//	    return acc.(int) + 1
+//	}).(int)
+func (n *Node) Fold(initial interface{}, fn func(acc interface{}, node *Node) interface{}) interface{} {
+	if n == nil || fn == nil {
+		return initial
+	}
+
+	// Apply function to this node
+	acc := fn(initial, n)
+
+	// Recursively fold children
+	for _, child := range n.Children {
+		acc = child.Fold(acc, fn)
+	}
+
+	return acc
+}
+
+// FoldWithContext reduces the tree to a single value with additional context.
+// Like Fold, but provides depth information to the accumulator function.
+//
+// Example:
+//
+//	// Build a depth map
+//	depthMap := root.FoldWithContext(
+//	    make(map[int]int),
+//	    func(acc interface{}, n *Node, depth int) interface{} {
+//	        m := acc.(map[int]int)
+//	        m[depth]++
+//	        return m
+//	    },
+//	).(map[int]int)
+func (n *Node) FoldWithContext(initial interface{}, fn func(acc interface{}, node *Node, depth int) interface{}) interface{} {
+	if n == nil || fn == nil {
+		return initial
+	}
+
+	var foldHelper func(*Node, interface{}, int) interface{}
+	foldHelper = func(node *Node, acc interface{}, depth int) interface{} {
+		// Apply function to this node
+		acc = fn(acc, node, depth)
+
+		// Recursively fold children
+		for _, child := range node.Children {
+			acc = foldHelper(child, acc, depth+1)
+		}
+
+		return acc
+	}
+
+	return foldHelper(n, initial, 0)
+}

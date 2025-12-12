@@ -48,9 +48,11 @@ This document tracks remaining spec non-conformances, edge cases, and potential 
 - Handles emojis, combining characters, and CJK text correctly
 - Preserves non-breaking spaces as part of words
 
-**Remaining Limitations**:
-- Full UAX #14 line breaking algorithm (soft hyphens, punctuation rules) not yet implemented
-- Word boundaries are still based on whitespace, not full word boundary detection
+**Current Status**:
+- ✅ UAX #14 line breaking algorithm implemented (see `uax14.go`)
+- ✅ Handles soft hyphens, punctuation, and explicit break characters
+- ✅ Word boundaries based on spaces and UAX #14 break opportunities
+- Uses simplified pair table focusing on common cases (can be expanded)
 
 **Impact**: Low - now correctly handles Unicode text including emojis and combining characters.
 

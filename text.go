@@ -288,7 +288,7 @@ func splitIntoWords(text string) []string {
 	for gr.Next() {
 		cluster := gr.Str()
 		runes := []rune(cluster)
-		
+
 		// Check if this is a non-breaking space or regular whitespace
 		isNBSP := len(runes) == 1 && runes[0] == '\u00A0'
 		isWhitespace := false
@@ -320,9 +320,9 @@ func splitIntoWords(text string) []string {
 	return words
 }
 
-
-// breakIntoLines breaks text into lines based on available width.
+// breakIntoLines breaks text into lines based on available width using UAX #14.
 // Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
+// Uses Unicode Line Breaking Algorithm (UAX #14) for proper break opportunities.
 func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 	if text == "" {
 		return []TextLine{}
@@ -338,10 +338,15 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 		return breakIntoLinesPre(text, maxWidth, style)
 	}
 
-	// Split into words using Unicode line breaking rules (UAX #14)
-	// This preserves non-breaking spaces and handles Unicode text correctly
-	words := splitIntoWords(text)
-	if len(words) == 0 {
+	// Use UAX #14 to find line break opportunities
+	return breakIntoLinesUAX14(text, maxWidth, style)
+}
+
+// breakIntoLinesUAX14 breaks text into lines using UAX #14 line breaking algorithm.
+func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextLine {
+	// Find all line break opportunities using UAX #14
+	breakPoints := findLineBreakOpportunities(text)
+	if len(breakPoints) < 2 {
 		return []TextLine{}
 	}
 
@@ -350,22 +355,32 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 	currentWidth := 0.0
 
 	// First line gets text-indent
-	firstLineIndent := 0.0
-	if style.TextIndent > 0 {
-		firstLineIndent = style.TextIndent
+	firstLineIndent := style.TextIndent
+	if firstLineIndent < 0 {
+		// Negative indent is allowed
 	}
 
-	for _, word := range words {
-		// Measure word
-		wordWidth, _, _ := textMetrics.Measure(word, style)
+	// Process text segment by segment
+	for i := 0; i < len(breakPoints)-1; i++ {
+		start := breakPoints[i]
+		end := breakPoints[i+1]
+		segment := text[start:end]
 
-		// Check if we need to break BEFORE adding this word
-		// Account for first line indent when checking width (can be positive or negative)
+		// Skip empty segments
+		if len(segment) == 0 {
+			continue
+		}
+
+		// Measure segment
+		segmentWidth, ascent, descent := textMetrics.Measure(segment, style)
+
+		// Check if we need to break BEFORE adding this segment
 		effectiveLineWidth := currentWidth
 		if len(current.Boxes) == 0 && firstLineIndent != 0 {
 			effectiveLineWidth += firstLineIndent
 		}
-		// Add space before word if not first word in line
+
+		// Add space before segment if not first segment in line (for word spacing)
 		if len(current.Boxes) > 0 {
 			spaceWidth, _, _ := textMetrics.Measure(" ", style)
 			if style.WordSpacing != -1 {
@@ -373,10 +388,10 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 			}
 			effectiveLineWidth += spaceWidth
 		}
-		effectiveLineWidth += wordWidth
+		effectiveLineWidth += segmentWidth
 
-		// Break if this word would exceed maxWidth (and we have words already on this line)
-		if maxWidth > 0 && effectiveLineWidth > maxWidth && len(current.Boxes) > 0 && canBreakBefore(style.WhiteSpace) {
+		// Break if this segment would exceed maxWidth (and we have content already on this line)
+		if maxWidth > 0 && maxWidth < Unbounded && effectiveLineWidth > maxWidth && len(current.Boxes) > 0 && canBreakBefore(style.WhiteSpace) {
 			// Break line
 			current.Width = currentWidth
 			lines = append(lines, current)
@@ -385,7 +400,7 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 			firstLineIndent = 0.0 // Only first line gets indent
 		}
 
-		// Add space before word if not first word in line
+		// Add space before segment if not first segment in line
 		if len(current.Boxes) > 0 {
 			spaceWidth, _, _ := textMetrics.Measure(" ", style)
 			if style.WordSpacing != -1 {
@@ -394,17 +409,16 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 			currentWidth += spaceWidth
 		}
 
-		// Add word to current line
-		_, ascent, descent := textMetrics.Measure(word, style)
+		// Add segment to current line
 		box := InlineBox{
 			Kind:    InlineBoxText,
-			Text:    word,
-			Width:   wordWidth,
+			Text:    segment,
+			Width:   segmentWidth,
 			Ascent:  ascent,
 			Descent: descent,
 		}
 		current.Boxes = append(current.Boxes, box)
-		currentWidth += wordWidth
+		currentWidth += segmentWidth
 	}
 
 	// Add final line

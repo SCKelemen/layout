@@ -147,25 +147,49 @@ func flexboxAlignmentCrossAxis(
 	alignmentCrossSize float64,
 ) {
 	// For baseline alignment, first find the maximum baseline
+	// Check if any items use baseline (either via container or align-self)
 	var maxBaseline float64 = 0.0
-	if alignItems == AlignItemsBaseline {
+	hasBaseline := false
+	for _, item := range line {
+		itemAlign := alignItems
+		if item.node.Style.AlignSelf != 0 {
+			itemAlign = item.node.Style.AlignSelf
+		}
+		if itemAlign == AlignItemsBaseline {
+			hasBaseline = true
+			break
+		}
+	}
+
+	if hasBaseline {
 		for _, item := range line {
-			// Get baseline for this item
-			// If node.Baseline is 0 (not set), use the item's cross size as fallback
-			baseline := item.node.Baseline
-			if baseline == 0 {
-				// Default: baseline is at the bottom of the item (for boxes without text)
-				baseline = item.crossSize
+			itemAlign := alignItems
+			if item.node.Style.AlignSelf != 0 {
+				itemAlign = item.node.Style.AlignSelf
 			}
-			// Add top margin to baseline (baseline is relative to content area)
-			baselineWithMargin := baseline + item.crossMarginStart
-			if baselineWithMargin > maxBaseline {
-				maxBaseline = baselineWithMargin
+			if itemAlign == AlignItemsBaseline {
+				// Get baseline for this item
+				// If node.Baseline is 0 (not set), use the item's cross size as fallback
+				baseline := item.node.Baseline
+				if baseline == 0 {
+					// Default: baseline is at the bottom of the item (for boxes without text)
+					baseline = item.crossSize
+				}
+				// Add top margin to baseline (baseline is relative to content area)
+				baselineWithMargin := baseline + item.crossMarginStart
+				if baselineWithMargin > maxBaseline {
+					maxBaseline = baselineWithMargin
+				}
 			}
 		}
 	}
 
 	for _, item := range line {
+		// Check for per-item alignment override (CSS Flexbox §8.3)
+		itemAlign := alignItems
+		if item.node.Style.AlignSelf != 0 {
+			itemAlign = item.node.Style.AlignSelf
+		}
 		// Set initial rect dimensions
 		// For row: mainSize=width, crossSize=height
 		// For column: mainSize=height, crossSize=width
@@ -178,9 +202,9 @@ func flexboxAlignmentCrossAxis(
 			rectHeight = item.mainSize
 		}
 
-		// Apply align-items stretch if needed (for cross-size)
+		// Apply align-self/align-items stretch if needed (for cross-size)
 		// Use lineCrossSize consistently - it already accounts for single-line stretch
-		if alignItems == AlignItemsStretch {
+		if itemAlign == AlignItemsStretch {
 			if setup.isRow {
 				// For row direction, cross-size is height
 				rectHeight = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
@@ -201,7 +225,7 @@ func flexboxAlignmentCrossAxis(
 		// Calculate cross-axis offset for alignment
 		crossOffset := 0.0
 		itemCrossSizeWithMargins := item.crossSize + item.crossMarginStart + item.crossMarginEnd
-		switch alignItems {
+		switch itemAlign {
 		case AlignItemsFlexStart:
 			crossOffset = item.crossMarginStart
 		case AlignItemsFlexEnd:

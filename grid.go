@@ -350,23 +350,45 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		}
 	}
 
+	// Step 4.5: Apply track distribution (justify-content for columns, align-content for rows)
+	// This handles free space distribution and track positioning
+	//
+	// Algorithm based on CSS Grid Layout Module Level 1:
+	// - §11.8: Distributing free space
+	// - §10.4: Aligning the Grid (align-content, justify-content)
+	//
+	// See: https://www.w3.org/TR/css-grid-1/#grid-align
+
+	// Apply align-content distribution for rows
+	alignContent := node.Style.AlignContent
+	distributedRowSizes, totalDistributedRowSize := gridDistributeTrackSpace(rowSizes, contentHeight, rowGap, alignContent)
+	rowSizes = distributedRowSizes
+
+	// Calculate track offsets based on alignment
+	columnOffsets := make([]float64, len(columnSizes))
+	// For now, columns start at 0 (no justify-content distribution yet)
+	currentOffset := 0.0
+	for i := range columnSizes {
+		columnOffsets[i] = currentOffset
+		currentOffset += columnSizes[i]
+		if i < len(columnSizes)-1 {
+			currentOffset += columnGap
+		}
+	}
+
+	rowOffsets := gridCalculateTrackOffsets(rowSizes, totalDistributedRowSize, contentHeight, rowGap, alignContent)
+
 	// Step 5: Position children
 	for _, item := range gridItems {
-		// Calculate grid cell position
+		// Calculate grid cell position using track offsets
 		cellX := 0.0
-		for col := 0; col < item.colStart; col++ {
-			cellX += columnSizes[col]
-			if col < len(columnSizes)-1 {
-				cellX += columnGap
-			}
+		if item.colStart < len(columnOffsets) {
+			cellX = columnOffsets[item.colStart]
 		}
 
 		cellY := 0.0
-		for row := 0; row < item.rowStart && row < len(rowSizes); row++ {
-			cellY += rowSizes[row]
-			if row < len(rowSizes)-1 {
-				cellY += rowGap
-			}
+		if item.rowStart < len(rowOffsets) {
+			cellY = rowOffsets[item.rowStart]
 		}
 
 		// Calculate grid cell size
@@ -475,6 +497,14 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			justifyItems := node.Style.JustifyItems
 			alignItems := node.Style.AlignItems
 
+			// Override with per-item alignment if set (CSS Grid §10.3)
+			if item.node.Style.JustifySelf != 0 {
+				justifyItems = item.node.Style.JustifySelf
+			}
+			if item.node.Style.AlignSelf != 0 {
+				alignItems = item.node.Style.AlignSelf
+			}
+
 			// Only default to stretch if the value is outside the valid enum range
 			if justifyItems > JustifyItemsCenter {
 				justifyItems = JustifyItemsStretch
@@ -549,6 +579,12 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// Handle justify-items positioning (inline/row axis)
 		// Zero value is stretch (CSS Grid default)
 		justifyItems := node.Style.JustifyItems
+
+		// Override with per-item alignment if set (CSS Grid §10.3)
+		if item.node.Style.JustifySelf != 0 {
+			justifyItems = item.node.Style.JustifySelf
+		}
+
 		if justifyItems > JustifyItemsCenter {
 			justifyItems = JustifyItemsStretch
 		}
@@ -577,6 +613,12 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// Handle align-items positioning (block/column axis)
 		// Zero value is stretch (CSS default - same for Grid and Flexbox)
 		alignItems := node.Style.AlignItems
+
+		// Override with per-item alignment if set (CSS Grid §10.3)
+		if item.node.Style.AlignSelf != 0 {
+			alignItems = item.node.Style.AlignSelf
+		}
+
 		if alignItems > AlignItemsBaseline {
 			alignItems = AlignItemsStretch
 		}

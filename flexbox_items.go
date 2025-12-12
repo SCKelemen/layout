@@ -1,16 +1,29 @@
 package layout
 
+import "sort"
+
 // flexboxMeasureItems measures all children and creates flex items.
 //
 // Algorithm based on CSS Flexible Box Layout Module Level 1:
 // - §9.2: Line Length Determination (initial measurement phase)
+// - §5.4.1: Reordering with the order property
 //
 // See: https://www.w3.org/TR/css-flexbox-1/#line-sizing
+// See: https://www.w3.org/TR/css-flexbox-1/#order-property
 func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 	children := node.Children
-	flexItems := make([]*flexItem, 0, len(children))
 
-	for _, child := range children {
+	// Sort children by order property (CSS Flexbox §5.4.1)
+	// Items with the same order value appear in source order
+	orderedChildren := make([]*Node, len(children))
+	copy(orderedChildren, children)
+	sort.SliceStable(orderedChildren, func(i, j int) bool {
+		return orderedChildren[i].Style.Order < orderedChildren[j].Style.Order
+	})
+
+	flexItems := make([]*flexItem, 0, len(orderedChildren))
+
+	for _, child := range orderedChildren {
 		// Skip display:none children
 		if child.Style.Display == DisplayNone {
 			continue

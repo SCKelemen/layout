@@ -125,12 +125,14 @@ type Style struct {
 	JustifyContent JustifyContent
 	AlignItems     AlignItems
 	AlignContent   AlignContent
+	AlignSelf      AlignItems // Per-item cross-axis alignment override (0 = use parent's AlignItems)
 	FlexGrow       float64
 	FlexShrink     float64
 	FlexBasis      float64 // or "auto" represented as -1
 	FlexGap        float64 // Gap between flex items (0 means no gap)
 	FlexRowGap     float64 // Row gap (cross-axis gap, 0 means use FlexGap)
 	FlexColumnGap  float64 // Column gap (main-axis gap, 0 means use FlexGap)
+	Order          int     // Visual order (default: 0). Items are ordered by ascending order value.
 
 	// Grid properties
 	GridTemplateRows    []GridTrack
@@ -145,8 +147,10 @@ type Style struct {
 	GridColumnStart     int          // -1 means auto
 	GridColumnEnd       int          // -1 means auto
 	JustifyItems        JustifyItems // Alignment along inline (row) axis. Default: Stretch
+	JustifySelf         JustifyItems // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
 	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
 	// For Grid: Default is Stretch, but Start for items with aspect-ratio
+	// AlignSelf (defined in Flexbox section) also works for Grid items
 
 	// Sizing
 	Width       float64 // -1 means auto

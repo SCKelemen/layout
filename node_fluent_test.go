@@ -540,6 +540,517 @@ func TestOfDisplayType(t *testing.T) {
 }
 
 // =============================================================================
+// Phase 2: Immutability Tests
+// =============================================================================
+
+func TestClone(t *testing.T) {
+	t.Run("nil node", func(t *testing.T) {
+		var node *Node
+		clone := node.Clone()
+		if clone != nil {
+			t.Errorf("Expected nil for nil node")
+		}
+	})
+
+	t.Run("shallow copy", func(t *testing.T) {
+		original := &Node{
+			Style: Style{Width: 100, Height: 50},
+			Text:  "original",
+			Children: []*Node{
+				{Style: Style{Width: 25}},
+			},
+		}
+
+		clone := original.Clone()
+
+		// Verify it's a different node
+		if clone == original {
+			t.Errorf("Clone should be a different instance")
+		}
+
+		// Verify fields are copied
+		if clone.Style.Width != 100 || clone.Text != "original" {
+			t.Errorf("Fields not copied correctly")
+		}
+
+		// Verify children slice is shared (shallow copy)
+		if len(clone.Children) != 1 {
+			t.Errorf("Children should be shared")
+		}
+
+		// Modifying clone doesn't affect original
+		clone.Style.Width = 200
+		if original.Style.Width != 100 {
+			t.Errorf("Original was modified by clone change")
+		}
+	})
+}
+
+func TestCloneDeep(t *testing.T) {
+	t.Run("nil node", func(t *testing.T) {
+		var node *Node
+		clone := node.CloneDeep()
+		if clone != nil {
+			t.Errorf("Expected nil for nil node")
+		}
+	})
+
+	t.Run("deep copy", func(t *testing.T) {
+		original := createTestTree()
+
+		clone := original.CloneDeep()
+
+		// Verify it's a different node
+		if clone == original {
+			t.Errorf("CloneDeep should create different instance")
+		}
+
+		// Verify children are also cloned
+		if len(clone.Children) != len(original.Children) {
+			t.Errorf("Children count mismatch")
+		}
+
+		if len(clone.Children) > 0 && clone.Children[0] == original.Children[0] {
+			t.Errorf("Children should be cloned, not shared")
+		}
+
+		// Modifying deep clone doesn't affect original
+		if len(clone.Children) > 0 {
+			clone.Children[0].Style.Width = 999
+			if original.Children[0].Style.Width == 999 {
+				t.Errorf("Original child was modified")
+			}
+		}
+	})
+
+	t.Run("deep tree", func(t *testing.T) {
+		original := createDeepTree(5)
+		clone := original.CloneDeep()
+
+		// Traverse to deepest node
+		deepOriginal := original
+		deepClone := clone
+		for i := 0; i < 5; i++ {
+			if len(deepOriginal.Children) == 0 {
+				break
+			}
+			deepOriginal = deepOriginal.Children[0]
+			deepClone = deepClone.Children[0]
+		}
+
+		// Verify they're different instances
+		if deepOriginal == deepClone {
+			t.Errorf("Deep nodes should be different instances")
+		}
+	})
+}
+
+func TestWithStyle(t *testing.T) {
+	original := &Node{Style: Style{Width: 100, Display: DisplayBlock}}
+
+	newStyle := Style{Width: 200, Display: DisplayFlex}
+	modified := original.WithStyle(newStyle)
+
+	if modified == original {
+		t.Errorf("WithStyle should return new node")
+	}
+
+	if original.Style.Width != 100 || original.Style.Display != DisplayBlock {
+		t.Errorf("Original was modified")
+	}
+
+	if modified.Style.Width != 200 || modified.Style.Display != DisplayFlex {
+		t.Errorf("New style not applied")
+	}
+}
+
+func TestWithPadding(t *testing.T) {
+	original := &Node{Style: Style{Width: 100}}
+
+	padded := original.WithPadding(16)
+
+	if padded == original {
+		t.Errorf("WithPadding should return new node")
+	}
+
+	if original.Style.Padding.Top != 0 {
+		t.Errorf("Original was modified")
+	}
+
+	if padded.Style.Padding.Top != 16 || padded.Style.Padding.Right != 16 {
+		t.Errorf("Padding not applied correctly")
+	}
+}
+
+func TestWithPaddingCustom(t *testing.T) {
+	original := &Node{Style: Style{Width: 100}}
+
+	padded := original.WithPaddingCustom(10, 20, 30, 40)
+
+	if original.Style.Padding.Top != 0 {
+		t.Errorf("Original was modified")
+	}
+
+	if padded.Style.Padding.Top != 10 || padded.Style.Padding.Right != 20 ||
+		padded.Style.Padding.Bottom != 30 || padded.Style.Padding.Left != 40 {
+		t.Errorf("Custom padding not applied correctly")
+	}
+}
+
+func TestWithMargin(t *testing.T) {
+	original := &Node{Style: Style{Width: 100}}
+
+	margined := original.WithMargin(8)
+
+	if original.Style.Margin.Top != 0 {
+		t.Errorf("Original was modified")
+	}
+
+	if margined.Style.Margin.Top != 8 || margined.Style.Margin.Bottom != 8 {
+		t.Errorf("Margin not applied correctly")
+	}
+}
+
+func TestWithWidth(t *testing.T) {
+	original := &Node{Style: Style{Width: 100}}
+
+	wider := original.WithWidth(300)
+
+	if original.Style.Width != 100 {
+		t.Errorf("Original was modified")
+	}
+
+	if wider.Style.Width != 300 {
+		t.Errorf("Width not applied")
+	}
+}
+
+func TestWithHeight(t *testing.T) {
+	original := &Node{Style: Style{Height: 50}}
+
+	taller := original.WithHeight(200)
+
+	if original.Style.Height != 50 {
+		t.Errorf("Original was modified")
+	}
+
+	if taller.Style.Height != 200 {
+		t.Errorf("Height not applied")
+	}
+}
+
+func TestWithText(t *testing.T) {
+	original := &Node{Text: "original"}
+
+	modified := original.WithText("modified")
+
+	if original.Text != "original" {
+		t.Errorf("Original was modified")
+	}
+
+	if modified.Text != "modified" {
+		t.Errorf("Text not applied")
+	}
+}
+
+func TestWithDisplay(t *testing.T) {
+	original := &Node{Style: Style{Display: DisplayBlock}}
+
+	flexNode := original.WithDisplay(DisplayFlex)
+
+	if original.Style.Display != DisplayBlock {
+		t.Errorf("Original was modified")
+	}
+
+	if flexNode.Style.Display != DisplayFlex {
+		t.Errorf("Display not applied")
+	}
+}
+
+func TestWithFlexGrow(t *testing.T) {
+	original := &Node{Style: Style{FlexGrow: 0}}
+
+	growable := original.WithFlexGrow(1)
+
+	if original.Style.FlexGrow != 0 {
+		t.Errorf("Original was modified")
+	}
+
+	if growable.Style.FlexGrow != 1 {
+		t.Errorf("FlexGrow not applied")
+	}
+}
+
+func TestWithFlexShrink(t *testing.T) {
+	original := &Node{Style: Style{FlexShrink: 1}}
+
+	rigid := original.WithFlexShrink(0)
+
+	if original.Style.FlexShrink != 1 {
+		t.Errorf("Original was modified")
+	}
+
+	if rigid.Style.FlexShrink != 0 {
+		t.Errorf("FlexShrink not applied")
+	}
+}
+
+func TestMethodChaining(t *testing.T) {
+	original := &Node{Style: Style{Display: DisplayBlock}}
+
+	// Chain multiple With* methods
+	modified := original.
+		WithWidth(200).
+		WithHeight(100).
+		WithPadding(16).
+		WithMargin(8).
+		WithDisplay(DisplayFlex)
+
+	// Verify original unchanged
+	if original.Style.Width != 0 || original.Style.Display != DisplayBlock {
+		t.Errorf("Original was modified by chaining")
+	}
+
+	// Verify all modifications applied
+	if modified.Style.Width != 200 {
+		t.Errorf("Width not applied in chain")
+	}
+	if modified.Style.Height != 100 {
+		t.Errorf("Height not applied in chain")
+	}
+	if modified.Style.Padding.Top != 16 {
+		t.Errorf("Padding not applied in chain")
+	}
+	if modified.Style.Margin.Top != 8 {
+		t.Errorf("Margin not applied in chain")
+	}
+	if modified.Style.Display != DisplayFlex {
+		t.Errorf("Display not applied in chain")
+	}
+}
+
+func TestWithChildren(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+	child3 := &Node{Style: Style{Width: 300}}
+
+	original := &Node{
+		Children: []*Node{child1, child2},
+	}
+
+	modified := original.WithChildren(child2, child3)
+
+	// Verify original unchanged
+	if len(original.Children) != 2 {
+		t.Errorf("Original children modified")
+	}
+	if original.Children[0] != child1 {
+		t.Errorf("Original first child changed")
+	}
+
+	// Verify new children
+	if len(modified.Children) != 2 {
+		t.Errorf("Modified should have 2 children")
+	}
+	if modified.Children[0] != child2 || modified.Children[1] != child3 {
+		t.Errorf("New children not set correctly")
+	}
+}
+
+func TestAddChild(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+
+	original := &Node{
+		Children: []*Node{child1},
+	}
+
+	modified := original.AddChild(child2)
+
+	// Verify original unchanged
+	if len(original.Children) != 1 {
+		t.Errorf("Original children count changed")
+	}
+
+	// Verify child added
+	if len(modified.Children) != 2 {
+		t.Errorf("Modified should have 2 children")
+	}
+	if modified.Children[0] != child1 || modified.Children[1] != child2 {
+		t.Errorf("Child not added correctly")
+	}
+}
+
+func TestAddChildren(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+	child3 := &Node{Style: Style{Width: 300}}
+
+	original := &Node{
+		Children: []*Node{child1},
+	}
+
+	modified := original.AddChildren(child2, child3)
+
+	// Verify original unchanged
+	if len(original.Children) != 1 {
+		t.Errorf("Original children count changed")
+	}
+
+	// Verify children added
+	if len(modified.Children) != 3 {
+		t.Errorf("Modified should have 3 children")
+	}
+	if modified.Children[2] != child3 {
+		t.Errorf("Children not added correctly")
+	}
+}
+
+func TestRemoveChildAt(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+	child3 := &Node{Style: Style{Width: 300}}
+
+	original := &Node{
+		Children: []*Node{child1, child2, child3},
+	}
+
+	// Remove middle child
+	modified := original.RemoveChildAt(1)
+
+	// Verify original unchanged
+	if len(original.Children) != 3 {
+		t.Errorf("Original children count changed")
+	}
+
+	// Verify child removed
+	if len(modified.Children) != 2 {
+		t.Errorf("Modified should have 2 children")
+	}
+	if modified.Children[0] != child1 || modified.Children[1] != child3 {
+		t.Errorf("Wrong child removed")
+	}
+
+	// Test out of bounds
+	outOfBounds := original.RemoveChildAt(10)
+	if outOfBounds != original {
+		t.Errorf("Out of bounds should return original")
+	}
+}
+
+func TestReplaceChildAt(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+	newChild := &Node{Style: Style{Width: 999}}
+
+	original := &Node{
+		Children: []*Node{child1, child2},
+	}
+
+	modified := original.ReplaceChildAt(0, newChild)
+
+	// Verify original unchanged
+	if original.Children[0] != child1 {
+		t.Errorf("Original child replaced")
+	}
+
+	// Verify child replaced
+	if modified.Children[0] != newChild {
+		t.Errorf("Child not replaced")
+	}
+	if modified.Children[1] != child2 {
+		t.Errorf("Other children affected")
+	}
+}
+
+func TestInsertChildAt(t *testing.T) {
+	child1 := &Node{Style: Style{Width: 100}}
+	child2 := &Node{Style: Style{Width: 200}}
+	newChild := &Node{Style: Style{Width: 150}}
+
+	original := &Node{
+		Children: []*Node{child1, child2},
+	}
+
+	// Insert in middle
+	modified := original.InsertChildAt(1, newChild)
+
+	// Verify original unchanged
+	if len(original.Children) != 2 {
+		t.Errorf("Original children count changed")
+	}
+
+	// Verify child inserted
+	if len(modified.Children) != 3 {
+		t.Errorf("Modified should have 3 children")
+	}
+	if modified.Children[0] != child1 || modified.Children[1] != newChild || modified.Children[2] != child2 {
+		t.Errorf("Child not inserted correctly")
+	}
+
+	// Insert at beginning
+	atStart := original.InsertChildAt(0, newChild)
+	if atStart.Children[0] != newChild {
+		t.Errorf("Insert at start failed")
+	}
+
+	// Insert at end (clamped)
+	atEnd := original.InsertChildAt(10, newChild)
+	if atEnd.Children[len(atEnd.Children)-1] != newChild {
+		t.Errorf("Insert at end failed")
+	}
+}
+
+func TestCompositionPattern(t *testing.T) {
+	// Test that you can build complex trees immutably
+	child1 := (&Node{}).WithWidth(100).WithHeight(50)
+	child2 := (&Node{}).WithWidth(150).WithHeight(75)
+
+	container := (&Node{}).
+		WithDisplay(DisplayFlex).
+		WithPadding(16).
+		AddChild(child1).
+		AddChild(child2)
+
+	// Verify structure
+	if container.Style.Display != DisplayFlex {
+		t.Errorf("Container display not set")
+	}
+	if len(container.Children) != 2 {
+		t.Errorf("Container should have 2 children")
+	}
+	if container.Children[0].Style.Width != 100 {
+		t.Errorf("Child properties not preserved")
+	}
+}
+
+func TestSafeComposition(t *testing.T) {
+	// Test that creating variants doesn't affect original
+	base := (&Node{}).
+		WithDisplay(DisplayFlex).
+		WithWidth(200)
+
+	variant1 := base.WithPadding(10)
+	variant2 := base.WithPadding(20)
+
+	// All should be independent
+	if base.Style.Padding.Top != 0 {
+		t.Errorf("Base was modified")
+	}
+	if variant1.Style.Padding.Top != 10 {
+		t.Errorf("Variant1 incorrect")
+	}
+	if variant2.Style.Padding.Top != 20 {
+		t.Errorf("Variant2 incorrect")
+	}
+
+	// They should all have the same width from base
+	if variant1.Style.Width != 200 || variant2.Style.Width != 200 {
+		t.Errorf("Base properties not inherited")
+	}
+}
+
+// =============================================================================
 // Performance Tests
 // =============================================================================
 

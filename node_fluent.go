@@ -270,3 +270,361 @@ func (n *Node) OfDisplayType(display Display) []*Node {
 		return node.Style.Display == display
 	})
 }
+
+// =============================================================================
+// Phase 2: Immutable Modifications
+// =============================================================================
+
+// Clone creates a shallow copy of the node.
+// The copy has the same Style, Rect, Text, and other fields, but shares the Children slice.
+// Use this when you want to modify node properties without affecting the original.
+//
+// Example:
+//
+//	copy := node.Clone()
+//	copy.Style.Width = 200  // Original unchanged
+func (n *Node) Clone() *Node {
+	if n == nil {
+		return nil
+	}
+	copy := *n
+	return &copy
+}
+
+// CloneDeep creates a deep copy of the entire subtree.
+// Both the node and all its descendants are recursively copied.
+// Use this when you need a completely independent copy of the tree.
+//
+// Example:
+//
+//	independentCopy := root.CloneDeep()
+//	independentCopy.Children[0].Style.Width = 100  // Original tree unchanged
+func (n *Node) CloneDeep() *Node {
+	if n == nil {
+		return nil
+	}
+
+	// Shallow copy first
+	copy := *n
+
+	// Deep copy children
+	if len(n.Children) > 0 {
+		copy.Children = make([]*Node, len(n.Children))
+		for i, child := range n.Children {
+			copy.Children[i] = child.CloneDeep()
+		}
+	}
+
+	return &copy
+}
+
+// =============================================================================
+// Style Modifications - Return new node with modified style
+// =============================================================================
+
+// WithStyle returns a new node with the specified style.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newNode := node.WithStyle(Style{
+//	    Display: DisplayFlex,
+//	    Width:   200,
+//	})
+func (n *Node) WithStyle(style Style) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style = style
+	return copy
+}
+
+// WithPadding returns a new node with uniform padding.
+// The original node is unchanged.
+//
+// Example:
+//
+//	padded := node.WithPadding(16)
+func (n *Node) WithPadding(amount float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Padding = Uniform(amount)
+	return copy
+}
+
+// WithPaddingCustom returns a new node with custom padding for each side.
+// The original node is unchanged.
+//
+// Example:
+//
+//	padded := node.WithPaddingCustom(10, 20, 10, 20)  // top, right, bottom, left
+func (n *Node) WithPaddingCustom(top, right, bottom, left float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Padding = Spacing{
+		Top:    top,
+		Right:  right,
+		Bottom: bottom,
+		Left:   left,
+	}
+	return copy
+}
+
+// WithMargin returns a new node with uniform margin.
+// The original node is unchanged.
+//
+// Example:
+//
+//	margined := node.WithMargin(8)
+func (n *Node) WithMargin(amount float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Margin = Uniform(amount)
+	return copy
+}
+
+// WithMarginCustom returns a new node with custom margin for each side.
+// The original node is unchanged.
+//
+// Example:
+//
+//	margined := node.WithMarginCustom(5, 10, 5, 10)  // top, right, bottom, left
+func (n *Node) WithMarginCustom(top, right, bottom, left float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Margin = Spacing{
+		Top:    top,
+		Right:  right,
+		Bottom: bottom,
+		Left:   left,
+	}
+	return copy
+}
+
+// WithWidth returns a new node with the specified width.
+// The original node is unchanged.
+//
+// Example:
+//
+//	wider := node.WithWidth(300)
+func (n *Node) WithWidth(width float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Width = width
+	return copy
+}
+
+// WithHeight returns a new node with the specified height.
+// The original node is unchanged.
+//
+// Example:
+//
+//	taller := node.WithHeight(200)
+func (n *Node) WithHeight(height float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Height = height
+	return copy
+}
+
+// WithText returns a new node with the specified text content.
+// The original node is unchanged.
+//
+// Example:
+//
+//	textNode := node.WithText("Hello, World!")
+func (n *Node) WithText(text string) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Text = text
+	return copy
+}
+
+// WithDisplay returns a new node with the specified display mode.
+// The original node is unchanged.
+//
+// Example:
+//
+//	flexNode := node.WithDisplay(DisplayFlex)
+func (n *Node) WithDisplay(display Display) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Display = display
+	return copy
+}
+
+// WithFlexGrow returns a new node with the specified flex-grow value.
+// The original node is unchanged.
+//
+// Example:
+//
+//	growable := node.WithFlexGrow(1)
+func (n *Node) WithFlexGrow(grow float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.FlexGrow = grow
+	return copy
+}
+
+// WithFlexShrink returns a new node with the specified flex-shrink value.
+// The original node is unchanged.
+//
+// Example:
+//
+//	shrinkable := node.WithFlexShrink(0)
+func (n *Node) WithFlexShrink(shrink float64) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.FlexShrink = shrink
+	return copy
+}
+
+// =============================================================================
+// Children Modifications - Return new node with modified children
+// =============================================================================
+
+// WithChildren returns a new node with the specified children.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.WithChildren(child1, child2, child3)
+func (n *Node) WithChildren(children ...*Node) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	// Create new slice (copy-on-write)
+	copy.Children = make([]*Node, len(children))
+	for i, child := range children {
+		copy.Children[i] = child
+	}
+	return copy
+}
+
+// AddChild returns a new node with the specified child appended.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.AddChild(newChild)
+func (n *Node) AddChild(child *Node) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	// Create new slice (copy-on-write)
+	copy.Children = append([]*Node{}, n.Children...)
+	copy.Children = append(copy.Children, child)
+	return copy
+}
+
+// AddChildren returns a new node with the specified children appended.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.AddChildren(child1, child2)
+func (n *Node) AddChildren(children ...*Node) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	// Create new slice (copy-on-write)
+	copy.Children = append([]*Node{}, n.Children...)
+	copy.Children = append(copy.Children, children...)
+	return copy
+}
+
+// RemoveChildAt returns a new node with the child at the specified index removed.
+// Returns the original node if the index is out of bounds.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.RemoveChildAt(1)  // Remove second child
+func (n *Node) RemoveChildAt(index int) *Node {
+	if n == nil || index < 0 || index >= len(n.Children) {
+		return n
+	}
+	copy := n.Clone()
+	// Create new slice without the removed child
+	copy.Children = make([]*Node, 0, len(n.Children)-1)
+	copy.Children = append(copy.Children, n.Children[:index]...)
+	copy.Children = append(copy.Children, n.Children[index+1:]...)
+	return copy
+}
+
+// ReplaceChildAt returns a new node with the child at the specified index replaced.
+// Returns the original node if the index is out of bounds.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.ReplaceChildAt(0, newFirstChild)
+func (n *Node) ReplaceChildAt(index int, newChild *Node) *Node {
+	if n == nil || index < 0 || index >= len(n.Children) {
+		return n
+	}
+	copy := n.Clone()
+	// Create new slice (copy-on-write)
+	copy.Children = append([]*Node{}, n.Children...)
+	copy.Children[index] = newChild
+	return copy
+}
+
+// InsertChildAt returns a new node with the child inserted at the specified index.
+// If index is out of bounds, appends the child.
+// Uses copy-on-write: creates a new Children slice.
+// The original node is unchanged.
+//
+// Example:
+//
+//	newParent := parent.InsertChildAt(1, newChild)  // Insert at position 1
+func (n *Node) InsertChildAt(index int, child *Node) *Node {
+	if n == nil {
+		return nil
+	}
+
+	// Clamp index to valid range
+	if index < 0 {
+		index = 0
+	}
+	if index > len(n.Children) {
+		index = len(n.Children)
+	}
+
+	copy := n.Clone()
+	// Create new slice with room for inserted child
+	copy.Children = make([]*Node, 0, len(n.Children)+1)
+	copy.Children = append(copy.Children, n.Children[:index]...)
+	copy.Children = append(copy.Children, child)
+	copy.Children = append(copy.Children, n.Children[index:]...)
+	return copy
+}

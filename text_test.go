@@ -13,9 +13,12 @@ type fakeMetrics struct {
 }
 
 func (f *fakeMetrics) Measure(text string, style TextStyle) (advance, ascent, descent float64) {
-	advance = float64(len(text)) * f.charWidth
-	if style.LetterSpacing > 0 {
-		advance += float64(len(text)-1) * style.LetterSpacing
+	// Count runes (characters), not bytes, to handle Unicode correctly
+	runeCount := len([]rune(text))
+	advance = float64(runeCount) * f.charWidth
+	// Letter spacing applies between characters (not after last one)
+	if style.LetterSpacing != -1 && runeCount > 0 {
+		advance += float64(runeCount-1) * style.LetterSpacing
 	}
 	ascent = style.FontSize * 0.8
 	descent = style.FontSize * 0.2
@@ -845,5 +848,71 @@ func TestWhiteSpaceNonBreakingSpace(t *testing.T) {
 		if !strings.Contains(allText, nbSpace+nbSpace) {
 			t.Error("Regular spaces should be collapsed to single space")
 		}
+	}
+}
+
+// TestTextCJKWrapping tests that CJK (ideographic) text can wrap between characters
+func TestTextCJKWrapping(t *testing.T) {
+	setupFakeMetrics()
+
+	// Chinese text: "你好世界" (Hello World)
+	text := "你好世界"
+	node := Text(text, Style{
+		TextStyle: &TextStyle{
+			FontSize: 16,
+		},
+	})
+
+	// Each CJK character is 10px with fake metrics (1 rune = 1 char)
+	// Total width: 4 chars × 10px = 40px
+	// With maxWidth=25px, should wrap into multiple lines
+	constraints := Loose(25, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should have multiple lines (at least 2)
+	lineCount := len(node.TextLayout.Lines)
+	if lineCount < 2 {
+		t.Errorf("CJK text should wrap into multiple lines, got %d line(s)", lineCount)
+	}
+
+	// Each line should respect the width constraint
+	for i, line := range node.TextLayout.Lines {
+		if line.Width > 25.1 {
+			t.Errorf("Line %d exceeds maxWidth: %.2f > 25", i, line.Width)
+		}
+	}
+}
+
+// TestTextMixedCJKEnglish tests wrapping of mixed CJK and English text
+func TestTextMixedCJKEnglish(t *testing.T) {
+	setupFakeMetrics()
+
+	// Mixed text with English word and CJK characters
+	text := "Hello你好World世界"
+	node := Text(text, Style{
+		TextStyle: &TextStyle{
+			FontSize: 16,
+		},
+	})
+
+	// Should allow breaks:
+	// - After "Hello" (space)
+	// - Between CJK characters
+	// - After "World" (space implied by CJK boundary)
+	constraints := Loose(60, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should wrap into multiple lines
+	lineCount := len(node.TextLayout.Lines)
+	if lineCount < 2 {
+		t.Errorf("Mixed CJK/English text should wrap, got %d line(s)", lineCount)
 	}
 }

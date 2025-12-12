@@ -4,17 +4,29 @@ This document tracks remaining spec non-conformances, edge cases, and potential 
 
 ## Known Spec Non-Conformances (Acceptable for v1)
 
-### 1. White-Space Collapsing (Simplified)
+### 1. White-Space Collapsing (Improved)
 
-**Issue**: `white-space: normal` and `white-space: nowrap` use a simplified whitespace collapsing algorithm.
+**Status**: ✅ **IMPROVED**
+
+**Previous Issue**: Used `regexp.MustCompile(\s+)` which matched all Unicode whitespace, including non-breaking spaces.
+
+**Fix Applied**: 
+- Implemented `collapseWhitespace()` function that preserves non-breaking spaces (U+00A0)
+- Non-breaking spaces are treated as part of words, not as word separators
+- Regular spaces, tabs, and line breaks are collapsed to single spaces
+- Added `splitIntoWords()` function that respects non-breaking spaces
 
 **Current Implementation**:
-- Uses `regexp.MustCompile(\s+)` which matches all Unicode whitespace
-- CSS handles non-breaking spaces, zero-width spaces, and other Unicode whitespace differently
+- Preserves non-breaking spaces (U+00A0) as per CSS spec
+- Collapses regular whitespace sequences to single spaces
+- Converts line breaks to spaces before collapsing
+- Non-breaking spaces are included in words during line breaking
 
-**Impact**: Low - works correctly for ASCII text, may behave differently for complex Unicode text.
+**Remaining Limitations**:
+- Zero-width spaces and other Unicode whitespace are still handled simplistically
+- Full Unicode line breaking rules (UAX #14) not implemented
 
-**Status**: Documented simplification, acceptable for v1.
+**Impact**: Low - now correctly handles non-breaking spaces, which is the most common Unicode whitespace case.
 
 **Reference**: [CSS Text Module Level 3 §3.1](https://www.w3.org/TR/css-text-3/#white-space-property)
 

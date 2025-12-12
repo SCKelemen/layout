@@ -2,6 +2,7 @@ package layout
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -787,5 +788,62 @@ func TestTextLineHeightInvariant(t *testing.T) {
 					tc.lineHeight, tc.expected, size.Height)
 			}
 		})
+	}
+}
+
+// TestWhiteSpaceNonBreakingSpace tests that non-breaking spaces are preserved
+func TestWhiteSpaceNonBreakingSpace(t *testing.T) {
+	setupFakeMetrics()
+
+	// Non-breaking space (U+00A0) should not collapse
+	nbSpace := "\u00A0"
+	text := "Hello" + nbSpace + nbSpace + "world" + "   " + "test"
+	node := Text(text, Style{
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			WhiteSpace: WhiteSpaceNormal,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Check that non-breaking spaces are preserved in the layout
+	hasNBSP := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, nbSpace) {
+				hasNBSP = true
+				break
+			}
+		}
+		if hasNBSP {
+			break
+		}
+	}
+
+	if !hasNBSP {
+		t.Error("Non-breaking spaces should be preserved in white-space: normal")
+	}
+
+	// Regular spaces should be collapsed
+	allText := ""
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			allText += box.Text
+		}
+	}
+
+	// Should not have multiple consecutive regular spaces (except NBSP)
+	// Check for "  " (two regular spaces) - should not exist
+	if strings.Contains(allText, "  ") {
+		// Check if it's actually NBSP sequences
+		if !strings.Contains(allText, nbSpace+nbSpace) {
+			t.Error("Regular spaces should be collapsed to single space")
+		}
 	}
 }

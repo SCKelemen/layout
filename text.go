@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"regexp"
 	"strings"
 )
 
@@ -193,8 +192,11 @@ func preprocessText(text string, whiteSpace WhiteSpace) string {
 		text = strings.ReplaceAll(text, "\r\n", " ")
 		text = strings.ReplaceAll(text, "\n", " ")
 		text = strings.ReplaceAll(text, "\r", " ")
-		// Collapse multiple spaces
-		text = regexp.MustCompile(`\s+`).ReplaceAllString(text, " ")
+		
+		// Collapse whitespace, but preserve non-breaking spaces (U+00A0)
+		// Non-breaking spaces should not collapse per CSS spec
+		text = collapseWhitespace(text)
+		
 		return strings.TrimSpace(text)
 
 	case WhiteSpaceNowrap:
@@ -208,6 +210,98 @@ func preprocessText(text string, whiteSpace WhiteSpace) string {
 	default:
 		return text
 	}
+}
+
+// collapseWhitespace collapses sequences of whitespace to single spaces,
+// but preserves non-breaking spaces (U+00A0) as per CSS spec.
+// Based on CSS Text Module Level 3 §3.1: https://www.w3.org/TR/css-text-3/#white-space-property
+func collapseWhitespace(text string) string {
+	if text == "" {
+		return text
+	}
+
+	var result strings.Builder
+	result.Grow(len(text)) // Pre-allocate capacity
+
+	runes := []rune(text)
+	inWhitespace := false
+
+	for i, r := range runes {
+		isNBSP := r == '\u00A0' // Non-breaking space
+		isWhitespace := (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !isNBSP
+
+		if isNBSP {
+			// Non-breaking space: preserve as-is, don't collapse
+			if inWhitespace {
+				// End previous whitespace run with a space
+				result.WriteRune(' ')
+				inWhitespace = false
+			}
+			result.WriteRune(r)
+		} else if isWhitespace {
+			// Regular whitespace: mark that we're in a whitespace run
+			if !inWhitespace {
+				// Start of whitespace run - we'll collapse to single space later
+				inWhitespace = true
+			}
+		} else {
+			// Non-whitespace character
+			if inWhitespace {
+				// End whitespace run with a single space
+				result.WriteRune(' ')
+				inWhitespace = false
+			}
+			result.WriteRune(r)
+		}
+
+		// Handle trailing whitespace at end of string
+		if i == len(runes)-1 && inWhitespace {
+			// Trailing whitespace will be trimmed by TrimSpace in caller
+		}
+	}
+
+	// If we ended in whitespace, add one space (will be trimmed if trailing)
+	if inWhitespace {
+		result.WriteRune(' ')
+	}
+
+	return result.String()
+}
+
+// splitIntoWords splits text into words, preserving non-breaking spaces.
+// Non-breaking spaces (U+00A0) are treated as part of words, not as word separators.
+func splitIntoWords(text string) []string {
+	if text == "" {
+		return []string{}
+	}
+
+	var words []string
+	var current strings.Builder
+	runes := []rune(text)
+
+	for i, r := range runes {
+		isNBSP := r == '\u00A0'
+		isWhitespace := (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !isNBSP
+
+		if isWhitespace {
+			// Regular whitespace: end current word
+			if current.Len() > 0 {
+				words = append(words, current.String())
+				current.Reset()
+			}
+			// Skip the whitespace (it's already collapsed)
+		} else {
+			// Non-whitespace or NBSP: add to current word
+			current.WriteRune(r)
+		}
+
+		// Handle end of string
+		if i == len(runes)-1 && current.Len() > 0 {
+			words = append(words, current.String())
+		}
+	}
+
+	return words
 }
 
 // breakIntoLines breaks text into lines based on available width.
@@ -228,7 +322,8 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 	}
 
 	// Split into words (simple word-based breaking for v1)
-	words := strings.Fields(text)
+	// Use custom splitter that preserves non-breaking spaces
+	words := splitIntoWords(text)
 	if len(words) == 0 {
 		return []TextLine{}
 	}

@@ -3,8 +3,6 @@ package layout
 import (
 	"strings"
 	"unicode"
-
-	"github.com/rivo/uniseg"
 )
 
 // TextMetricsProvider abstracts text measurement.
@@ -293,9 +291,8 @@ func collapseWhitespace(text string) string {
 	return result.String()
 }
 
-// splitIntoWords splits text into words using Unicode grapheme clusters and line breaking rules.
-// Uses uniseg package for proper Unicode grapheme cluster handling (UAX #29),
-// preserving non-breaking spaces and handling complex Unicode text correctly.
+// splitIntoWords splits text into words by breaking on whitespace.
+// Preserves non-breaking spaces (U+00A0) and handles Unicode text correctly.
 // Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
 func splitIntoWords(text string) []string {
 	if text == "" {
@@ -304,20 +301,11 @@ func splitIntoWords(text string) []string {
 
 	var words []string
 	var current strings.Builder
-	gr := uniseg.NewGraphemes(text)
 
-	for gr.Next() {
-		cluster := gr.Str()
-		runes := []rune(cluster)
-
+	for _, r := range text {
 		// Check if this is a non-breaking space or regular whitespace
-		isNBSP := len(runes) == 1 && runes[0] == '\u00A0'
-		isWhitespace := false
-		if len(runes) == 1 {
-			r := runes[0]
-			// Use unicode.IsSpace for proper Unicode whitespace detection
-			isWhitespace = unicode.IsSpace(r) && !isNBSP
-		}
+		isNBSP := r == '\u00A0'
+		isWhitespace := unicode.IsSpace(r) && !isNBSP
 
 		if isWhitespace {
 			// Regular whitespace: end current word
@@ -328,8 +316,7 @@ func splitIntoWords(text string) []string {
 			// Skip the whitespace (it's already collapsed)
 		} else {
 			// Non-whitespace or NBSP: add to current word
-			// Using grapheme clusters ensures emojis and combining characters stay together
-			current.WriteString(cluster)
+			current.WriteRune(r)
 		}
 	}
 

@@ -278,10 +278,10 @@ const (
 type AlignContent int
 
 const (
-	AlignContentFlexStart AlignContent = iota
+	AlignContentStretch AlignContent = iota // Zero value is CSS default
+	AlignContentFlexStart
 	AlignContentFlexEnd
 	AlignContentCenter
-	AlignContentStretch
 	AlignContentSpaceBetween
 	AlignContentSpaceAround
 )

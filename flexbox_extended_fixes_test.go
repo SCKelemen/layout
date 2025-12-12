@@ -136,7 +136,8 @@ func TestFlexboxFlexWrapReverse(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrapReverse,
-			Width:         100, // Force wrapping
+			AlignContent:  AlignContentFlexStart, // Use flex-start to avoid stretching
+			Width:         100,                   // Force wrapping
 			Height:        200,
 		},
 		Children: []*Node{
@@ -215,9 +216,10 @@ func TestFlexboxRowGapAndColumnGap(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrap,
-			FlexRowGap:    30,  // 30px between rows
-			FlexColumnGap: 40,  // 40px between columns
-			Width:         100, // Force wrapping
+			AlignContent:  AlignContentFlexStart, // Use flex-start to avoid stretching
+			FlexRowGap:    30,                    // 30px between rows
+			FlexColumnGap: 40,                    // 40px between columns
+			Width:         100,                   // Force wrapping
 			Height:        200,
 		},
 		Children: []*Node{

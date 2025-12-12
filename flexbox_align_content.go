@@ -21,11 +21,9 @@ func flexboxAlignWithAlignContent(
 	// and the container's cross size is definite (not auto/unbounded).
 	// This prevents align-content: stretch from zeroing out content when crossSize is 0 or Unbounded
 	hasWrap := node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse
-	if len(lines) > 1 && hasWrap && hasExplicitCrossSize {
+	if len(lines) > 1 && hasWrap && hasExplicitCrossSize && crossSize < Unbounded {
 		alignContent := node.Style.AlignContent
-		if alignContent == 0 {
-			alignContent = AlignContentStretch // Default
-		}
+		// Zero value is AlignContentStretch (CSS default), no need to check
 
 		// Calculate free cross space
 		freeCrossSpace := crossSize - totalCrossSize

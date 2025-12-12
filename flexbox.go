@@ -84,18 +84,14 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		}
 	}
 
-	// Store original line cross sizes before align-content stretching
-	// This is needed for wrap-reverse recalculation to avoid double-stretching
-	originalLineCrossSizes := make([]float64, len(lineCrossSizes))
-	copy(originalLineCrossSizes, lineCrossSizes)
-
 	// §10.4: Aligning with align-content - distribute lines along cross axis
 	lineOffsets, totalCrossSize := flexboxAlignWithAlignContent(
 		node, lines, lineCrossSizes, setup.crossSize, totalCrossSize, rowGap, setup.hasExplicitCrossSize)
 
 	// §9.2: Line Length Determination - Handle flex-wrap: wrap-reverse
+	// For wrap-reverse, we reverse line order and mirror offsets (no need for originalLineCrossSizes)
 	lineOffsets, totalCrossSize = flexboxHandleWrapReverse(
-		node, lines, lineCrossSizes, lineOffsets, originalLineCrossSizes,
+		node, lines, lineCrossSizes, lineOffsets, nil, // originalLineCrossSizes no longer needed
 		setup.crossSize, totalCrossSize, rowGap, setup.hasExplicitCrossSize)
 
 	// Step 6: Second pass - position items using justify-content and align-items

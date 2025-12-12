@@ -1,7 +1,16 @@
 package layout
 
-// LayoutPositioned handles positioned elements (absolute, relative, fixed, sticky)
-// This should be called after the normal layout flow to position elements
+// LayoutPositioned handles positioned elements (absolute, relative, fixed, sticky).
+// This should be called after the normal layout flow to position elements.
+//
+// Algorithm based on CSS Positioned Layout Module Level 3:
+// - §2: Positioning Schemes
+// - §3: Choosing a positioning scheme (position property)
+// - §5: Absolute positioning
+// - §6: Fixed positioning
+// - §7: Sticky positioning
+//
+// See: https://www.w3.org/TR/css-position-3/
 func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 	if node.Style.Position == PositionStatic {
 		// Static positioning is the default, no special handling needed

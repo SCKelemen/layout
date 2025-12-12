@@ -116,7 +116,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	// Step 1: Calculate column sizes
 	// CRITICAL: contentWidth must be correct here - it's used to size all columns
 	// For row-spanning items with aspect ratio, contentWidth must be correct for proper sizing
-	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
+	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true)
 
 	// Step 2: Calculate row sizes (need to measure children first for auto rows)
 	// For now, we'll do a two-pass layout
@@ -124,7 +124,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	if len(children) == 0 {
 		// Empty grid
 		totalWidth := sumSizes(columnSizes) + columnGap*float64(len(columnSizes)-1)
-		totalHeight := sumSizes(calculateGridTrackSizes(rows, contentHeight, rowGap, len(rows)))
+		totalHeight := sumSizes(calculateGridTrackSizes(rows, contentHeight, rowGap, len(rows), node, false))
 		resultSize := Size{
 			Width:  totalWidth + horizontalPadding + horizontalBorder,
 			Height: totalHeight + verticalPadding + verticalBorder,
@@ -148,7 +148,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	gridItems := gridPlaceItems(node, &rows, &columns, autoFlow)
 
 	// Recalculate column sizes if columns were extended during placement
-	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
+	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true)
 
 	// Step 4: Measure children to determine row sizes
 	// Ensure rowSizes and rowHeights are properly sized for all rows
@@ -643,7 +643,7 @@ type gridItem struct {
 	measuredSize Size // Store measured size from first pass
 }
 
-func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int) []float64 {
+func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int, container *Node, isColumn bool) []float64 {
 	if len(tracks) == 0 {
 		return []float64{}
 	}
@@ -670,13 +670,16 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 	for i, track := range tracks {
 		// Check for fit-content (Fraction == -1)
 		if track.Fraction == -1 {
-			// fit-content: calculate intrinsic size (would need grid items for accurate sizing)
-			// For now, use MaxSize as the limit
-			// TODO: This should be calculated based on grid item content
+			// fit-content: clamp max-content to MaxSize
+			// CSS Grid Layout §11.5: fit-content(size)
+			// See: https://www.w3.org/TR/css-grid-1/#valdef-grid-template-columns-fit-content
 			fixedIndices = append(fixedIndices, i)
+			maxContent := resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent)
 			size := track.MaxSize
 			if size >= Unbounded {
-				size = 0 // Fallback for unbounded fit-content
+				size = maxContent // Use max-content if no limit specified
+			} else {
+				size = math.Min(maxContent, size) // Clamp to limit
 			}
 			sizes[i] = size
 			totalFixed += size
@@ -690,16 +693,14 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 			fixedIndices = append(fixedIndices, i)
 
 			// Check for intrinsic sizing sentinel values
+			// CSS Grid Layout §11.5: Intrinsic Track Sizing
+			// See: https://www.w3.org/TR/css-grid-1/#intrinsic-sizes
 			if track.MaxSize == SizeMinContent {
-				// min-content track: would need grid items for accurate sizing
-				// For now, use MinSize as fallback
-				// TODO: Call resolveIntrinsicTrackSize from intrinsic_sizing.go
-				sizes[i] = track.MinSize
+				// min-content track: size based on minimum content size
+				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMinContent)
 			} else if track.MaxSize == SizeMaxContent {
-				// max-content track: would need grid items for accurate sizing
-				// For now, use MinSize as fallback
-				// TODO: Call resolveIntrinsicTrackSize from intrinsic_sizing.go
-				sizes[i] = track.MinSize
+				// max-content track: size based on maximum content size
+				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent)
 			} else {
 				// Normal fixed track
 				size := track.MinSize

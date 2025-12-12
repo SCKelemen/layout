@@ -98,6 +98,13 @@ type Node struct {
 	// Children are the child nodes in the layout tree.
 	Children []*Node
 
+	// Baseline is the distance from the top of the node to its baseline.
+	// Used for baseline alignment in flexbox and grid.
+	// A value of 0 means no baseline is set (use default behavior).
+	// For text-like elements, this would be the text baseline.
+	// For containers, this is typically the baseline of the first child.
+	Baseline float64
+
 	// Text contains text content for text leaf nodes (DisplayInlineText).
 	// Empty string means this is not a text node.
 	Text string

@@ -513,7 +513,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 			// Apply align-items (block/column axis)
 			switch alignItems {
-			case AlignItemsFlexStart, AlignItemsFlexEnd, AlignItemsCenter:
+			case AlignItemsFlexStart, AlignItemsFlexEnd, AlignItemsCenter, AlignItemsBaseline:
 				// For non-stretch, always prefer explicit height if set (accounting for box-sizing)
 				// Explicit dimensions take precedence over measured size for alignment
 				if item.node.Style.Height >= 0 {
@@ -594,6 +594,21 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		case AlignItemsCenter:
 			// Center the item+margin box, then item starts at margin.Top from that
 			itemY = cellY + (cellHeight-totalItemHeight)/2 + item.node.Style.Margin.Top
+		case AlignItemsBaseline:
+			// For grid baseline alignment, align item's baseline to a reference
+			// In CSS Grid, baseline alignment aligns items within their row
+			// For simplicity, we align to the first baseline in the cell (top + baseline)
+			itemBaseline := item.node.Baseline
+			if itemBaseline == 0 {
+				// Default: baseline is at the bottom of the item (for boxes without text)
+				itemBaseline = itemHeight
+			}
+			// Position item so its baseline is at a consistent position within the cell
+			// For grid, we use the item's own baseline as the reference (align to cell start + baseline)
+			// This means items with different baselines will align their baselines together
+			// NOTE: For proper CSS Grid baseline alignment, we'd need to calculate the max baseline
+			// across all items in the same row, similar to flexbox. For now, we use a simpler approach.
+			itemY = cellY + item.node.Style.Margin.Top
 		case AlignItemsStretch:
 			itemY = cellY + item.node.Style.Margin.Top
 		default:

@@ -77,34 +77,22 @@ func flexboxAlignmentMainAxis(
 	}
 
 	// Apply justify-content with gap support
-	// For reverse direction, position items from the end (right for row, bottom for column)
+	// For reverse direction, we need special handling to ensure gaps are correctly positioned
+	// The items array is already reversed, so we position from the start but apply justify-content logic
 	if isReverse {
-		// Calculate total line size including gaps
-		totalLineSize := 0.0
-		for i, item := range line {
-			totalLineSize += item.mainSize + item.mainMarginStart + item.mainMarginEnd
-			if i < len(line)-1 {
-				totalLineSize += columnGap
-			}
+		// For reverse direction, apply justify-content as if it were normal direction
+		// but adjust for the reversed semantics
+		// FlexStart in reverse means items start from the end (right/bottom)
+		// FlexEnd in reverse means items end at the start (left/top)
+		reversedJustify := node.Style.JustifyContent
+		switch node.Style.JustifyContent {
+		case JustifyContentFlexStart:
+			reversedJustify = JustifyContentFlexEnd
+		case JustifyContentFlexEnd:
+			reversedJustify = JustifyContentFlexStart
 		}
-		// Position from the end (right to left for row, bottom to top for column)
-		// Items are already reversed in the array, so position them sequentially from right
-		// The last item in the reversed array (which is first in original) should be at rightmost
-		currentPos := mainSize
-		// Work backwards through the reversed array (which is forward through original)
-		for i := len(line) - 1; i >= 0; i-- {
-			item := line[i]
-			currentPos -= item.mainSize + item.mainMarginEnd
-			if setup.isRow {
-				item.node.Rect.X = node.Style.Padding.Left + node.Style.Border.Left + currentPos
-			} else {
-				item.node.Rect.Y = node.Style.Padding.Top + node.Style.Border.Top + currentPos
-			}
-			currentPos -= item.mainMarginStart
-			if i > 0 {
-				currentPos -= columnGap
-			}
-		}
+		// Use normal justify logic with reversed semantics
+		justifyContentWithGap(reversedJustify, line, 0, mainSize, setup.isRow, columnGap)
 	} else {
 		justifyContentWithGap(node.Style.JustifyContent, line, 0, mainSize, setup.isRow, columnGap)
 	}
@@ -145,8 +133,10 @@ func flexboxAlignmentMainAxis(
 // Algorithm based on CSS Flexible Box Layout Module Level 1:
 // - §9.6: Cross-Axis Alignment
 // - §10.3: Aligning with align-items
+// - §10.3.1: Baseline alignment
 //
 // See: https://www.w3.org/TR/css-flexbox-1/#cross-alignment
+// See: https://www.w3.org/TR/css-flexbox-1/#baseline-participation
 func flexboxAlignmentCrossAxis(
 	node *Node,
 	line []*flexItem,
@@ -156,6 +146,25 @@ func flexboxAlignmentCrossAxis(
 	lineStartCrossOffset float64,
 	alignmentCrossSize float64,
 ) {
+	// For baseline alignment, first find the maximum baseline
+	var maxBaseline float64 = 0.0
+	if alignItems == AlignItemsBaseline {
+		for _, item := range line {
+			// Get baseline for this item
+			// If node.Baseline is 0 (not set), use the item's cross size as fallback
+			baseline := item.node.Baseline
+			if baseline == 0 {
+				// Default: baseline is at the bottom of the item (for boxes without text)
+				baseline = item.crossSize
+			}
+			// Add top margin to baseline (baseline is relative to content area)
+			baselineWithMargin := baseline + item.crossMarginStart
+			if baselineWithMargin > maxBaseline {
+				maxBaseline = baselineWithMargin
+			}
+		}
+	}
+
 	for _, item := range line {
 		// Set initial rect dimensions
 		// For row: mainSize=width, crossSize=height
@@ -201,6 +210,16 @@ func flexboxAlignmentCrossAxis(
 			crossOffset = (alignmentCrossSize-itemCrossSizeWithMargins)/2 + item.crossMarginStart
 		case AlignItemsStretch:
 			crossOffset = item.crossMarginStart
+		case AlignItemsBaseline:
+			// Align item's baseline with the maximum baseline in the line
+			itemBaseline := item.node.Baseline
+			if itemBaseline == 0 {
+				// Default: baseline is at the bottom of the item
+				itemBaseline = item.crossSize
+			}
+			// Offset is the difference between max baseline and this item's baseline
+			// Plus the item's top margin (since baseline is relative to content area)
+			crossOffset = maxBaseline - itemBaseline
 		default:
 			crossOffset = item.crossMarginStart
 		}

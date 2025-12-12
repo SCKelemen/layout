@@ -21,9 +21,16 @@ func flexboxHandleWrapReverse(
 	hasExplicitCrossSize bool,
 ) ([]float64, float64) {
 	wrapReverse := node.Style.FlexWrap == FlexWrapWrapReverse
-	// wrap-reverse requires a definite cross size for mirroring to work correctly
-	if !wrapReverse || len(lines) <= 1 || !hasExplicitCrossSize {
+	// wrap-reverse works with or without explicit cross size
+	// If no explicit cross size, use totalCrossSize for mirroring
+	if !wrapReverse || len(lines) <= 1 {
 		return lineOffsets, totalCrossSize
+	}
+
+	// Use explicit cross size if available, otherwise use totalCrossSize
+	mirrorCrossSize := crossSize
+	if !hasExplicitCrossSize {
+		mirrorCrossSize = totalCrossSize
 	}
 
 	n := len(lines)
@@ -44,7 +51,7 @@ func flexboxHandleWrapReverse(
 	for i := 0; i < n; i++ {
 		top := lineOffsets[i]
 		height := lineCrossSizes[i]
-		lineOffsets[i] = crossSize - (top + height)
+		lineOffsets[i] = mirrorCrossSize - (top + height)
 	}
 
 	// Reverse line order (visual order is reversed)

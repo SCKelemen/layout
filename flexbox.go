@@ -4,7 +4,23 @@ import (
 	"math"
 )
 
-// LayoutFlexbox performs flexbox layout on a node
+// LayoutFlexbox performs flexbox layout on a node.
+//
+// Algorithm based on CSS Flexible Box Layout Module Level 1:
+// - §9: Flex Layout Algorithm
+//   - §9.2: Line Length Determination
+//   - §9.3: Main Size Determination
+//   - §9.4: Cross Size Determination
+//   - §9.5: Main-Axis Alignment
+//   - §9.6: Cross-Axis Alignment
+//
+// - §10: Alignment
+//   - §10.1: Aligning with auto margins
+//   - §10.2: Aligning with justify-content
+//   - §10.3: Aligning with align-items
+//   - §10.4: Aligning with align-content
+//
+// See: https://www.w3.org/TR/css-flexbox-1/
 func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	if node.Style.Display != DisplayFlex {
 		// If not flex, delegate to block layout
@@ -71,6 +87,21 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	crossSize := contentHeight
 	if !isRow {
 		mainSize, crossSize = crossSize, mainSize
+	}
+
+	// Does this container have a definite cross size (via style or constraints)?
+	// This determines whether align-items: stretch should use crossSize or content-driven lineCrossSize
+	hasExplicitCrossSize := false
+	if isRow {
+		// Cross axis is height
+		if node.Style.Height > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
+			hasExplicitCrossSize = true
+		}
+	} else {
+		// Cross axis is width
+		if node.Style.Width > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
+			hasExplicitCrossSize = true
+		}
 	}
 
 	// Layout children
@@ -288,8 +319,18 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		}
 		// For single-line containers, apply stretch if align-items is stretch
 		// For multi-line, align-content will handle stretching
-		if alignItems == AlignItemsStretch && len(lines) == 1 {
-			lineCrossSize = crossSize
+		// Only use crossSize when the cross size is definite (explicit style or constraints)
+		// Otherwise, use content-driven lineCrossSize to avoid zeroing out content
+		if alignItems == AlignItemsStretch && len(lines) == 1 && hasExplicitCrossSize {
+			// Only override line cross size with container cross size if the cross size is definite.
+			// If crossSize is smaller than content, we may clamp, but never shrink below content.
+			if crossSize > 0 {
+				// Grow to container cross size but do not shrink below content
+				if crossSize > lineCrossSize {
+					lineCrossSize = crossSize
+				}
+				// If crossSize <= lineCrossSize, leave lineCrossSize as content-driven.
+			}
 		}
 
 		// Store line cross size for align-content calculation
@@ -507,13 +548,10 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		// This ensures we use the correct crossSize/lineCrossSize values
 
 		// Re-align items in cross axis with updated line cross size
-		alignmentCrossSize := crossSize
-		if len(lines) == 1 {
-			alignmentCrossSize = crossSize
-		} else {
-			// For multi-line, use line cross size for alignment
-			alignmentCrossSize = lineCrossSize
-		}
+		// Use lineCrossSize consistently for alignment (both single-line and multi-line)
+		// This ensures alignment is based on the line's resolved cross size, not the container's
+		// potentially unhelpful crossSize (which may be 0 or Unbounded for auto-sized containers)
+		alignmentCrossSize := lineCrossSize
 
 		for _, item := range line {
 			// Set initial rect dimensions
@@ -586,9 +624,11 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 						Height: rectHeight,
 					}
 				} else {
+					// Column direction: X is cross axis, Y is main axis
+					// Y will be set by justify-content, X is set here for cross-axis alignment
 					item.node.Rect = Rect{
 						X:      node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset,
-						Y:      node.Style.Padding.Top + node.Style.Border.Top,
+						Y:      node.Style.Padding.Top + node.Style.Border.Top, // Will be updated by justify-content
 						Width:  rectWidth,
 						Height: rectHeight,
 					}

@@ -15,10 +15,25 @@ import (
 // WPTTest represents a test case extracted from WPT HTML
 type WPTTest struct {
 	Name        string
+	TestType    string // "flexbox" or "text"
 	Container   ContainerStyle
 	Children    []ChildStyle
+	TextContent TextTestContent
 	Expected    ExpectedLayout
 	Description string
+}
+
+// TextTestContent holds text-specific test data
+type TextTestContent struct {
+	Text          string
+	FontSize      float64
+	WhiteSpace    string
+	TextOverflow  string
+	TextAlign     string
+	OverflowWrap  string
+	WordBreak     string
+	ExpectedText  string // Expected rendered text (after truncation, etc.)
+	ExpectedLines int    // Expected number of lines
 }
 
 type ContainerStyle struct {
@@ -115,7 +130,7 @@ func extractTests(n *html.Node, tests *[]WPTTest) {
 	if n.Type == html.ElementNode {
 		// Look for flex containers (divs with display:flex or inline-flex)
 		if n.Data == "div" {
-			test := extractTestFromDiv(n)
+			test := extractTestFromDiv(n, tests)
 			if test != nil {
 				*tests = append(*tests, *test)
 			}
@@ -127,17 +142,29 @@ func extractTests(n *html.Node, tests *[]WPTTest) {
 	}
 }
 
-func extractTestFromDiv(n *html.Node) *WPTTest {
-	// Check if this div has flexbox styles
+func extractTestFromDiv(n *html.Node, tests *[]WPTTest) *WPTTest {
+	// Check if this div has text content or flexbox styles
 	style := getAttribute(n, "style")
 	class := getAttribute(n, "class")
-	
+
+	// Check if this is a text test (has text content, no flex children)
+	textContent := extractTextContent(n)
+	hasTextContent := textContent != ""
+
 	// Parse inline styles and classes
 	containerStyle := parseContainerStyle(style, class, n)
-	if containerStyle.Display == "" {
-		return nil // Not a flex container
+
+	// Determine test type
+	if hasTextContent && containerStyle.Display != "flex" {
+		// Text test
+		return extractTextTest(n, style, class, textContent, containerStyle, tests)
 	}
 
+	if containerStyle.Display == "" {
+		return nil // Not a flex or text container
+	}
+
+	// Flexbox test
 	// Extract expected dimensions
 	expectedWidth := parseDataAttribute(n, "data-expected-width")
 	expectedHeight := parseDataAttribute(n, "data-expected-height")
@@ -163,8 +190,77 @@ func extractTestFromDiv(n *html.Node) *WPTTest {
 
 	return &WPTTest{
 		Name:      fmt.Sprintf("WPT_%d", len(*tests)+1),
+		TestType:  "flexbox",
 		Container: containerStyle,
 		Children:  children,
+		Expected: ExpectedLayout{
+			ContainerWidth:  expectedWidth,
+			ContainerHeight: expectedHeight,
+		},
+	}
+}
+
+// extractTextContent extracts text content from a node
+func extractTextContent(n *html.Node) string {
+	var text strings.Builder
+	var extract func(*html.Node)
+	extract = func(node *html.Node) {
+		if node.Type == html.TextNode {
+			text.WriteString(node.Data)
+		}
+		for c := node.FirstChild; c != nil; c = c.NextSibling {
+			// Only extract direct text, not from nested divs
+			if c.Type == html.TextNode {
+				text.WriteString(c.Data)
+			}
+		}
+	}
+	extract(n)
+	return strings.TrimSpace(text.String())
+}
+
+// extractTextTest extracts a text layout test
+func extractTextTest(n *html.Node, style, class, textContent string, containerStyle ContainerStyle, tests *[]WPTTest) *WPTTest {
+	textTest := TextTestContent{
+		Text:     textContent,
+		FontSize: parseCSSLength(extractCSSValue(style, "font-size")),
+	}
+
+	// Extract text properties
+	if ws := extractCSSValue(style, "white-space"); ws != "" {
+		textTest.WhiteSpace = ws
+	}
+	if to := extractCSSValue(style, "text-overflow"); to != "" {
+		textTest.TextOverflow = to
+	}
+	if ta := extractCSSValue(style, "text-align"); ta != "" {
+		textTest.TextAlign = ta
+	}
+	if ow := extractCSSValue(style, "overflow-wrap"); ow != "" {
+		textTest.OverflowWrap = ow
+	}
+	if wb := extractCSSValue(style, "word-break"); wb != "" {
+		textTest.WordBreak = wb
+	}
+
+	// Extract expected results
+	textTest.ExpectedText = getAttribute(n, "data-expected-text")
+	if lines := getAttribute(n, "data-expected-lines"); lines != "" {
+		if l, err := strconv.Atoi(lines); err == nil {
+			textTest.ExpectedLines = l
+		}
+	}
+
+	expectedWidth := parseDataAttribute(n, "data-expected-width")
+	expectedHeight := parseDataAttribute(n, "data-expected-height")
+	containerStyle.ExpectedWidth = expectedWidth
+	containerStyle.ExpectedHeight = expectedHeight
+
+	return &WPTTest{
+		Name:        fmt.Sprintf("WPT_Text_%d", len(*tests)+1),
+		TestType:    "text",
+		Container:   containerStyle,
+		TextContent: textTest,
 		Expected: ExpectedLayout{
 			ContainerWidth:  expectedWidth,
 			ContainerHeight: expectedHeight,
@@ -308,16 +404,105 @@ func generateGoTests(tests []WPTTest, sourceFile string) string {
 }
 
 func generateGoTest(test WPTTest, idx int) string {
+	if test.TestType == "text" {
+		return generateTextTest(test, idx)
+	}
+	return generateFlexboxTest(test, idx)
+}
+
+func generateTextTest(test WPTTest, idx int) string {
 	var sb strings.Builder
-	
+
+	testName := fmt.Sprintf("TestWPT_Text_%d", idx+1)
+	if test.Name != "" {
+		testName = test.Name
+	}
+
+	sb.WriteString(fmt.Sprintf("func %s(t *testing.T) {\n", testName))
+	sb.WriteString("\t// WPT text test converted to Go\n")
+	sb.WriteString("\tsetupFakeMetrics()\n\n")
+
+	// Build text node
+	sb.WriteString(fmt.Sprintf("\ttext := %q\n", test.TextContent.Text))
+	sb.WriteString("\tnode := Text(text, Style{\n")
+	if test.Container.Width > 0 {
+		sb.WriteString(fmt.Sprintf("\t\tWidth: %.2f,\n", test.Container.Width))
+	}
+	if test.Container.Height > 0 {
+		sb.WriteString(fmt.Sprintf("\t\tHeight: %.2f,\n", test.Container.Height))
+	}
+	sb.WriteString("\t\tTextStyle: &TextStyle{\n")
+	if test.TextContent.FontSize > 0 {
+		sb.WriteString(fmt.Sprintf("\t\t\tFontSize: %.2f,\n", test.TextContent.FontSize))
+	}
+	if test.TextContent.WhiteSpace != "" {
+		sb.WriteString(fmt.Sprintf("\t\t\tWhiteSpace: %s,\n", cssToGoWhiteSpace(test.TextContent.WhiteSpace)))
+	}
+	if test.TextContent.TextOverflow != "" {
+		sb.WriteString(fmt.Sprintf("\t\t\tTextOverflow: %s,\n", cssToGoTextOverflow(test.TextContent.TextOverflow)))
+	}
+	if test.TextContent.TextAlign != "" {
+		sb.WriteString(fmt.Sprintf("\t\t\tTextAlign: %s,\n", cssToGoTextAlign(test.TextContent.TextAlign)))
+	}
+	if test.TextContent.OverflowWrap != "" {
+		sb.WriteString(fmt.Sprintf("\t\t\tOverflowWrap: %s,\n", cssToGoOverflowWrap(test.TextContent.OverflowWrap)))
+	}
+	if test.TextContent.WordBreak != "" {
+		sb.WriteString(fmt.Sprintf("\t\t\tWordBreak: %s,\n", cssToGoWordBreak(test.TextContent.WordBreak)))
+	}
+	sb.WriteString("\t\t},\n")
+	sb.WriteString("\t})\n\n")
+
+	// Layout
+	maxWidth := test.Container.Width
+	maxHeight := test.Container.Height
+	if maxWidth == 0 {
+		maxWidth = 1000
+	}
+	if maxHeight == 0 {
+		maxHeight = 1000
+	}
+	sb.WriteString(fmt.Sprintf("\tconstraints := Loose(%.2f, %.2f)\n", maxWidth, maxHeight))
+	sb.WriteString("\tLayoutText(node, constraints)\n\n")
+
+	// Assertions
+	sb.WriteString("\tif node.TextLayout == nil {\n")
+	sb.WriteString("\t\tt.Fatal(\"TextLayout should be populated\")\n")
+	sb.WriteString("\t}\n\n")
+
+	if test.TextContent.ExpectedLines > 0 {
+		sb.WriteString(fmt.Sprintf("\tif len(node.TextLayout.Lines) != %d {\n", test.TextContent.ExpectedLines))
+		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Expected %d lines, got %%d\", len(node.TextLayout.Lines))\n", test.TextContent.ExpectedLines))
+		sb.WriteString("\t}\n\n")
+	}
+
+	if test.Container.ExpectedWidth > 0 {
+		sb.WriteString(fmt.Sprintf("\tif math.Abs(node.Rect.Width-%.2f) > 1.0 {\n", test.Container.ExpectedWidth))
+		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Width should be %.2f, got %%f\", node.Rect.Width)\n", test.Container.ExpectedWidth))
+		sb.WriteString("\t}\n")
+	}
+
+	if test.Container.ExpectedHeight > 0 {
+		sb.WriteString(fmt.Sprintf("\tif math.Abs(node.Rect.Height-%.2f) > 1.0 {\n", test.Container.ExpectedHeight))
+		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Height should be %.2f, got %%f\", node.Rect.Height)\n", test.Container.ExpectedHeight))
+		sb.WriteString("\t}\n")
+	}
+
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func generateFlexboxTest(test WPTTest, idx int) string {
+	var sb strings.Builder
+
 	testName := fmt.Sprintf("TestWPT_%d", idx+1)
 	if test.Name != "" {
 		testName = test.Name
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("func %s(t *testing.T) {\n", testName))
 	sb.WriteString("\t// WPT test converted to Go\n")
-	
+
 	// Build container style
 	sb.WriteString("\troot := &Node{\n")
 	sb.WriteString("\t\tStyle: Style{\n")
@@ -387,12 +572,12 @@ func generateGoTest(test WPTTest, idx int) string {
 	// Add assertions
 	if test.Container.ExpectedWidth > 0 {
 		sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Rect.Width-%.2f) > 1.0 {\n", test.Container.ExpectedWidth))
-		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Container width should be %.2f, got %.2f\", root.Rect.Width)\n", test.Container.ExpectedWidth))
+		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Container width should be %.2f, got %%f\", root.Rect.Width)\n", test.Container.ExpectedWidth))
 		sb.WriteString("\t}\n")
 	}
 	if test.Container.ExpectedHeight > 0 {
 		sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Rect.Height-%.2f) > 1.0 {\n", test.Container.ExpectedHeight))
-		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Container height should be %.2f, got %.2f\", root.Rect.Height)\n", test.Container.ExpectedHeight))
+		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Container height should be %.2f, got %%f\", root.Rect.Height)\n", test.Container.ExpectedHeight))
 		sb.WriteString("\t}\n")
 	}
 	
@@ -400,20 +585,20 @@ func generateGoTest(test WPTTest, idx int) string {
 	for i, child := range test.Children {
 		if child.ExpectedX > 0 || child.ExpectedY > 0 {
 			sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Children[%d].Rect.X-%.2f) > 1.0 {\n", i, child.ExpectedX))
-			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %d X should be %.2f, got %.2f\", root.Children[%d].Rect.X)\n", i, child.ExpectedX, i))
+			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %%d X should be %.2f, got %%f\", %d, root.Children[%d].Rect.X)\n", child.ExpectedX, i, i))
 			sb.WriteString("\t}\n")
 			sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Children[%d].Rect.Y-%.2f) > 1.0 {\n", i, child.ExpectedY))
-			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %d Y should be %.2f, got %.2f\", root.Children[%d].Rect.Y)\n", i, child.ExpectedY, i))
+			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %%d Y should be %.2f, got %%f\", %d, root.Children[%d].Rect.Y)\n", child.ExpectedY, i, i))
 			sb.WriteString("\t}\n")
 		}
 		if child.ExpectedWidth > 0 {
 			sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Children[%d].Rect.Width-%.2f) > 1.0 {\n", i, child.ExpectedWidth))
-			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %d width should be %.2f, got %.2f\", root.Children[%d].Rect.Width)\n", i, child.ExpectedWidth, i))
+			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %%d width should be %.2f, got %%f\", %d, root.Children[%d].Rect.Width)\n", child.ExpectedWidth, i, i))
 			sb.WriteString("\t}\n")
 		}
 		if child.ExpectedHeight > 0 {
 			sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Children[%d].Rect.Height-%.2f) > 1.0 {\n", i, child.ExpectedHeight))
-			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %d height should be %.2f, got %.2f\", root.Children[%d].Rect.Height)\n", i, child.ExpectedHeight, i))
+			sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Child %%d height should be %.2f, got %%f\", %d, root.Children[%d].Rect.Height)\n", child.ExpectedHeight, i, i))
 			sb.WriteString("\t}\n")
 		}
 	}
@@ -499,5 +684,74 @@ func cssToGoAlignItems(css string) string {
 		return "AlignItemsStretch"
 	default:
 		return "AlignItemsStretch"
+	}
+}
+
+func cssToGoWhiteSpace(css string) string {
+	switch css {
+	case "normal":
+		return "WhiteSpaceNormal"
+	case "nowrap":
+		return "WhiteSpaceNowrap"
+	case "pre":
+		return "WhiteSpacePre"
+	case "pre-wrap":
+		return "WhiteSpacePreWrap"
+	case "pre-line":
+		return "WhiteSpacePreLine"
+	default:
+		return "WhiteSpaceNormal"
+	}
+}
+
+func cssToGoTextOverflow(css string) string {
+	switch css {
+	case "clip":
+		return "TextOverflowClip"
+	case "ellipsis":
+		return "TextOverflowEllipsis"
+	default:
+		return "TextOverflowClip"
+	}
+}
+
+func cssToGoTextAlign(css string) string {
+	switch css {
+	case "left":
+		return "TextAlignLeft"
+	case "right":
+		return "TextAlignRight"
+	case "center":
+		return "TextAlignCenter"
+	case "justify":
+		return "TextAlignJustify"
+	default:
+		return "TextAlignLeft"
+	}
+}
+
+func cssToGoOverflowWrap(css string) string {
+	switch css {
+	case "normal":
+		return "OverflowWrapNormal"
+	case "break-word":
+		return "OverflowWrapBreakWord"
+	case "anywhere":
+		return "OverflowWrapAnywhere"
+	default:
+		return "OverflowWrapNormal"
+	}
+}
+
+func cssToGoWordBreak(css string) string {
+	switch css {
+	case "normal":
+		return "WordBreakNormal"
+	case "break-all":
+		return "WordBreakBreakAll"
+	case "keep-all":
+		return "WordBreakKeepAll"
+	default:
+		return "WordBreakNormal"
 	}
 }

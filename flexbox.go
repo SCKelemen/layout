@@ -12,8 +12,16 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	}
 
 	// Calculate available space
+	// For tight constraints, both Min and Max are set to the same value
+	// Prefer Max, fall back to Min if Max is 0
 	availableWidth := constraints.MaxWidth
+	if availableWidth == 0 {
+		availableWidth = constraints.MinWidth
+	}
 	availableHeight := constraints.MaxHeight
+	if availableHeight == 0 {
+		availableHeight = constraints.MinHeight
+	}
 
 	// Account for padding and border
 	horizontalPadding := node.Style.Padding.Left + node.Style.Padding.Right
@@ -24,7 +32,8 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	// If container has explicit width/height, use it to constrain available space
 	// Similar to grid layout
 	// If constraints are zero/unbounded and we have explicit dimensions, use the explicit dimensions
-	if node.Style.Width >= 0 {
+	if node.Style.Width > 0 {
+		// Only use explicit width if it's > 0 (not auto/unspecified)
 		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPadding+horizontalBorder, verticalPadding+verticalBorder, true)
 		totalSpecifiedWidth := specifiedWidthContent + horizontalPadding + horizontalBorder
 		if availableWidth >= Unbounded || availableWidth == 0 {
@@ -34,7 +43,8 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			availableWidth = totalSpecifiedWidth
 		}
 	}
-	if node.Style.Height >= 0 {
+	if node.Style.Height > 0 {
+		// Only use explicit height if it's > 0 (not auto/unspecified)
 		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPadding+horizontalBorder, verticalPadding+verticalBorder, false)
 		totalSpecifiedHeight := specifiedHeightContent + verticalPadding + verticalBorder
 		if availableHeight >= Unbounded || availableHeight == 0 {

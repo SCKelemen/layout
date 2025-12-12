@@ -755,3 +755,47 @@ func FitContentTrack(maxSize float64) GridTrack {
 		Fraction: -1, // Special marker for fit-content
 	}
 }
+
+// AutoFillTracks creates a RepeatTrack for auto-fill grid track generation.
+// Auto-fill creates as many tracks as fit in the available space.
+//
+// Example:
+//
+//	// CSS: grid-template-columns: repeat(auto-fill, 100px);
+//	GridTemplateColumns: RepeatTracks(RepeatCountAutoFill, FixedTrack(100))
+//
+// Note: This is a low-level helper. For simpler usage, use expandAutoRepeatTracks
+// in grid layout code to expand auto-fill patterns.
+//
+// See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fill)
+// https://www.w3.org/TR/css-grid-1/#auto-repeat
+func AutoFillTracks(tracks ...GridTrack) RepeatTrack {
+	return RepeatTrack{
+		Count:  RepeatCountAutoFill,
+		Tracks: tracks,
+	}
+}
+
+// AutoFitTracks creates a RepeatTrack for auto-fit grid track generation.
+// Auto-fit creates as many tracks as fit, then collapses empty tracks to zero.
+//
+// Example:
+//
+//	// CSS: grid-template-columns: repeat(auto-fit, 100px);
+//	GridTemplateColumns: RepeatTracks(RepeatCountAutoFit, FixedTrack(100))
+//
+// The difference between auto-fill and auto-fit:
+// - auto-fill: keeps all generated tracks, even if empty
+// - auto-fit: collapses empty tracks to zero size
+//
+// Note: This is a low-level helper. For simpler usage, use expandAutoRepeatTracks
+// in grid layout code to expand auto-fit patterns.
+//
+// See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fit)
+// https://www.w3.org/TR/css-grid-1/#auto-repeat
+func AutoFitTracks(tracks ...GridTrack) RepeatTrack {
+	return RepeatTrack{
+		Count:  RepeatCountAutoFit,
+		Tracks: tracks,
+	}
+}

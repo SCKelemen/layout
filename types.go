@@ -415,13 +415,48 @@ const (
 	WordBreakKeepAll                 // Don't break between CJK characters
 )
 
+// TextTransform controls text case transformation
+// CSS Text Module Level 3 §6: https://www.w3.org/TR/css-text-3/#text-transform-property
+type TextTransform int
+
+const (
+	TextTransformNone TextTransform = iota // No transformation (default)
+	TextTransformUppercase                 // Convert to uppercase
+	TextTransformLowercase                 // Convert to lowercase
+	TextTransformCapitalize                // Capitalize first letter of each word
+	TextTransformFullWidth                 // Convert to full-width characters
+	TextTransformFullSizeKana              // Convert kana to full-size
+)
+
+// Hyphens controls automatic hyphenation
+// CSS Text Module Level 3 §4.3: https://www.w3.org/TR/css-text-3/#hyphenation
+type Hyphens int
+
+const (
+	HyphensNone   Hyphens = iota // No hyphenation (default)
+	HyphensManual                // Only hyphenate at U+00AD soft hyphens
+	HyphensAuto                  // Automatic hyphenation with dictionaries
+)
+
+// HangingPunctuation controls punctuation placement
+// CSS Text Module Level 3 §9.2: https://www.w3.org/TR/css-text-3/#hanging-punctuation-property
+type HangingPunctuation int
+
+const (
+	HangingPunctuationNone     HangingPunctuation = iota // No hanging (default)
+	HangingPunctuationFirst                              // Hang opening punctuation
+	HangingPunctuationLast                               // Hang closing punctuation
+	HangingPunctuationForceEnd                           // Force hang end punctuation
+	HangingPunctuationAllowEnd                           // Allow hang end punctuation
+)
+
 // Direction controls text direction.
 // Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
 type Direction int
 
 const (
 	DirectionLTR Direction = iota // CSS default (zero value)
-	// DirectionRTL deferred
+	DirectionRTL                  // Right-to-left
 )
 
 // FontWeight represents font weight (numeric or named).
@@ -454,12 +489,25 @@ type TextStyle struct {
 	WordBreak    WordBreak    // Controls word breaking behavior
 	TextOverflow TextOverflow // Controls rendering of overflowing text
 
+	// Text Transformation (§6)
+	TextTransform TextTransform
+
+	// Hyphenation (§4.3)
+	Hyphens Hyphens
+
+	// Punctuation (§9.2)
+	HangingPunctuation HangingPunctuation
+
+	// Tab Size (§3.1.1) - Number of spaces per tab character
+	// -1 = default (8 spaces), otherwise number of spaces
+	TabSize float64
+
 	// Font (for measurement)
 	FontSize   float64
 	FontFamily string
 	FontWeight FontWeight
 
-	// Direction (§2) - LTR only for v1
+	// Direction (§2)
 	Direction Direction
 }
 
@@ -472,13 +520,14 @@ type TextLayout struct {
 
 // TextLine represents a single line of text with its boxes and positioning.
 type TextLine struct {
-	Boxes           []InlineBox
-	Width           float64
-	SpaceCount      int     // Number of inter-word spaces (for justify)
-	SpaceWidth      float64 // Total width of all spaces (for justify)
-	SpaceAdjustment float64 // Extra pixels to add per space (for justify)
-	OffsetX         float64 // X offset for text-align
-	OffsetY         float64 // Y position (cumulative)
+	Boxes               []InlineBox
+	Width               float64
+	SpaceCount          int     // Number of inter-word spaces (for justify)
+	SpaceWidth          float64 // Total width of all spaces (for justify)
+	SpaceAdjustment     float64 // Extra pixels to add per space (for justify)
+	CharacterAdjustment float64 // Extra pixels to add between characters (for inter-character justify)
+	OffsetX             float64 // X offset for text-align
+	OffsetY             float64 // Y position (cumulative)
 }
 
 // InlineBoxKind represents the type of inline box.

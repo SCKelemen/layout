@@ -100,8 +100,18 @@ func LayoutText(node *Node, constraints Constraints) Size {
 		contentWidth = 0
 	}
 
-	// 2. Normalize white-space (§3.1)
-	processedText := preprocessText(node.Text, style.WhiteSpace)
+	// 2. Expand tabs based on tab-size (§3.1.1) - BEFORE whitespace processing
+	// Only expand tabs for normal and nowrap modes; pre modes preserve tabs
+	processedText := node.Text
+	if style.WhiteSpace == WhiteSpaceNormal || style.WhiteSpace == WhiteSpaceNowrap {
+		processedText = expandTabs(processedText, style.TabSize)
+	}
+
+	// 2.5. Normalize white-space (§3.1)
+	processedText = preprocessText(processedText, style.WhiteSpace)
+
+	// 2.6. Apply text-transform (§6)
+	processedText = applyTextTransform(processedText, style.TextTransform)
 
 	// 3. Perform line breaking (§4) with textMetrics.Measure
 	lines := breakIntoLines(processedText, contentWidth, *style)
@@ -112,9 +122,12 @@ func LayoutText(node *Node, constraints Constraints) Size {
 		lines = applyTextOverflow(lines, contentWidth, *style)
 	}
 
-	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), and text-indent (§7.2.1)
+	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), text-indent (§7.2.1), and direction (§2)
 	lineHeight := resolveLineHeight(style.LineHeight, style.FontSize)
-	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, lineHeight)
+	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, style.Direction, lineHeight)
+
+	// 4.5. Apply hanging-punctuation (§9.2)
+	applyHangingPunctuation(lines, style.HangingPunctuation, *style)
 
 	// 5. Compute total height from line count and line-height (§4.4.1)
 	// If no lines, use at least one line height for empty text
@@ -297,6 +310,168 @@ func collapseWhitespace(text string) string {
 	return result.String()
 }
 
+// applyTextTransform applies text-transform property
+// CSS Text Module Level 3 §6: https://www.w3.org/TR/css-text-3/#text-transform-property
+func applyTextTransform(text string, transform TextTransform) string {
+	switch transform {
+	case TextTransformNone:
+		return text
+
+	case TextTransformUppercase:
+		return strings.ToUpper(text)
+
+	case TextTransformLowercase:
+		return strings.ToLower(text)
+
+	case TextTransformCapitalize:
+		// Capitalize first letter of each word
+		// A "word" is defined as a sequence of non-space characters
+		runes := []rune(text)
+		var result strings.Builder
+		result.Grow(len(runes))
+
+		capitalizeNext := true
+		for _, r := range runes {
+			if unicode.IsSpace(r) {
+				result.WriteRune(r)
+				capitalizeNext = true
+			} else {
+				if capitalizeNext {
+					result.WriteRune(unicode.ToUpper(r))
+					capitalizeNext = false
+				} else {
+					result.WriteRune(r)
+				}
+			}
+		}
+		return result.String()
+
+	case TextTransformFullWidth:
+		// Convert half-width characters to full-width
+		// This is primarily for CJK text
+		runes := []rune(text)
+		var result strings.Builder
+		result.Grow(len(runes) * 2)
+
+		for _, r := range runes {
+			// ASCII characters (0x21-0x7E) map to full-width (0xFF01-0xFF5E)
+			if r >= 0x21 && r <= 0x7E {
+				result.WriteRune(r - 0x21 + 0xFF01)
+			} else if r == 0x20 { // Space maps to ideographic space
+				result.WriteRune(0x3000)
+			} else {
+				result.WriteRune(r)
+			}
+		}
+		return result.String()
+
+	case TextTransformFullSizeKana:
+		// Convert half-width katakana to full-width
+		// This is a simplified implementation
+		runes := []rune(text)
+		var result strings.Builder
+		result.Grow(len(runes) * 2)
+
+		for _, r := range runes {
+			// Half-width katakana (0xFF65-0xFF9F) map to full-width (0x30A1-0x30FD)
+			// This is a simplified mapping; full implementation would need a lookup table
+			if r >= 0xFF65 && r <= 0xFF9F {
+				// Approximate mapping (not complete)
+				result.WriteRune(r - 0xFF65 + 0x30A1)
+			} else {
+				result.WriteRune(r)
+			}
+		}
+		return result.String()
+
+	default:
+		return text
+	}
+}
+
+// expandTabs replaces tab characters with spaces based on tab-size
+// CSS Text Module Level 3 §3.1.1: https://www.w3.org/TR/css-text-3/#tab-size-property
+func expandTabs(text string, tabSize float64) string {
+	if !strings.Contains(text, "\t") {
+		return text
+	}
+
+	// Default tab size is 8 spaces
+	if tabSize < 0 {
+		tabSize = 8
+	}
+
+	// Convert tabSize to integer number of spaces
+	numSpaces := int(tabSize)
+	if numSpaces < 1 {
+		numSpaces = 1
+	}
+
+	replacement := strings.Repeat(" ", numSpaces)
+	return strings.ReplaceAll(text, "\t", replacement)
+}
+
+// isOpeningPunctuation checks if a rune is opening punctuation
+func isOpeningPunctuation(r rune) bool {
+	// Opening brackets, quotes, etc.
+	return r == '(' || r == '[' || r == '{' || r == '<' ||
+		r == '"' || r == '\'' || r == '\u201C' || r == '\u2018' || // Left double/single quotes
+		r == '\u00AB' || r == '\u2039' // Left guillemets
+}
+
+// isClosingPunctuation checks if a rune is closing punctuation
+func isClosingPunctuation(r rune) bool {
+	// Closing brackets, quotes, periods, commas, etc.
+	return r == ')' || r == ']' || r == '}' || r == '>' ||
+		r == '"' || r == '\'' || r == '\u201D' || r == '\u2019' || // Right double/single quotes
+		r == '\u00BB' || r == '\u203A' || // Right guillemets
+		r == '.' || r == ',' || r == '!' || r == '?' || r == ';' || r == ':'
+}
+
+// applyHangingPunctuation adjusts line boxes for hanging punctuation
+// CSS Text Module Level 3 §9.2: https://www.w3.org/TR/css-text-3/#hanging-punctuation-property
+func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style TextStyle) {
+	if hanging == HangingPunctuationNone {
+		return
+	}
+
+	for i := range lines {
+		line := &lines[i]
+		if len(line.Boxes) == 0 {
+			continue
+		}
+
+		// Handle first punctuation (opening)
+		if hanging == HangingPunctuationFirst || hanging == HangingPunctuationAllowEnd {
+			firstBox := &line.Boxes[0]
+			if len(firstBox.Text) > 0 {
+				runes := []rune(firstBox.Text)
+				if isOpeningPunctuation(runes[0]) {
+					// Measure the punctuation character
+					punctWidth, _, _ := textMetrics.Measure(string(runes[0]), style)
+					// Hang it by moving line start position
+					line.OffsetX -= punctWidth
+					line.Width += punctWidth
+				}
+			}
+		}
+
+		// Handle last punctuation (closing)
+		if hanging == HangingPunctuationLast || hanging == HangingPunctuationForceEnd || hanging == HangingPunctuationAllowEnd {
+			lastBox := &line.Boxes[len(line.Boxes)-1]
+			if len(lastBox.Text) > 0 {
+				runes := []rune(lastBox.Text)
+				if isClosingPunctuation(runes[len(runes)-1]) {
+					// Measure the punctuation character
+					punctWidth, _, _ := textMetrics.Measure(string(runes[len(runes)-1]), style)
+					// Hang it by extending line width beyond container
+					line.Width -= punctWidth
+				}
+			}
+		}
+	}
+}
+
 // splitIntoWords splits text into words by breaking on whitespace.
 // Preserves non-breaking spaces (U+00A0) and handles Unicode text correctly.
 // Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
@@ -363,8 +538,8 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 
 // breakIntoLinesUAX14 breaks text into lines using UAX #14 line breaking algorithm.
 func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextLine {
-	// Find all line break opportunities using UAX #14
-	breakPoints := findLineBreakOpportunities(text)
+	// Find all line break opportunities using UAX #14, respecting hyphens property
+	breakPoints := findLineBreakOpportunitiesWithHyphens(text, style.Hyphens)
 	if len(breakPoints) < 2 {
 		return []TextLine{}
 	}
@@ -876,11 +1051,26 @@ func resolveTextAlignLast(last TextAlignLast, textAlign TextAlign) TextAlignLast
 
 // positionLines positions lines based on text-align, text-align-last, text-justify, and text-indent.
 // Based on CSS Text Module Level 3 §7.1, §7.2.2, and §7.3
-func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, lineHeight float64) {
-	// Resolve TextAlignDefault to left (LTR context for v1)
+func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, direction Direction, lineHeight float64) {
+	// Resolve TextAlignDefault based on direction
 	align := textAlign
-	if align == TextAlignDefault {
-		align = TextAlignLeft
+	wasDefault := (align == TextAlignDefault)
+
+	if wasDefault {
+		if direction == DirectionRTL {
+			align = TextAlignRight // RTL defaults to right
+		} else {
+			align = TextAlignLeft // LTR defaults to left
+		}
+	}
+
+	// For RTL with explicit left/right (not default), swap alignments
+	if direction == DirectionRTL && !wasDefault {
+		if align == TextAlignLeft {
+			align = TextAlignRight
+		} else if align == TextAlignRight {
+			align = TextAlignLeft
+		}
 	}
 
 	currentY := 0.0
@@ -947,12 +1137,35 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 						line.Width = availableWidth
 
 					case TextJustifyInterCharacter, TextJustifyDistribute:
-						// TODO: Inter-character justification requires:
-						// 1. Adding CharacterAdjustment field to TextLine
-						// 2. Updating renderers to apply spacing between characters
-						// For now, fall back to inter-word
-						line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
-						line.Width = availableWidth
+						// Distribute across both word spaces AND character gaps
+						// Calculate total expansion opportunities
+						totalChars := 0
+						for _, box := range line.Boxes {
+							totalChars += len([]rune(box.Text))
+						}
+
+						// Character gaps = total characters minus spaces between boxes
+						characterGaps := totalChars - len(line.Boxes)
+						if characterGaps < 0 {
+							characterGaps = 0
+						}
+
+						// Total gaps = word spaces + character gaps
+						totalGaps := line.SpaceCount + characterGaps
+
+						if totalGaps > 0 {
+							// Distribute evenly across all gaps
+							gapAdjustment := extraSpace / float64(totalGaps)
+
+							// Store both space and character adjustments
+							line.SpaceAdjustment = gapAdjustment
+							line.CharacterAdjustment = gapAdjustment
+							line.Width = availableWidth
+						} else if line.SpaceCount > 0 {
+							// Fallback: if no character gaps, use inter-word
+							line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
+							line.Width = availableWidth
+						}
 					}
 				}
 				line.OffsetX = indent

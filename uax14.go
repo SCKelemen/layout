@@ -281,6 +281,10 @@ func getBreakAction(before, after BreakClass) BreakAction {
 // Returns a slice of byte positions where breaks are allowed.
 // This implements UAX #14 but focuses on word boundaries for practical line breaking.
 func findLineBreakOpportunities(text string) []int {
+	return findLineBreakOpportunitiesWithHyphens(text, HyphensManual)
+}
+
+func findLineBreakOpportunitiesWithHyphens(text string, hyphens Hyphens) []int {
 	if text == "" {
 		return []int{0}
 	}
@@ -302,7 +306,7 @@ func findLineBreakOpportunities(text string) []int {
 		// Only add break points for:
 		// 1. Mandatory breaks (newlines, etc.)
 		// 2. Spaces (word boundaries)
-		// 3. Explicit break opportunities (hyphens, etc.)
+		// 3. Explicit break opportunities (hyphens, etc.) - respecting hyphens property
 		switch action {
 		case BreakMandatory:
 			// Mandatory break - always add
@@ -319,8 +323,25 @@ func findLineBreakOpportunities(text string) []int {
 			// Don't break between regular alphabetic characters (to keep words together)
 			if prevClass == ClassHY || prevClass == ClassCB || prevClass == ClassBA || prevClass == ClassB2 {
 				// Explicit break opportunities (hyphens, soft hyphens, etc.)
-				bytePos := len(string(runes[:i]))
-				breakPoints = append(breakPoints, bytePos)
+				// Respect the hyphens property
+				isSoftHyphen := i > 0 && runes[i-1] == '\u00AD'
+
+				if hyphens == HyphensNone {
+					// Don't break at any hyphens (hard or soft)
+					// Skip adding this break point
+				} else if hyphens == HyphensManual && isSoftHyphen {
+					// Only break at soft hyphens (U+00AD) in manual mode
+					bytePos := len(string(runes[:i]))
+					breakPoints = append(breakPoints, bytePos)
+				} else if hyphens == HyphensManual && !isSoftHyphen {
+					// Don't break at hard hyphens in manual mode
+					// Skip adding this break point
+				} else if hyphens == HyphensAuto {
+					// Break at all hyphens (hard and soft) in auto mode
+					// TODO: Add dictionary-based automatic hyphenation
+					bytePos := len(string(runes[:i]))
+					breakPoints = append(breakPoints, bytePos)
+				}
 			} else if prevClass == ClassSP {
 				// Break after spaces (word boundaries)
 				bytePos := len(string(runes[:i]))

@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 // fakeMetrics provides deterministic text measurement for testing.
@@ -2121,7 +2122,7 @@ func TestTextAlignLastAutoFollowsTextAlign(t *testing.T) {
 	}
 }
 
-// TestTextJustifyInterCharacter tests inter-character justification (currently falls back to inter-word)
+// TestTextJustifyInterCharacter tests inter-character justification
 func TestTextJustifyInterCharacter(t *testing.T) {
 	setupFakeMetrics()
 
@@ -2131,7 +2132,7 @@ func TestTextJustifyInterCharacter(t *testing.T) {
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
-			TextJustify: TextJustifyInterCharacter, // Should fall back to inter-word for now
+			TextJustify: TextJustifyInterCharacter,
 		},
 	})
 
@@ -2142,16 +2143,20 @@ func TestTextJustifyInterCharacter(t *testing.T) {
 		t.Fatal("TextLayout should have at least 2 lines")
 	}
 
-	// First line should still be justified (via inter-word fallback)
+	// First line should be justified with CharacterAdjustment set
 	firstLine := node.TextLayout.Lines[0]
 	if firstLine.SpaceCount > 0 {
 		if math.Abs(firstLine.Width-120.0) > 0.1 {
 			t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
 		}
+		// Inter-character justification should set CharacterAdjustment
+		if firstLine.CharacterAdjustment == 0 {
+			t.Error("Inter-character justification should set CharacterAdjustment > 0")
+		}
 	}
 }
 
-// TestTextJustifyDistribute tests distribute justification (currently falls back to inter-word)
+// TestTextJustifyDistribute tests distribute justification
 func TestTextJustifyDistribute(t *testing.T) {
 	setupFakeMetrics()
 
@@ -2161,7 +2166,7 @@ func TestTextJustifyDistribute(t *testing.T) {
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
-			TextJustify: TextJustifyDistribute, // Should fall back to inter-word for now
+			TextJustify: TextJustifyDistribute,
 		},
 	})
 
@@ -2172,11 +2177,15 @@ func TestTextJustifyDistribute(t *testing.T) {
 		t.Fatal("TextLayout should have at least 2 lines")
 	}
 
-	// First line should still be justified (via inter-word fallback)
+	// First line should be justified with CharacterAdjustment set
 	firstLine := node.TextLayout.Lines[0]
 	if firstLine.SpaceCount > 0 {
 		if math.Abs(firstLine.Width-120.0) > 0.1 {
 			t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+		}
+		// Distribute justification should set CharacterAdjustment (same as inter-character)
+		if firstLine.CharacterAdjustment == 0 {
+			t.Error("Distribute justification should set CharacterAdjustment > 0")
 		}
 	}
 }
@@ -2624,5 +2633,415 @@ func TestWhiteSpacePreWrapVsPreLine(t *testing.T) {
 	}
 	if preLineSpaces != 1 {
 		t.Errorf("Pre-line should collapse to 1 space, got %d", preLineSpaces)
+	}
+}
+
+// ========================================
+// Text Transform Tests
+// ========================================
+
+func TestTextTransformUppercase(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello World"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextTransform: TextTransformUppercase,
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// Check that text was transformed to uppercase
+	foundUppercase := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "HELLO") {
+				foundUppercase = true
+				break
+			}
+		}
+	}
+	if !foundUppercase {
+		t.Error("Text should be transformed to uppercase")
+	}
+}
+
+func TestTextTransformLowercase(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello World"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextTransform: TextTransformLowercase,
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// Check that text was transformed to lowercase
+	foundLowercase := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if box.Text == "hello" || box.Text == "world" {
+				foundLowercase = true
+				break
+			}
+		}
+	}
+	if !foundLowercase {
+		t.Error("Text should be transformed to lowercase")
+	}
+}
+
+func TestTextTransformCapitalize(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "hello world test"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextTransform: TextTransformCapitalize,
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// Check that first letter of each word is capitalized
+	foundCapitalized := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			// Should start with capital letter
+			runes := []rune(box.Text)
+			if len(runes) > 0 && unicode.IsUpper(runes[0]) {
+				foundCapitalized = true
+				break
+			}
+		}
+	}
+	if !foundCapitalized {
+		t.Error("Text should be capitalized")
+	}
+}
+
+func TestTextTransformFullWidth(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "ABC"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:      16,
+			TextTransform: TextTransformFullWidth,
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// Check that text was transformed to full-width
+	foundFullWidth := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			runes := []rune(box.Text)
+			// Full-width A is U+FF21
+			if len(runes) > 0 && runes[0] == '\uFF21' {
+				foundFullWidth = true
+				break
+			}
+		}
+	}
+	if !foundFullWidth {
+		t.Error("Text should be transformed to full-width")
+	}
+}
+
+// ========================================
+// Tab Size Tests
+// ========================================
+
+func TestTabSizeDefault(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello\tWorld"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize: 16,
+			TabSize:  -1, // Default (8 spaces)
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// In normal mode, tab is expanded to 8 spaces, then collapsed to 1 space
+	// Just verify layout succeeded and text is properly spaced
+	if len(node.TextLayout.Lines) == 0 {
+		t.Error("Layout should produce lines")
+	}
+
+	// Should have "Hello" and "World" as separate words
+	foundHello := false
+	foundWorld := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "Hello") {
+				foundHello = true
+			}
+			if strings.Contains(box.Text, "World") {
+				foundWorld = true
+			}
+		}
+	}
+	if !foundHello || !foundWorld {
+		t.Error("Both 'Hello' and 'World' should be present")
+	}
+}
+
+func TestTabSizeCustom(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello\tWorld"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize: 16,
+			TabSize:  4, // 4 spaces per tab
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// In normal mode, tab is expanded to 4 spaces, then collapsed to 1 space
+	// Just verify layout succeeded and text is properly spaced
+	if len(node.TextLayout.Lines) == 0 {
+		t.Error("Layout should produce lines")
+	}
+
+	// Should have "Hello" and "World" as separate words
+	foundHello := false
+	foundWorld := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			if strings.Contains(box.Text, "Hello") {
+				foundHello = true
+			}
+			if strings.Contains(box.Text, "World") {
+				foundWorld = true
+			}
+		}
+	}
+	if !foundHello || !foundWorld {
+		t.Error("Both 'Hello' and 'World' should be present")
+	}
+}
+
+// ========================================
+// Hanging Punctuation Tests
+// ========================================
+
+func TestHangingPunctuationFirst(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "(Hello world)"
+	node := Text(text, Style{
+		Width: 150,
+		TextStyle: &TextStyle{
+			FontSize:           16,
+			HangingPunctuation: HangingPunctuationFirst,
+		},
+	})
+
+	constraints := Loose(150, 100)
+	LayoutText(node, constraints)
+
+	// Opening punctuation should hang (negative offset)
+	if len(node.TextLayout.Lines) > 0 {
+		line := node.TextLayout.Lines[0]
+		// With hanging punctuation first, the line should extend slightly left
+		// This is indicated by a negative OffsetX or an increased Width
+		if line.OffsetX >= 0 && line.Width <= 150 {
+			t.Error("Opening punctuation should hang (expected negative OffsetX or increased Width)")
+		}
+	}
+}
+
+func TestHangingPunctuationLast(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world."
+	node := Text(text, Style{
+		Width: 150,
+		TextStyle: &TextStyle{
+			FontSize:           16,
+			HangingPunctuation: HangingPunctuationLast,
+		},
+	})
+
+	constraints := Loose(150, 100)
+	LayoutText(node, constraints)
+
+	// Closing punctuation should hang (width reduced)
+	// The line width should be slightly less than the measured text width
+	if len(node.TextLayout.Lines) > 0 {
+		line := node.TextLayout.Lines[0]
+		// With hanging last, the line width should be adjusted
+		// (This is a simplified check - just verify layout succeeded)
+		if len(line.Boxes) == 0 {
+			t.Error("Line should have content")
+		}
+	}
+}
+
+// ========================================
+// Hyphens Property Tests
+// ========================================
+
+func TestHyphensNone(t *testing.T) {
+	setupFakeMetrics()
+
+	// Text with soft hyphen (U+00AD)
+	text := "super\u00ADcalifragilistic"
+	node := Text(text, Style{
+		Width: 50, // Narrow width to force breaking
+		TextStyle: &TextStyle{
+			FontSize: 16,
+			Hyphens:  HyphensNone,
+		},
+	})
+
+	constraints := Loose(50, 100)
+	LayoutText(node, constraints)
+
+	// With hyphens: none, the word should not break at soft hyphen
+	// It should either overflow or break elsewhere
+	foundSoftHyphenBreak := false
+	for _, line := range node.TextLayout.Lines {
+		for _, box := range line.Boxes {
+			// Check if text was broken at soft hyphen
+			if strings.HasPrefix(box.Text, "super") && !strings.Contains(box.Text, "cali") {
+				foundSoftHyphenBreak = true
+				break
+			}
+		}
+	}
+	// With hyphens: none, we should NOT find a soft hyphen break
+	// (Word should stay together or break on overflow-wrap rules)
+	if foundSoftHyphenBreak {
+		t.Error("Hyphens: none should not break at soft hyphens")
+	}
+}
+
+func TestHyphensManual(t *testing.T) {
+	setupFakeMetrics()
+
+	// Text with soft hyphen (U+00AD)
+	text := "super\u00ADcalifragilistic"
+	node := Text(text, Style{
+		Width: 50, // Narrow width to force breaking
+		TextStyle: &TextStyle{
+			FontSize: 16,
+			Hyphens:  HyphensManual,
+		},
+	})
+
+	constraints := Loose(50, 100)
+	LayoutText(node, constraints)
+
+	// With hyphens: manual, the word CAN break at soft hyphen
+	// Verify that text layout succeeded
+	if len(node.TextLayout.Lines) == 0 {
+		t.Error("Layout should produce lines")
+	}
+}
+
+func TestHyphensAuto(t *testing.T) {
+	setupFakeMetrics()
+
+	// Long word that could benefit from hyphenation
+	text := "supercalifragilistic"
+	node := Text(text, Style{
+		Width: 50, // Narrow width
+		TextStyle: &TextStyle{
+			FontSize: 16,
+			Hyphens:  HyphensAuto,
+		},
+	})
+
+	constraints := Loose(50, 100)
+	LayoutText(node, constraints)
+
+	// With hyphens: auto, layout should succeed
+	// (Dictionary-based hyphenation not implemented yet, but property is supported)
+	if len(node.TextLayout.Lines) == 0 {
+		t.Error("Layout should produce lines")
+	}
+}
+
+// ========================================
+// RTL Direction Tests
+// ========================================
+
+func TestDirectionRTL(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			Direction: DirectionRTL,
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// With RTL, default alignment should be right
+	if len(node.TextLayout.Lines) > 0 {
+		line := node.TextLayout.Lines[0]
+		// RTL text should be positioned on the right side
+		// For right alignment: OffsetX = contentWidth - lineWidth
+		// Text "Hello world" is ~110px, so OffsetX should be ~90px (200-110)
+		if line.OffsetX == 0 {
+			t.Errorf("RTL text should be aligned to the right (OffsetX > 0), got OffsetX=%.2f", line.OffsetX)
+		}
+	}
+}
+
+func TestDirectionRTLWithTextAlign(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello world"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			Direction: DirectionRTL,
+			TextAlign: TextAlignLeft, // Explicit left in RTL becomes right
+		},
+	})
+
+	constraints := Loose(200, 100)
+	LayoutText(node, constraints)
+
+	// In RTL with TextAlignLeft, text should be on right (swapped)
+	if len(node.TextLayout.Lines) > 0 {
+		line := node.TextLayout.Lines[0]
+		// Left in RTL becomes right: OffsetX = contentWidth - lineWidth
+		// Text is ~110px, so OffsetX should be ~90px (right-aligned)
+		if line.OffsetX == 0 {
+			t.Errorf("RTL with left alignment (swapped to right) should position text on right (OffsetX > 0), got OffsetX=%.2f", line.OffsetX)
+		}
 	}
 }

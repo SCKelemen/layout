@@ -668,7 +668,19 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 	fractionIndices := []int{}
 
 	for i, track := range tracks {
-		if track.Fraction > 0 {
+		// Check for fit-content (Fraction == -1)
+		if track.Fraction == -1 {
+			// fit-content: calculate intrinsic size (would need grid items for accurate sizing)
+			// For now, use MaxSize as the limit
+			// TODO: This should be calculated based on grid item content
+			fixedIndices = append(fixedIndices, i)
+			size := track.MaxSize
+			if size >= Unbounded {
+				size = 0 // Fallback for unbounded fit-content
+			}
+			sizes[i] = size
+			totalFixed += size
+		} else if track.Fraction > 0 {
 			fractionIndices = append(fractionIndices, i)
 			totalFraction += track.Fraction
 			// For unbounded constraints, fractional tracks will be treated as auto
@@ -676,12 +688,28 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 			// Don't set sizes[i] here - it will be handled below
 		} else {
 			fixedIndices = append(fixedIndices, i)
-			size := track.MinSize
-			if track.MaxSize < Unbounded {
-				size = math.Min(size, track.MaxSize)
+
+			// Check for intrinsic sizing sentinel values
+			if track.MaxSize == SizeMinContent {
+				// min-content track: would need grid items for accurate sizing
+				// For now, use MinSize as fallback
+				// TODO: Call resolveIntrinsicTrackSize from intrinsic_sizing.go
+				sizes[i] = track.MinSize
+			} else if track.MaxSize == SizeMaxContent {
+				// max-content track: would need grid items for accurate sizing
+				// For now, use MinSize as fallback
+				// TODO: Call resolveIntrinsicTrackSize from intrinsic_sizing.go
+				sizes[i] = track.MinSize
+			} else {
+				// Normal fixed track
+				size := track.MinSize
+				if track.MaxSize < Unbounded {
+					size = math.Min(size, track.MaxSize)
+				}
+				sizes[i] = size
 			}
-			sizes[i] = size
-			totalFixed += size
+
+			totalFixed += sizes[i]
 		}
 	}
 

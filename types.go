@@ -156,13 +156,21 @@ type Style struct {
 	// AlignSelf (defined in Flexbox section) also works for Grid items
 
 	// Sizing
-	Width       float64 // -1 means auto
-	Height      float64 // -1 means auto
+	Width       float64 // -1 means auto, -2 means min-content, -3 means max-content, -4 means fit-content
+	Height      float64 // -1 means auto, -2 means min-content, -3 means max-content, -4 means fit-content
 	MinWidth    float64
 	MinHeight   float64
 	MaxWidth    float64
 	MaxHeight   float64
 	AspectRatio float64 // Width/Height ratio (0 means not set). Example: 16/9 = 1.777...
+
+	// Intrinsic sizing (alternative to sentinel values for better API ergonomics)
+	// These provide an alternative way to specify intrinsic sizing beyond sentinel values
+	WidthSizing      IntrinsicSize // Intrinsic sizing mode for width (0 = none/use Width value)
+	HeightSizing     IntrinsicSize // Intrinsic sizing mode for height (0 = none/use Height value)
+	FitContentWidth  float64       // Maximum width for fit-content (only used when WidthSizing = IntrinsicSizeFitContent)
+	FitContentHeight float64       // Maximum height for fit-content (only used when HeightSizing = IntrinsicSizeFitContent)
+
 	Padding     Spacing
 	Margin      Spacing // Margin is supported in Flexbox and Grid layouts
 	Border      Spacing
@@ -490,6 +498,32 @@ type InlineBox struct {
 	Ascent  float64
 	Descent float64
 }
+
+// IntrinsicSize represents intrinsic sizing keywords from CSS Sizing Module Level 3.
+// These control how content-based sizing is calculated.
+//
+// See: CSS Sizing Module Level 3 §4-5 (Intrinsic Sizes)
+// https://www.w3.org/TR/css-sizing-3/#intrinsic-sizes
+type IntrinsicSize int
+
+const (
+	IntrinsicSizeNone       IntrinsicSize = 0 // Not using intrinsic sizing
+	IntrinsicSizeMinContent IntrinsicSize = 1 // min-content: narrowest width without overflow
+	IntrinsicSizeMaxContent IntrinsicSize = 2 // max-content: widest natural width (no wrapping)
+	IntrinsicSizeFitContent IntrinsicSize = 3 // fit-content: clamp max-content to specified size
+)
+
+// Sentinel values for Width/Height to indicate intrinsic sizing.
+// These are distinct from -1 (auto) to maintain backward compatibility.
+//
+// Usage:
+//   node.Style.Width = SizeMinContent  // Use min-content width
+//   node.Style.Width = SizeMaxContent  // Use max-content width
+const (
+	SizeMinContent = -2.0 // Use min-content intrinsic size
+	SizeMaxContent = -3.0 // Use max-content intrinsic size
+	SizeFitContent = -4.0 // Use fit-content intrinsic size (requires FitContent* field set)
+)
 
 // GridTrack represents a grid track (row or column)
 type GridTrack struct {

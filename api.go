@@ -652,3 +652,106 @@ func PlaceInArea(node *Node, areaName string) *Node {
 	node.Style.GridArea = areaName
 	return node
 }
+
+// MinContentWidth sets a node's width to use min-content intrinsic sizing.
+// The node will be as narrow as possible without overflowing content.
+//
+// Example:
+//
+//	node := MinContentWidth(&layout.Node{})
+//
+// See: CSS Sizing Module Level 3 §4.1 (min-content)
+func MinContentWidth(node *Node) *Node {
+	node.Style.Width = SizeMinContent
+	return node
+}
+
+// MaxContentWidth sets a node's width to use max-content intrinsic sizing.
+// The node will be as wide as its natural content width (no wrapping).
+//
+// Example:
+//
+//	node := MaxContentWidth(&layout.Node{})
+//
+// See: CSS Sizing Module Level 3 §4.2 (max-content)
+func MaxContentWidth(node *Node) *Node {
+	node.Style.Width = SizeMaxContent
+	return node
+}
+
+// FitContentWidth sets a node's width to use fit-content intrinsic sizing.
+// The width will be max-content clamped to the specified maximum size.
+//
+// Example:
+//
+//	node := FitContentWidth(&layout.Node{}, 500) // max-content, but no wider than 500px
+//
+// See: CSS Sizing Module Level 3 §4.3 (fit-content)
+func FitContentWidth(node *Node, maxSize float64) *Node {
+	node.Style.Width = SizeFitContent
+	node.Style.FitContentWidth = maxSize
+	return node
+}
+
+// MinContentHeight sets a node's height to use min-content intrinsic sizing.
+func MinContentHeight(node *Node) *Node {
+	node.Style.Height = SizeMinContent
+	return node
+}
+
+// MaxContentHeight sets a node's height to use max-content intrinsic sizing.
+func MaxContentHeight(node *Node) *Node {
+	node.Style.Height = SizeMaxContent
+	return node
+}
+
+// FitContentHeight sets a node's height to use fit-content intrinsic sizing.
+func FitContentHeight(node *Node, maxSize float64) *Node {
+	node.Style.Height = SizeFitContent
+	node.Style.FitContentHeight = maxSize
+	return node
+}
+
+// MinContentTrack creates a grid track that uses min-content sizing.
+// The track will be sized to the minimum content size of items in that track.
+//
+// Example:
+//
+//	GridTemplateColumns: []GridTrack{MinContentTrack(), FixedTrack(200)}
+//
+// See: CSS Grid Layout Module Level 1 §7.2.3 (min-content and max-content Track Sizing Functions)
+func MinContentTrack() GridTrack {
+	return GridTrack{
+		MinSize:  0,
+		MaxSize:  SizeMinContent,
+		Fraction: 0,
+	}
+}
+
+// MaxContentTrack creates a grid track that uses max-content sizing.
+// The track will be sized to the maximum content size of items in that track.
+//
+// Example:
+//
+//	GridTemplateColumns: []GridTrack{MaxContentTrack(), FixedTrack(200)}
+func MaxContentTrack() GridTrack {
+	return GridTrack{
+		MinSize:  0,
+		MaxSize:  SizeMaxContent,
+		Fraction: 0,
+	}
+}
+
+// FitContentTrack creates a grid track that uses fit-content sizing.
+// The track will be max-content clamped to the specified maximum size.
+//
+// Example:
+//
+//	GridTemplateColumns: []GridTrack{FitContentTrack(300), FixedTrack(200)}
+func FitContentTrack(maxSize float64) GridTrack {
+	return GridTrack{
+		MinSize:  0,
+		MaxSize:  maxSize,
+		Fraction: -1, // Special marker for fit-content
+	}
+}

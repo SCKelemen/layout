@@ -7,19 +7,44 @@ package layout
 //
 // See: https://www.w3.org/TR/css-sizing-4/#aspect-ratio
 func blockDetermineSize(node *Node, setup blockSetup) (nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) {
-	nodeWidth = setup.specifiedWidth
-	if setup.isAutoWidth {
-		nodeWidth = setup.contentWidth // auto
+	// Check for intrinsic sizing (min-content, max-content, fit-content)
+	// These override auto sizing
+	constraints := Loose(setup.contentWidth, setup.contentHeight)
+
+	// Handle width intrinsic sizing
+	if node.Style.Width == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMinContent)
+	} else if node.Style.Width == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMaxContent)
+	} else if node.Style.Width == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeFitContent)
+	} else {
+		// Normal width handling
+		nodeWidth = setup.specifiedWidth
+		if setup.isAutoWidth {
+			nodeWidth = setup.contentWidth // auto
+		}
 	}
-	nodeHeight = setup.specifiedHeight
-	if setup.isAutoHeight {
-		// For auto height, don't set to Unbounded initially if aspect ratio will calculate it
-		// Aspect ratio calculation happens next and will set height based on width
-		if node.Style.AspectRatio > 0 && setup.isAutoWidth && setup.contentWidth > 0 {
-			// Will be calculated by aspect ratio below
-			nodeHeight = 0
-		} else {
-			nodeHeight = setup.contentHeight // auto
+
+	// Handle height intrinsic sizing
+	if node.Style.Height == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMinContent)
+	} else if node.Style.Height == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMaxContent)
+	} else if node.Style.Height == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeFitContent)
+	} else {
+		// Normal height handling
+		nodeHeight = setup.specifiedHeight
+		if setup.isAutoHeight {
+			// For auto height, don't set to Unbounded initially if aspect ratio will calculate it
+			// Aspect ratio calculation happens next and will set height based on width
+			if node.Style.AspectRatio > 0 && setup.isAutoWidth && setup.contentWidth > 0 {
+				// Will be calculated by aspect ratio below
+				nodeHeight = 0
+			} else {
+				nodeHeight = setup.contentHeight // auto
+			}
 		}
 	}
 

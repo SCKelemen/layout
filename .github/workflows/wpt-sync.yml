@@ -29,7 +29,7 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          cd tools
+          cd tools/wpt-test-generator
           npm install
 
       - name: Clone WPT Repository
@@ -107,11 +107,11 @@ jobs:
           # Render sampled tests in Chrome and extract layout data
           if [ -n "$(ls -A wpt_sample_tests 2>/dev/null)" ]; then
             echo "Rendering tests in headless Chrome..."
-            node tools/wpt_renderer.js --batch wpt_sample_tests wpt_json_output || echo "Warning: Some tests failed to render"
+            node tools/wpt-test-generator/wpt_renderer.js --batch wpt_sample_tests wpt_json_output || echo "Warning: Some tests failed to render"
 
             # Generate Go tests from browser data
             echo "Generating Go tests from browser layout data..."
-            go run tools/wpt_test_generator.go --batch wpt_json_output wpt_browser_sample.go || echo "Warning: Test generation failed"
+            go run tools/wpt-test-generator/main.go --batch wpt_json_output wpt_browser_sample.go || echo "Warning: Test generation failed"
 
             # Try running the generated tests to see browser compatibility
             if [ -f wpt_browser_sample.go ]; then

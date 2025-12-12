@@ -27,7 +27,7 @@ Our approach uses **headless Chrome as the source of truth**:
 
 ### Tools
 
-#### `tools/wpt_renderer.js` (Primary Tool)
+#### `tools/wpt-test-generator/wpt_renderer.js` (Primary Tool)
 
 Node.js script using Puppeteer to render WPT tests in headless Chrome and extract browser layout data.
 
@@ -40,17 +40,17 @@ Node.js script using Puppeteer to render WPT tests in headless Chrome and extrac
 
 **Requirements:**
 ```bash
-cd tools
+cd tools/wpt-test-generator
 npm install  # Installs Puppeteer
 ```
 
 **Usage:**
 ```bash
 # Single test
-node tools/wpt_renderer.js test.html test.json
+node tools/wpt-test-generator/wpt_renderer.js test.html test.json
 
 # Batch processing
-node tools/wpt_renderer.js --batch input-dir/ output-dir/
+node tools/wpt-test-generator/wpt_renderer.js --batch input-dir/ output-dir/
 ```
 
 **Output JSON Format:**
@@ -83,7 +83,7 @@ node tools/wpt_renderer.js --batch input-dir/ output-dir/
 }
 ```
 
-#### `tools/wpt_test_generator.go` (Primary Tool)
+#### `tools/wpt-test-generator/main.go` (Primary Tool)
 
 Go program that reads JSON from wpt_renderer.js and generates Go test code.
 
@@ -97,10 +97,10 @@ Go program that reads JSON from wpt_renderer.js and generates Go test code.
 **Usage:**
 ```bash
 # Single test
-go run tools/wpt_test_generator.go test.json output_test.go
+go run tools/wpt-test-generator/main.go test.json output_test.go
 
 # Batch generation
-go run tools/wpt_test_generator.go --batch json-dir/ wpt_browser_tests.go
+go run tools/wpt-test-generator/main.go --batch json-dir/ wpt_browser_tests.go
 ```
 
 **Generated Test Example:**
@@ -132,7 +132,7 @@ func TestWPTBrowser_1(t *testing.T) {
 }
 ```
 
-#### `tools/wpt_converter.go` (Legacy)
+#### `tools/wpt-converter/main.go` (Legacy)
 
 Original converter for tests with `data-expected-*` attributes. Used for custom test format.
 
@@ -184,14 +184,14 @@ curl -o test.html "https://raw.githubusercontent.com/web-platform-tests/wpt/mast
 
 ### 2. Render in Chrome and extract layout data
 ```bash
-node tools/wpt_renderer.js test.html test.json
+node tools/wpt-test-generator/wpt_renderer.js test.html test.json
 ```
 
 This creates a JSON file with browser-measured layout values.
 
 ### 3. Generate Go test from browser data
 ```bash
-go run tools/wpt_test_generator.go test.json wpt_browser_test.go
+go run tools/wpt-test-generator/main.go test.json wpt_browser_test.go
 ```
 
 This creates a Go test file that verifies our engine matches Chrome's layout.
@@ -226,10 +226,10 @@ cd wpt_tests
 # ... download multiple test files ...
 
 # Render all tests in Chrome
-node ../tools/wpt_renderer.js --batch . ../wpt_json_output/
+node ../tools/wpt-test-generator/wpt_renderer.js --batch . ../wpt_json_output/
 
 # Generate single Go test file with all tests
-go run tools/wpt_test_generator.go --batch wpt_json_output/ wpt_browser_tests.go
+go run tools/wpt-test-generator/main.go --batch wpt_json_output/ wpt_browser_tests.go
 
 # Run all tests
 go test -v -run TestWPTBrowser
@@ -348,10 +348,10 @@ curl -o align-content-001.html \
   "https://raw.githubusercontent.com/web-platform-tests/wpt/master/css/css-flexbox/align-content-001.htm"
 
 # Extract browser layout
-node tools/wpt_renderer.js align-content-001.html align-content-001.json
+node tools/wpt-test-generator/wpt_renderer.js align-content-001.html align-content-001.json
 
 # Generate Go test
-go run tools/wpt_test_generator.go align-content-001.json wpt_align_content_test.go
+go run tools/wpt-test-generator/main.go align-content-001.json wpt_align_content_test.go
 
 # Test it
 go test -v -run TestWPTBrowser_1

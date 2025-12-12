@@ -1,0 +1,28 @@
+{
+  "name": "wpt-layout-tools",
+  "version": "1.0.0",
+  "description": "Tools for extracting layout data from WPT tests using headless Chrome",
+  "main": "wpt_renderer.js",
+  "scripts": {
+    "render": "node wpt_renderer.js",
+    "batch": "node wpt_renderer.js --batch"
+  },
+  "keywords": [
+    "wpt",
+    "web-platform-tests",
+    "layout",
+    "css",
+    "testing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

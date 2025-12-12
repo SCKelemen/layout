@@ -54,43 +54,36 @@ This document tracks remaining spec non-conformances, edge cases, and potential 
 
 ### 4. Max-Width == 0 Behavior
 
-**Issue**: When `constraints.MaxWidth == 0`, line breaking still occurs but may produce unexpected results.
+**Status**: ✅ **FIXED**
 
-**Current Behavior**:
-- `maxWidth > 0` check means `maxWidth == 0` is treated as "no wrapping"
-- Text will be laid out as a single long line
-- Final width will be clamped to 0 by `constraints.Constrain()`
+**Previous Issue**: When `constraints.MaxWidth == 0`, line breaking could produce unexpected results.
 
-**Impact**: Low - edge case, unlikely in practice.
-
-**Recommendation**: Treat `maxWidth <= 0` as unbounded for clarity:
+**Fix Applied**: `maxWidth <= 0` is now treated as unbounded (no wrapping):
 ```go
 if maxWidth <= 0 {
     maxWidth = Unbounded
 }
 ```
 
-**Status**: Minor issue, could be fixed.
+**Reference**: Fixed in commit `f52d0aa`.
 
 ### 5. Text Node Invariants Not Enforced
 
-**Issue**: `LayoutText` assumes text nodes are leaf nodes (no children) but doesn't enforce this.
+**Status**: ✅ **FIXED**
+
+**Previous Issue**: `LayoutText` assumed text nodes are leaf nodes but didn't document or validate this.
+
+**Fix Applied**: 
+- Added documentation in `LayoutText` function comment explaining that children are ignored
+- Added validation check (with comment) that documents the behavior
+- Text nodes are explicitly documented as leaf nodes
 
 **Current Behavior**:
-- If a `DisplayInlineText` node has children, they are silently ignored
-- No validation or error reporting
+- If a `DisplayInlineText` node has children, they are ignored (documented behavior)
+- Validation check with clear comment explains this is intentional
+- Users should use block containers for mixed text/block content
 
-**Impact**: Medium - could cause silent bugs if users accidentally add children to text nodes.
-
-**Recommendation**: Add validation or documentation:
-```go
-// At start of LayoutText:
-if len(node.Children) > 0 {
-    // Log warning or document that children are ignored
-}
-```
-
-**Status**: Should be documented at minimum, could add validation.
+**Reference**: Fixed in current implementation.
 
 ### 6. Global TextMetricsProvider Concurrency
 

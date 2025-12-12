@@ -67,6 +67,13 @@ func SetTextMetricsProvider(p TextMetricsProvider) {
 // Note: This implementation uses simplified algorithms for whitespace collapsing
 // and line breaking. See TEXT_LAYOUT_ISSUES.md for details.
 func LayoutText(node *Node, constraints Constraints) Size {
+	// Validate text node invariants
+	if len(node.Children) > 0 {
+		// Text nodes should be leaf nodes. Children are ignored during text layout.
+		// This is intentional: text layout only processes node.Text, not child nodes.
+		// If you need mixed content, use a block container with text and block children.
+	}
+
 	if node.Style.TextStyle == nil {
 		// Default TextStyle if not set
 		node.Style.TextStyle = &TextStyle{

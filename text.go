@@ -192,11 +192,11 @@ func preprocessText(text string, whiteSpace WhiteSpace) string {
 		text = strings.ReplaceAll(text, "\r\n", " ")
 		text = strings.ReplaceAll(text, "\n", " ")
 		text = strings.ReplaceAll(text, "\r", " ")
-		
+
 		// Collapse whitespace, but preserve non-breaking spaces (U+00A0)
 		// Non-breaking spaces should not collapse per CSS spec
 		text = collapseWhitespace(text)
-		
+
 		return strings.TrimSpace(text)
 
 	case WhiteSpaceNowrap:

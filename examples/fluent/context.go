@@ -83,7 +83,6 @@ func main() {
 	ancestors := targetCtx.Ancestors()
 	fmt.Printf("Target has %d ancestors:\n", len(ancestors))
 	for i, ancestor := range ancestors {
-		display := ancestor.Node.Style.Display
 		childCount := len(ancestor.Node.Children)
 		fmt.Printf("  %d. Depth %d: %d children, padding %.0f\n",
 			i+1, ancestor.Depth(), childCount, ancestor.Node.Style.Padding.Top)
@@ -169,7 +168,7 @@ func main() {
 	// Using context to understand structure, then transform
 	// Find all nodes that have exactly 2 siblings and modify them
 
-	modified := tree.Transform(
+	_ = tree.Transform(
 		func(n *layout.Node) bool {
 			// Create temporary context to check siblings
 			tempCtx := layout.NewContext(tree)

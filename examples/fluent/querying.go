@@ -154,7 +154,7 @@ func main() {
 	fmt.Printf("Tree scaled by 1.5x\n")
 
 	// Add padding to all containers
-	padded := tree.Transform(
+	_ = tree.Transform(
 		func(n *layout.Node) bool {
 			return len(n.Children) > 0
 		},

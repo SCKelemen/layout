@@ -1,6 +1,16 @@
 package layout
 
-// LayoutBlock performs basic block layout on a node
+// LayoutBlock performs block layout on a node.
+//
+// Algorithm based on CSS Box Model and Block Layout:
+// - CSS Box Model Module Level 3: §4: Box Model
+// - CSS Display Module Level 3: §4: Block-level Boxes
+// - CSS Sizing Module Level 3: §5: Intrinsic Size Determination
+//
+// See:
+// - https://www.w3.org/TR/css-box-3/
+// - https://www.w3.org/TR/css-display-3/
+// - https://www.w3.org/TR/css-sizing-3/
 func LayoutBlock(node *Node, constraints Constraints) Size {
 	// Calculate available space
 	availableWidth := constraints.MaxWidth

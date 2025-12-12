@@ -4,7 +4,22 @@ import (
 	"math"
 )
 
-// LayoutGrid performs CSS Grid layout on a node
+// LayoutGrid performs CSS Grid layout on a node.
+//
+// Algorithm based on CSS Grid Layout Module Level 1:
+// - §11: Grid Sizing
+//   - §11.1: Track Sizing Algorithm
+//   - §11.2: Track Sizing Algorithm for Grid Containers
+//   - §11.3: Track Sizing Algorithm for Grid Items
+//
+// - §12: Grid Item Placement
+//   - §12.1: Grid Item Placement Algorithm
+//
+// - §10: Alignment
+//   - §10.1: Aligning with justify-items
+//   - §10.2: Aligning with align-items
+//
+// See: https://www.w3.org/TR/css-grid-1/
 func LayoutGrid(node *Node, constraints Constraints) Size {
 	if node.Style.Display != DisplayGrid {
 		// If not grid, delegate to block layout

@@ -2,6 +2,18 @@
 
 Complete reference for all exported functions and types.
 
+## Learning Resources
+
+This library implements CSS specifications. For deeper understanding, see these MDN guides:
+
+- [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
+- [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
+- [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
+- [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
+- [CSS Box Sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing)
+- [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)
+- [CSS Display](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display)
+
 ## Core Types
 
 ### Node
@@ -255,6 +267,8 @@ func Vertical(value float64) Spacing
 
 Creates a horizontal stack (row flexbox container).
 
+**MDN Guide:** [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
+
 ```go
 func HStack(children ...*Node) *Node
 ```
@@ -263,6 +277,8 @@ func HStack(children ...*Node) *Node
 
 Creates a vertical stack (column flexbox container).
 
+**MDN Guide:** [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
+
 ```go
 func VStack(children ...*Node) *Node
 ```
@@ -270,6 +286,8 @@ func VStack(children ...*Node) *Node
 ### ZStack
 
 Creates a stack with overlapping children (absolute positioning).
+
+**MDN Guide:** [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)
 
 ```go
 func ZStack(children ...*Node) *Node
@@ -297,6 +315,8 @@ func Fixed(width, height float64) *Node
 
 Adds uniform padding to a node.
 
+**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
+
 ```go
 func Padding(node *Node, padding float64) *Node
 ```
@@ -305,6 +325,8 @@ func Padding(node *Node, padding float64) *Node
 
 Adds custom padding to a node.
 
+**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
+
 ```go
 func PaddingCustom(node *Node, top, right, bottom, left float64) *Node
 ```
@@ -312,6 +334,8 @@ func PaddingCustom(node *Node, top, right, bottom, left float64) *Node
 ### Margin
 
 Adds uniform margin to a node. Margins are fully supported in Flexbox and Grid layouts.
+
+**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
 
 ```go
 func Margin(node *Node, margin float64) *Node
@@ -398,6 +422,8 @@ These functions operate on nodes **after** layout has been computed. They modify
 
 Aligns multiple nodes to a common reference point (edge or center).
 
+**MDN Guide:** [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
+
 ```go
 func AlignNodes(nodes []*Node, edge AlignEdge)
 ```
@@ -429,6 +455,8 @@ layout.AlignNodes(items, layout.AlignCenterY)
 ### DistributeNodes
 
 Evenly spaces multiple nodes horizontally or vertically, based on their centers.
+
+**MDN Guide:** [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
 
 ```go
 func DistributeNodes(nodes []*Node, direction DistributeDirection)
@@ -515,6 +543,8 @@ layout.SnapToGrid(items, 10.0, 5.0, 5.0) // Grid at (5, 5) with 10px spacing
 - Design tool-like subgrid snapping
 
 ## Grid Helpers
+
+**MDN Guide:** [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
 
 ### Grid
 

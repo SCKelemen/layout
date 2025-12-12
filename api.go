@@ -19,6 +19,8 @@ import (
 //	    layout.Fixed(100, 50),
 //	)
 //	stack.Style.Padding = layout.Uniform(10)
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout
 func HStack(children ...*Node) *Node {
 	return &Node{
 		Style: Style{
@@ -40,6 +42,8 @@ func HStack(children ...*Node) *Node {
 //	    layout.Fixed(100, 50),
 //	)
 //	stack.Style.Padding = layout.Uniform(10)
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout
 func VStack(children ...*Node) *Node {
 	return &Node{
 		Style: Style{
@@ -53,6 +57,8 @@ func VStack(children ...*Node) *Node {
 // ZStack creates a stack with overlapping children (absolute positioning).
 // Children are positioned absolutely, allowing them to overlap.
 // Use LayoutWithPositioning to properly layout ZStack children.
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout
 func ZStack(children ...*Node) *Node {
 	// Make all children absolutely positioned
 	for _, child := range children {
@@ -94,12 +100,16 @@ func Fixed(width, height float64) *Node {
 }
 
 // Padding adds padding to a node
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func Padding(node *Node, padding float64) *Node {
 	node.Style.Padding = Uniform(padding)
 	return node
 }
 
 // PaddingCustom adds custom padding to a node
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func PaddingCustom(node *Node, top, right, bottom, left float64) *Node {
 	node.Style.Padding = Spacing{
 		Top:    top,
@@ -111,6 +121,8 @@ func PaddingCustom(node *Node, top, right, bottom, left float64) *Node {
 }
 
 // Margin adds margin to a node
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func Margin(node *Node, margin float64) *Node {
 	node.Style.Margin = Uniform(margin)
 	return node
@@ -139,6 +151,8 @@ const (
 //	layout.AlignNodes(nodes, layout.AlignCenterY) // Align all to vertical center
 //
 // Note: This modifies the Rect positions directly. Call Layout() first to compute initial positions.
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment
 func AlignNodes(nodes []*Node, edge AlignEdge) {
 	if len(nodes) == 0 {
 		return
@@ -257,6 +271,8 @@ const (
 //
 // Note: This modifies the Rect positions directly. Call Layout() first to compute initial positions.
 // The nodes are sorted by their current position before distribution.
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment
 func DistributeNodes(nodes []*Node, direction DistributeDirection) {
 	if len(nodes) < 3 {
 		// Need at least 3 nodes to distribute (first and last stay fixed)
@@ -454,6 +470,8 @@ func MinWidth(node *Node, width float64) *Node {
 //	    },
 //	}
 //	video = layout.AspectRatio(video, 16.0/9.0)
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing
 func AspectRatio(node *Node, ratio float64) *Node {
 	node.Style.AspectRatio = ratio
 	return node
@@ -466,6 +484,8 @@ func AspectRatio(node *Node, ratio float64) *Node {
 //
 //	grid := layout.Grid(3, 4, 150, 200) // 3 rows x 4 columns, rows=150px, cols=200px
 //	grid.Style.GridGap = 10
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout
 func Grid(rows, cols int, rowSize, colSize float64) *Node {
 	gridRows := make([]GridTrack, rows)
 	for i := range gridRows {
@@ -492,6 +512,8 @@ func Grid(rows, cols int, rowSize, colSize float64) *Node {
 // Example:
 //
 //	grid := layout.GridAuto(3, 4) // 3 rows x 4 columns, auto-sized
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout
 func GridAuto(rows, cols int) *Node {
 	gridRows := make([]GridTrack, rows)
 	for i := range gridRows {
@@ -518,6 +540,8 @@ func GridAuto(rows, cols int) *Node {
 // Example:
 //
 //	grid := layout.GridFractional(3, 4) // 3 rows x 4 columns, all equal fractional units
+//
+// MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout
 func GridFractional(rows, cols int) *Node {
 	gridRows := make([]GridTrack, rows)
 	for i := range gridRows {

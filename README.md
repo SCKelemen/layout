@@ -4,7 +4,7 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
 
 ## Features
 
-- **CSS Flexbox Layout** ([Specification](https://www.w3.org/TR/css-flexbox-1/)): Complete flexbox implementation with support for:
+- **CSS Flexbox Layout** ([Specification](https://www.w3.org/TR/css-flexbox-1/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)): Complete flexbox implementation with support for:
   - Flex direction (row, column, reverse)
   - Flex wrap
   - Justify content
@@ -12,7 +12,7 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
   - Flex grow/shrink/basis
   - Gap spacing
 
-- **CSS Grid Layout** ([Specification](https://www.w3.org/TR/css-grid-1/)): Grid layout implementation with support for:
+- **CSS Grid Layout** ([Specification](https://www.w3.org/TR/css-grid-1/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)): Grid layout implementation with support for:
   - **Multiple columns** via GridTemplateColumns array
   - Grid template rows/columns
   - Auto rows/columns
@@ -22,17 +22,19 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
   - Grid item positioning and spanning
   - **Bento box / mosaic layouts** - items spanning multiple rows/columns
 
-- **Block Layout**: Basic block layout for non-flex/grid elements
+- **Block Layout** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display)): Basic block layout for non-flex/grid elements
 
-- **Aspect Ratio**: Maintain consistent width-to-height ratios for responsive elements
-  - Based on [CSS Box Sizing Module Level 4](https://www.w3.org/TR/css-sizing-4/#aspect-ratio)
+- **Aspect Ratio** ([CSS Spec](https://www.w3.org/TR/css-sizing-4/#aspect-ratio) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing)): Maintain consistent width-to-height ratios for responsive elements
   - Helps elements reserve space correctly when one dimension is auto
 
-- **Post-Layout Alignment & Distribution**: Design-tool-like operations for aligning and distributing nodes after layout:
+- **Post-Layout Alignment & Distribution** ([CSS Spec](https://www.w3.org/TR/css-align-3/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)): Design-tool-like operations for aligning and distributing nodes after layout:
   - Align to edges (left, right, top, bottom) or centers
   - Distribute with even spacing
   - Snap to grid boundaries (primarily for block/absolute layouts)
-  - Based on [CSS Box Alignment Module Level 3](https://www.w3.org/TR/css-align-3/)
+
+- **Box Model** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)): Full support for padding, margin, and border spacing
+
+- **Positioned Layout** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)): Absolute, relative, fixed, and sticky positioning
 
 - **Serialization** (optional `serialize` package): JSON/YAML serialization for debugging and persistence
   - Inspect layout trees
@@ -182,6 +184,18 @@ layout.Layout(root, constraints)
 - [Common Gotchas](docs/gotchas.md) - Common pitfalls and how to avoid them ⚠️
 - [SVG Rendering](docs/svg-rendering.md) - Rendering layouts to SVG
 - [Limitations](docs/limitations.md) - Known limitations and design decisions
+
+## Learning Resources
+
+This library implements CSS specifications. For deeper understanding of layout concepts, see these MDN guides:
+
+- [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout) - Learn about flexbox
+- [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout) - Learn about grid layout
+- [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment) - Alignment in flexbox and grid
+- [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model) - Padding, margin, and borders
+- [CSS Box Sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing) - Box sizing and aspect ratios
+- [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout) - Absolute, relative, fixed positioning
+- [CSS Display](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display) - Display modes and formatting contexts
 
 ## Use Cases
 

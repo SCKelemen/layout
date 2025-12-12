@@ -24,8 +24,8 @@ func (a *approxMetrics) Measure(text string, style TextStyle) (advance, ascent, 
 	charWidth := style.FontSize * 0.6 // Rough average
 	advance = float64(len(text)) * charWidth
 
-	// Add letter spacing
-	if style.LetterSpacing > 0 {
+	// Add letter spacing (can be positive or negative)
+	if style.LetterSpacing != -1 && len(text) > 0 {
 		advance += float64(len(text)-1) * style.LetterSpacing
 	}
 
@@ -72,6 +72,8 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	availableWidth := constraints.MaxWidth
 	horizontalPaddingBorder := node.Style.Padding.Left + node.Style.Padding.Right +
 		node.Style.Border.Left + node.Style.Border.Right
+	verticalPaddingBorder := node.Style.Padding.Top + node.Style.Padding.Bottom +
+		node.Style.Border.Top + node.Style.Border.Bottom
 	contentWidth := availableWidth - horizontalPaddingBorder
 	if contentWidth < 0 {
 		contentWidth = 0
@@ -95,33 +97,56 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	}
 	contentHeight := float64(numLines) * lineHeight
 
-	// 6. Set node.Rect.Width/Height (including padding/border)
-	// Apply explicit width/height if set (>= 0 means explicit, < 0 means auto)
-	// Note: 0 is a valid explicit value, so we check >= 0
-	if node.Style.Width >= 0 {
-		contentWidth = node.Style.Width
-	}
-	// For height, only override if explicitly set (Height > 0, since 0 could be unset)
-	// Actually, we should use the same pattern as width: >= 0 means explicit
-	// But we need to distinguish between unset (0) and explicit 0
-	// For now, only override if > 0 to avoid the zero-value issue
-	if node.Style.Height > 0 {
-		contentHeight = node.Style.Height
-	}
-
-	// Find max line width
+	// Find max line width (including text-indent for first line)
 	maxLineWidth := 0.0
-	for _, line := range lines {
-		if line.Width > maxLineWidth {
-			maxLineWidth = line.Width
+	for i, line := range lines {
+		w := line.Width
+		// Include text-indent in first line width calculation
+		if i == 0 && style.TextIndent != 0 {
+			w += style.TextIndent
+		}
+		if w > maxLineWidth {
+			maxLineWidth = w
 		}
 	}
-	if node.Style.Width < 0 {
+
+	// 6. Apply explicit width/height if set, using box-sizing conversion
+	hasExplicitWidth := node.Style.Width > 0
+	hasExplicitHeight := node.Style.Height > 0
+
+	if hasExplicitWidth {
+		// Convert from specified box-sizing to content-box
+		contentWidth = convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	} else {
+		// Auto width: use max line width
 		contentWidth = maxLineWidth
 	}
 
-	verticalPaddingBorder := node.Style.Padding.Top + node.Style.Padding.Bottom +
-		node.Style.Border.Top + node.Style.Border.Bottom
+	if hasExplicitHeight {
+		// Convert from specified box-sizing to content-box
+		contentHeight = convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+	}
+
+	// Apply min/max constraints (convert to content-box)
+	minWidthContent := convertMinMaxToContentSize(node.Style.MinWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	maxWidthContent := convertMinMaxToContentSize(node.Style.MaxWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	minHeightContent := convertMinMaxToContentSize(node.Style.MinHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+	maxHeightContent := convertMinMaxToContentSize(node.Style.MaxHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+
+	// Clamp content dimensions to min/max
+	if minWidthContent > 0 && contentWidth < minWidthContent {
+		contentWidth = minWidthContent
+	}
+	if maxWidthContent > 0 && maxWidthContent < Unbounded && contentWidth > maxWidthContent {
+		contentWidth = maxWidthContent
+	}
+
+	if minHeightContent > 0 && contentHeight < minHeightContent {
+		contentHeight = minHeightContent
+	}
+	if maxHeightContent > 0 && maxHeightContent < Unbounded && contentHeight > maxHeightContent {
+		contentHeight = maxHeightContent
+	}
 
 	outerWidth := contentWidth + horizontalPaddingBorder
 	outerHeight := contentHeight + verticalPaddingBorder
@@ -200,15 +225,15 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 		wordWidth, _, _ := textMetrics.Measure(word, style)
 
 		// Check if we need to break BEFORE adding this word
-		// Account for first line indent when checking width
+		// Account for first line indent when checking width (can be positive or negative)
 		effectiveLineWidth := currentWidth
-		if len(current.Boxes) == 0 && firstLineIndent > 0 {
+		if len(current.Boxes) == 0 && firstLineIndent != 0 {
 			effectiveLineWidth += firstLineIndent
 		}
 		// Add space before word if not first word in line
 		if len(current.Boxes) > 0 {
 			spaceWidth, _, _ := textMetrics.Measure(" ", style)
-			if style.WordSpacing > 0 {
+			if style.WordSpacing != -1 {
 				spaceWidth += style.WordSpacing
 			}
 			effectiveLineWidth += spaceWidth
@@ -228,7 +253,7 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 		// Add space before word if not first word in line
 		if len(current.Boxes) > 0 {
 			spaceWidth, _, _ := textMetrics.Measure(" ", style)
-			if style.WordSpacing > 0 {
+			if style.WordSpacing != -1 {
 				spaceWidth += style.WordSpacing
 			}
 			currentWidth += spaceWidth
@@ -266,49 +291,26 @@ func canBreakBefore(whiteSpace WhiteSpace) bool {
 	return true // §4: Can break before word tokens in normal mode
 }
 
-// breakIntoLinesPre breaks text into lines preserving newlines (pre mode)
+// breakIntoLinesPre breaks text into lines preserving newlines and spaces (pre mode)
 func breakIntoLinesPre(text string, maxWidth float64, style TextStyle) []TextLine {
 	lines := []TextLine{}
 
 	// Split by newlines
 	lineTexts := strings.Split(text, "\n")
-	for lineIdx, lineText := range lineTexts {
-		// Each line becomes a TextLine
+	for _, lineText := range lineTexts {
 		line := TextLine{Boxes: []InlineBox{}}
-		lineWidth := 0.0
 
-		// First line gets text-indent
-		if lineIdx == 0 && style.TextIndent > 0 {
-			lineWidth += style.TextIndent
-		}
-
-		// Split line into words (preserving spaces would require more complex handling)
-		words := strings.Fields(lineText)
-		for i, word := range words {
-			wordWidth, _, _ := textMetrics.Measure(word, style)
-
-			// Add space before word if not first
-			if i > 0 {
-				spaceWidth, _, _ := textMetrics.Measure(" ", style)
-				if style.WordSpacing > 0 {
-					spaceWidth += style.WordSpacing
-				}
-				lineWidth += spaceWidth
-			}
-
-			_, ascent, descent := textMetrics.Measure(word, style)
-			box := InlineBox{
-				Kind:    InlineBoxText,
-				Text:    word,
-				Width:   wordWidth,
-				Ascent:  ascent,
-				Descent: descent,
-			}
-			line.Boxes = append(line.Boxes, box)
-			lineWidth += wordWidth
-		}
-
-		line.Width = lineWidth
+		// Measure the entire line text (preserving all spaces)
+		// Text-indent affects alignment, not intrinsic width, so handle in positionLines()
+		advance, ascent, descent := textMetrics.Measure(lineText, style)
+		line.Boxes = append(line.Boxes, InlineBox{
+			Kind:    InlineBoxText,
+			Text:    lineText,
+			Width:   advance,
+			Ascent:  ascent,
+			Descent: descent,
+		})
+		line.Width = advance
 		lines = append(lines, line)
 	}
 
@@ -329,8 +331,8 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 		line := &lines[i]
 		lineWidth := line.Width
 
-		// First line gets text-indent
-		if i == 0 && textIndent > 0 {
+		// First line gets text-indent (can be positive or negative)
+		if i == 0 && textIndent != 0 {
 			lineWidth += textIndent
 		}
 
@@ -338,7 +340,7 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 		switch align {
 		case TextAlignLeft:
 			line.OffsetX = 0.0
-			if i == 0 && textIndent > 0 {
+			if i == 0 && textIndent != 0 {
 				line.OffsetX = textIndent
 			}
 
@@ -376,33 +378,38 @@ func resolveLineHeight(lineHeight float64, fontSize float64) float64 {
 // Text creates a new text node with the given text and optional style.
 // The node will have DisplayInlineText set automatically.
 func Text(text string, style ...Style) *Node {
-	node := &Node{
-		Text: text,
-		Style: Style{
-			Display: DisplayInlineText,
-			TextStyle: &TextStyle{
-				FontSize:   16,
-				TextAlign:  TextAlignDefault,
-				LineHeight: 0, // normal
-				WhiteSpace: WhiteSpaceNormal,
-				Direction:  DirectionLTR,
-			},
+	baseStyle := Style{
+		Display: DisplayInlineText,
+		Width:   -1, // auto
+		Height:  -1, // auto
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			TextAlign:  TextAlignDefault,
+			LineHeight: 0, // normal
+			WhiteSpace: WhiteSpaceNormal,
+			Direction:  DirectionLTR,
 		},
+	}
+
+	node := &Node{
+		Text:  text,
+		Style: baseStyle,
 	}
 
 	// Merge provided style if any
 	if len(style) > 0 {
 		node.Style = style[0]
 		node.Style.Display = DisplayInlineText
+		// Treat 0 as auto (Go zero value issue)
+		if node.Style.Width == 0 {
+			node.Style.Width = -1
+		}
+		if node.Style.Height == 0 {
+			node.Style.Height = -1
+		}
 		// Ensure TextStyle is set
 		if node.Style.TextStyle == nil {
-			node.Style.TextStyle = &TextStyle{
-				FontSize:   16,
-				TextAlign:  TextAlignDefault,
-				LineHeight: 0,
-				WhiteSpace: WhiteSpaceNormal,
-				Direction:  DirectionLTR,
-			}
+			node.Style.TextStyle = baseStyle.TextStyle
 		}
 	}
 

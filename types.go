@@ -353,10 +353,12 @@ type TextStyle struct {
 	TextAlign TextAlign
 
 	// Spacing (§4.4.1, §5.1, §5.2, §7.2.1)
-	LineHeight    float64 // <=0 = normal (1.2), 0<x<10 = multiplier, >=10 = absolute px
-	WordSpacing   float64 // -1 = normal, otherwise spacing in px
-	LetterSpacing float64 // -1 = normal, otherwise spacing in px
-	TextIndent    float64 // First line indent (0 = none)
+	// LineHeight: <=0 = normal (1.2×), 0<x<10 = multiplier, >=10 = absolute px
+	// Note: This heuristic means line-height: 12 will be 12px regardless of font size
+	LineHeight    float64
+	WordSpacing   float64 // -1 = normal, otherwise spacing in px (can be negative)
+	LetterSpacing float64 // -1 = normal, otherwise spacing in px (can be negative)
+	TextIndent    float64 // First line indent in px (0 = none, can be negative for hanging indent)
 
 	// Wrapping (§3.1)
 	WhiteSpace WhiteSpace

@@ -40,6 +40,11 @@ func (a *approxMetrics) Measure(text string, style TextStyle) (advance, ascent, 
 var textMetrics TextMetricsProvider = &approxMetrics{}
 
 // SetTextMetricsProvider allows users to plug in their own measurement.
+//
+// Thread Safety: This function modifies a package-level variable. For concurrent
+// use, set the provider once at initialization time and do not change it during
+// layout operations. If you need to change providers concurrently, use external
+// synchronization.
 func SetTextMetricsProvider(p TextMetricsProvider) {
 	if p != nil {
 		textMetrics = p
@@ -47,14 +52,20 @@ func SetTextMetricsProvider(p TextMetricsProvider) {
 }
 
 // LayoutText lays out text within a node, computing its Size and internal line boxes.
-// It assumes the node is a text leaf: node.Text is non-empty, no children.
-// The node should have DisplayInlineText set.
+//
+// Requirements:
+// - The node should have DisplayInlineText set
+// - node.Text should be non-empty (empty text produces minimal height)
+// - Text nodes should be leaf nodes (children are ignored if present)
 //
 // Algorithm based on CSS Text Module Level 3:
 // - §3: White Space Processing
 // - §4: Line Breaking and Word Boundaries
 // - §5: Text Transformations and Spacing
 // - §7: Text Alignment
+//
+// Note: This implementation uses simplified algorithms for whitespace collapsing
+// and line breaking. See TEXT_LAYOUT_ISSUES.md for details.
 func LayoutText(node *Node, constraints Constraints) Size {
 	if node.Style.TextStyle == nil {
 		// Default TextStyle if not set
@@ -197,6 +208,11 @@ func preprocessText(text string, whiteSpace WhiteSpace) string {
 func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 	if text == "" {
 		return []TextLine{}
+	}
+
+	// Treat maxWidth <= 0 as unbounded (no wrapping)
+	if maxWidth <= 0 {
+		maxWidth = Unbounded
 	}
 
 	// For pre mode, split on newlines first

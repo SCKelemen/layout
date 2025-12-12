@@ -21,7 +21,8 @@ func flexboxHandleWrapReverse(
 	hasExplicitCrossSize bool,
 ) ([]float64, float64) {
 	wrapReverse := node.Style.FlexWrap == FlexWrapWrapReverse
-	if !wrapReverse || len(lines) <= 1 {
+	// wrap-reverse requires a definite cross size for mirroring to work correctly
+	if !wrapReverse || len(lines) <= 1 || !hasExplicitCrossSize {
 		return lineOffsets, totalCrossSize
 	}
 

@@ -12,10 +12,10 @@ import (
 // JSON structures matching wpt_renderer.js output
 
 type WPTLayoutData struct {
-	TestFile string         `json:"testFile"`
-	Viewport ViewportData   `json:"viewport"`
-	Elements []ElementData  `json:"elements"`
-	Metadata MetadataData   `json:"metadata"`
+	TestFile string        `json:"testFile"`
+	Viewport ViewportData  `json:"viewport"`
+	Elements []ElementData `json:"elements"`
+	Metadata MetadataData  `json:"metadata"`
 }
 
 type ViewportData struct {
@@ -43,19 +43,19 @@ type RectData struct {
 }
 
 type ComputedStyleData struct {
-	Display        string     `json:"display"`
-	Position       string     `json:"position"`
-	FlexDirection  string     `json:"flexDirection"`
-	FlexWrap       string     `json:"flexWrap"`
-	JustifyContent string     `json:"justifyContent"`
-	AlignItems     string     `json:"alignItems"`
-	AlignContent   string     `json:"alignContent"`
-	Width          string     `json:"width"`
-	Height         string     `json:"height"`
-	MinWidth       string     `json:"minWidth"`
-	MinHeight      string     `json:"minHeight"`
-	MaxWidth       string     `json:"maxWidth"`
-	MaxHeight      string     `json:"maxHeight"`
+	Display        string      `json:"display"`
+	Position       string      `json:"position"`
+	FlexDirection  string      `json:"flexDirection"`
+	FlexWrap       string      `json:"flexWrap"`
+	JustifyContent string      `json:"justifyContent"`
+	AlignItems     string      `json:"alignItems"`
+	AlignContent   string      `json:"alignContent"`
+	Width          string      `json:"width"`
+	Height         string      `json:"height"`
+	MinWidth       string      `json:"minWidth"`
+	MinHeight      string      `json:"minHeight"`
+	MaxWidth       string      `json:"maxWidth"`
+	MaxHeight      string      `json:"maxHeight"`
 	Margin         SpacingData `json:"margin"`
 	Padding        SpacingData `json:"padding"`
 	Border         SpacingData `json:"border"`

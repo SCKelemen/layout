@@ -1,4 +1,4 @@
-name: Test
+name: Tests
 
 on:
   push:
@@ -7,33 +7,167 @@ on:
     branches: [ main, master ]
 
 jobs:
-  test:
+  # Blocking tests - must pass for build to succeed
+  blocking-tests:
+    name: Blocking Tests (Implemented Features)
     runs-on: ubuntu-latest
-    
+
     strategy:
+      fail-fast: false
       matrix:
         go-version: ['1.21', '1.23', '1.25']
-    
+        test-group:
+          - name: 'Flexbox'
+            pattern: 'Flexbox'
+          - name: 'Grid Layout'
+            pattern: 'Grid'
+          - name: 'Text Layout'
+            pattern: 'Text'
+          - name: 'Position Layout'
+            pattern: 'Position'
+          - name: 'Block Layout'
+            pattern: 'Block'
+          - name: 'Box Model'
+            pattern: 'Box|Constraints|Padding|Margin|Border'
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
-    
+
     - name: Download dependencies
       run: go mod download
-    
-    - name: Run tests (without YAML)
-      run: go test -tags no_yaml -v ./...
-    
-    - name: Run tests with coverage (without YAML)
-      run: go test -tags no_yaml -coverprofile=coverage.out ./...
-    
-    - name: Upload coverage (optional)
+
+    - name: Run ${{ matrix.test-group.name }} tests
+      run: |
+        echo "Testing: ${{ matrix.test-group.name }}"
+        go test -tags no_yaml -v -run "${{ matrix.test-group.pattern }}" -timeout 5m ./...
+
+  # Comprehensive test run with coverage
+  comprehensive:
+    name: All Tests + Coverage
+    runs-on: ubuntu-latest
+    needs: blocking-tests
+
+    strategy:
+      matrix:
+        go-version: ['1.21', '1.23']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run all tests with coverage
+      run: go test -tags no_yaml -v -coverprofile=coverage.out -covermode=atomic -timeout 10m ./...
+
+    - name: Generate coverage report
+      run: go tool cover -func=coverage.out
+
+    - name: Upload coverage
+      if: matrix.go-version == '1.21'
       uses: codecov/codecov-action@v4
       continue-on-error: true
       with:
         file: ./coverage.out
+        flags: unittests
+        name: codecov-layout
+
+  # Non-blocking tests for future/partial features
+  non-blocking-tests:
+    name: Non-Blocking Tests (Future Features)
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Don't fail the build
+
+    strategy:
+      matrix:
+        go-version: ['1.21']
+        test-group:
+          - name: 'Subgrid'
+            pattern: 'Subgrid'
+          - name: 'Advanced Text'
+            pattern: 'TextAlignLast|TextJustify|TextDecoration|TextTransform'
+          - name: 'Advanced Sizing'
+            pattern: 'MinContent|MaxContent|FitContent|Intrinsic|AspectRatio'
+          - name: 'Containment'
+            pattern: 'Contain'
+          - name: 'Display Level 3'
+            pattern: 'FlowRoot|Contents|InlineFlex|InlineGrid'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run ${{ matrix.test-group.name }} tests
+      continue-on-error: true
+      run: |
+        echo "Testing: ${{ matrix.test-group.name }} (non-blocking)"
+        go test -tags no_yaml -v -run "${{ matrix.test-group.pattern }}" -timeout 5m ./... || echo "⚠️  Some ${{ matrix.test-group.name }} tests failed (expected for unimplemented features)"
+
+  # Code quality checks
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Run go fmt
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Go files are not formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    - name: Run go vet
+      run: go vet ./...
+
+  # Test summary
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [blocking-tests, comprehensive, non-blocking-tests]
+    if: always()
+
+    steps:
+    - name: Report results
+      run: |
+        echo "## 🧪 Test Results Summary"
+        echo ""
+        echo "### Blocking Tests (Must Pass)"
+        echo "Status: ${{ needs.blocking-tests.result }}"
+        echo ""
+        echo "### Comprehensive Tests"
+        echo "Status: ${{ needs.comprehensive.result }}"
+        echo ""
+        echo "### Non-Blocking Tests (Future Features)"
+        echo "Status: ${{ needs.non-blocking-tests.result }} (failures allowed)"
+        echo ""
+        if [ "${{ needs.blocking-tests.result }}" != "success" ] || [ "${{ needs.comprehensive.result }}" != "success" ]; then
+          echo "❌ Build failed - blocking tests did not pass"
+          exit 1
+        fi
+        echo "✅ All required tests passed!"
 

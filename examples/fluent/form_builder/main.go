@@ -61,7 +61,7 @@ func ButtonGroup(buttons ...string) *layout.Node {
 }
 
 func main() {
-	fmt.Println("=== Form Builder Example ===\n")
+	fmt.Println("=== Form Builder Example ===")
 
 	// Build a user registration form
 	registrationForm := layout.VStack(
@@ -114,7 +114,7 @@ func main() {
 		registrationForm.Rect.Width, registrationForm.Rect.Height)
 
 	// Analyze the form
-	fmt.Println("\n=== Form Analysis ===\n")
+	fmt.Println("\n=== Form Analysis ===")
 
 	// Count form fields
 	fields := registrationForm.FindAll(func(n *layout.Node) bool {
@@ -144,7 +144,7 @@ func main() {
 	fmt.Println()
 
 	// Demonstrate form variants
-	fmt.Println("\n=== Creating Form Variants ===\n")
+	fmt.Println("\n=== Creating Form Variants ===")
 
 	// Compact variant - reduce all spacing
 	compactForm := registrationForm.Transform(
@@ -177,7 +177,7 @@ func main() {
 		wideForm.Rect.Width, registrationForm.Rect.Width)
 
 	// Demonstrate conditional fields
-	fmt.Println("\n=== Conditional Form Fields ===\n")
+	fmt.Println("\n=== Conditional Form Fields ===")
 
 	// Remove password field for "view only" mode
 	viewOnlyForm := registrationForm.Transform(
@@ -206,7 +206,7 @@ func main() {
 	fmt.Printf("View-only form fields: %d (removed password field)\n", len(viewFields))
 
 	// Demonstrate form validation display
-	fmt.Println("\n=== Adding Validation Errors ===\n")
+	fmt.Println("\n=== Adding Validation Errors ===")
 
 	// Add error indicators to specific fields
 	formWithErrors := registrationForm.Transform(
@@ -224,7 +224,7 @@ func main() {
 	fmt.Printf("Form with validation errors height: %.0f\n", formWithErrors.Rect.Height)
 
 	// Demonstrate collecting form data (simulated)
-	fmt.Println("\n=== Form Data Collection ===\n")
+	fmt.Println("\n=== Form Data Collection ===")
 
 	type FormData struct {
 		Labels []string
@@ -258,7 +258,7 @@ func main() {
 	}
 
 	// Demonstrate form analytics
-	fmt.Println("\n=== Form Analytics ===\n")
+	fmt.Println("\n=== Form Analytics ===")
 
 	// Count nodes by depth to understand nesting
 	depthCounts := registrationForm.FoldWithContext(
@@ -281,7 +281,7 @@ func main() {
 
 	fmt.Printf("Total padding in form: %.0f\n", totalPadding)
 
-	fmt.Println("\n=== Original Form Unchanged ===\n")
+	fmt.Println("\n=== Original Form Unchanged ===")
 	fmt.Printf("Original still has %d fields\n", len(fields))
 	fmt.Printf("Original size: %.0fx%.0f\n",
 		registrationForm.Rect.Width, registrationForm.Rect.Height)

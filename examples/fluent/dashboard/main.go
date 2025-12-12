@@ -52,7 +52,7 @@ func CreateSection(title string, content *layout.Node) *layout.Node {
 }
 
 func main() {
-	fmt.Println("=== Dashboard Example with Fluent API ===\n")
+	fmt.Println("=== Dashboard Example with Fluent API ===")
 
 	// Build metrics row
 	metricsRow := layout.HStack(
@@ -125,7 +125,7 @@ func main() {
 	}
 
 	// Demonstrate creating themed variant
-	fmt.Println("\n=== Creating Dark Theme Variant ===\n")
+	fmt.Println("\n=== Creating Dark Theme Variant ===")
 
 	// Apply theme by transforming all containers
 	darkTheme := dashboard.Transform(

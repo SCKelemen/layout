@@ -11,7 +11,7 @@ import (
 // Demonstrates method chaining and immutable modifications.
 
 func main() {
-	fmt.Println("=== Basic Fluent API Example ===\n")
+	fmt.Println("=== Basic Fluent API Example ===")
 
 	// Build a simple card using method chaining
 	card := (&layout.Node{}).
@@ -36,7 +36,7 @@ func main() {
 	fmt.Printf("Card has %d children\n", len(card.Children))
 
 	// Demonstrate immutability - create variants
-	fmt.Println("\n=== Creating Variants ===\n")
+	fmt.Println("\n=== Creating Variants ===")
 
 	// Original card
 	fmt.Printf("Original padding: %.0f\n", card.Style.Padding.Top)
@@ -57,7 +57,7 @@ func main() {
 		len(withExtra.Children), len(card.Children))
 
 	// Demonstrate chaining multiple operations
-	fmt.Println("\n=== Chaining Operations ===\n")
+	fmt.Println("\n=== Chaining Operations ===")
 
 	styledCard := card.
 		WithPadding(25).

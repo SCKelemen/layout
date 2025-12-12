@@ -12,7 +12,7 @@ import (
 // to find ancestors and navigate to parent nodes.
 
 func main() {
-	fmt.Println("=== NodeContext Example ===\n")
+	fmt.Println("=== NodeContext Example ===")
 
 	// Build a nested tree structure
 	tree := layout.VStack(
@@ -36,7 +36,7 @@ func main() {
 	// Layout the tree
 	layout.Layout(tree, layout.Loose(600, 400))
 
-	fmt.Println("=== Creating Context ===\n")
+	fmt.Println("=== Creating Context ===")
 
 	// Wrap root in context for parent tracking
 	ctx := layout.NewContext(tree)
@@ -44,7 +44,7 @@ func main() {
 	fmt.Printf("Root is at depth: %d\n", ctx.Depth())
 	fmt.Printf("Root has %d children\n", len(ctx.Children()))
 
-	fmt.Println("\n=== Finding Nodes Downward ===\n")
+	fmt.Println("\n=== Finding Nodes Downward ===")
 
 	// Find the target node
 	targetCtx := ctx.FindDown(func(n *layout.Node) bool {
@@ -61,7 +61,7 @@ func main() {
 		targetCtx.Node.Rect.X, targetCtx.Node.Rect.Y,
 		targetCtx.Node.Rect.Width, targetCtx.Node.Rect.Height)
 
-	fmt.Println("\n=== Navigating to Parent ===\n")
+	fmt.Println("\n=== Navigating to Parent ===")
 
 	// Get immediate parent
 	parentCtx := targetCtx.Parent()
@@ -77,7 +77,7 @@ func main() {
 		fmt.Printf("Grandparent has padding: %.0f\n", grandparentCtx.Node.Style.Padding.Top)
 	}
 
-	fmt.Println("\n=== Getting All Ancestors ===\n")
+	fmt.Println("\n=== Getting All Ancestors ===")
 
 	// Get all ancestors
 	ancestors := targetCtx.Ancestors()
@@ -92,7 +92,7 @@ func main() {
 	pathToRoot := targetCtx.AncestorsAndSelf()
 	fmt.Printf("\nPath from target to root: %d nodes\n", len(pathToRoot))
 
-	fmt.Println("\n=== Finding Containing Flex Container ===\n")
+	fmt.Println("\n=== Finding Containing Flex Container ===")
 
 	// Find the nearest flex container ancestor
 	flexCtx := targetCtx.FindUp(func(n *layout.Node) bool {
@@ -105,7 +105,7 @@ func main() {
 		fmt.Printf("Flex direction: %v\n", flexCtx.Node.Style.FlexDirection)
 	}
 
-	fmt.Println("\n=== Getting Siblings ===\n")
+	fmt.Println("\n=== Getting Siblings ===")
 
 	// Get siblings of target
 	siblings := targetCtx.Siblings()
@@ -114,7 +114,7 @@ func main() {
 		fmt.Printf("  %d. %s\n", i+1, sibling.Node.Text)
 	}
 
-	fmt.Println("\n=== Finding All Flex Containers ===\n")
+	fmt.Println("\n=== Finding All Flex Containers ===")
 
 	// Find all flex containers in tree
 	allFlexCtx := ctx.FindDownAll(func(n *layout.Node) bool {
@@ -130,7 +130,7 @@ func main() {
 			flexContainer.Node.Style.FlexDirection)
 	}
 
-	fmt.Println("\n=== Utility Methods ===\n")
+	fmt.Println("\n=== Utility Methods ===")
 
 	// Check various properties
 	fmt.Printf("Target is root: %v\n", targetCtx.IsRoot())
@@ -141,7 +141,7 @@ func main() {
 	fmt.Printf("Root has parent: %v\n", ctx.HasParent())
 	fmt.Printf("Root has children: %v\n", ctx.HasChildren())
 
-	fmt.Println("\n=== Practical Use Case: Modifying Based on Context ===\n")
+	fmt.Println("\n=== Practical Use Case: Modifying Based on Context ===")
 
 	// Find all leaf nodes (nodes with no children) that are inside VStacks
 	leafsInVStack := []*layout.Node{}
@@ -163,7 +163,7 @@ func main() {
 		fmt.Printf("  %d. %s\n", i+1, leaf.Text)
 	}
 
-	fmt.Println("\n=== Combining Context with Transformations ===\n")
+	fmt.Println("\n=== Combining Context with Transformations ===")
 
 	// Using context to understand structure, then transform
 	// Find all nodes that have exactly 2 siblings and modify them

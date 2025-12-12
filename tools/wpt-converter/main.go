@@ -37,28 +37,28 @@ type TextTestContent struct {
 }
 
 type ContainerStyle struct {
-	Display       string
-	FlexDirection string
-	FlexWrap      string
-	AlignContent  string
+	Display        string
+	FlexDirection  string
+	FlexWrap       string
+	AlignContent   string
 	JustifyContent string
-	AlignItems    string
-	Width         float64
-	Height        float64
-	ExpectedWidth float64
+	AlignItems     string
+	Width          float64
+	Height         float64
+	ExpectedWidth  float64
 	ExpectedHeight float64
 }
 
 type ChildStyle struct {
-	Width         float64
-	Height        float64
-	FlexGrow      float64
-	FlexShrink    float64
-	FlexBasis     string
-	ExpectedWidth float64
+	Width          float64
+	Height         float64
+	FlexGrow       float64
+	FlexShrink     float64
+	FlexBasis      string
+	ExpectedWidth  float64
 	ExpectedHeight float64
-	ExpectedX     float64
-	ExpectedY     float64
+	ExpectedX      float64
+	ExpectedY      float64
 }
 
 type ExpectedLayout struct {
@@ -93,7 +93,7 @@ func main() {
 	}
 
 	goCode := generateGoTests(tests, filepath.Base(inputFile))
-	
+
 	formatted, err := format.Source([]byte(goCode))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error formatting Go code: %v\n", err)
@@ -270,7 +270,7 @@ func extractTextTest(n *html.Node, style, class, textContent string, containerSt
 
 func parseContainerStyle(style, class string, n *html.Node) ContainerStyle {
 	cs := ContainerStyle{}
-	
+
 	// Parse inline style
 	if style != "" {
 		cs.Display = extractCSSValue(style, "display")
@@ -322,7 +322,7 @@ func parseContainerStyle(style, class string, n *html.Node) ContainerStyle {
 func extractChildStyle(n *html.Node, idx int) ChildStyle {
 	cs := ChildStyle{}
 	style := getAttribute(n, "style")
-	
+
 	if style != "" {
 		cs.Width = parseCSSLength(extractCSSValue(style, "width"))
 		cs.Height = parseCSSLength(extractCSSValue(style, "height"))
@@ -386,7 +386,7 @@ func parseDataAttribute(n *html.Node, attr string) float64 {
 
 func generateGoTests(tests []WPTTest, sourceFile string) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("package layout\n\n")
 	sb.WriteString("import (\n")
 	sb.WriteString("\t\"math\"\n")
@@ -517,7 +517,7 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 	sb.WriteString("\troot := &Node{\n")
 	sb.WriteString("\t\tStyle: Style{\n")
 	sb.WriteString("\t\t\tDisplay: DisplayFlex,\n")
-	
+
 	if test.Container.FlexDirection != "" {
 		sb.WriteString(fmt.Sprintf("\t\t\tFlexDirection: %s,\n", cssToGoFlexDirection(test.Container.FlexDirection)))
 	}
@@ -539,10 +539,10 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 	if test.Container.Height > 0 {
 		sb.WriteString(fmt.Sprintf("\t\t\tHeight: %.2f,\n", test.Container.Height))
 	}
-	
+
 	sb.WriteString("\t\t},\n")
 	sb.WriteString("\t\tChildren: []*Node{\n")
-	
+
 	// Add children
 	for _, child := range test.Children {
 		sb.WriteString("\t\t\t{\n")
@@ -562,10 +562,10 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 		sb.WriteString("\t\t\t\t},\n")
 		sb.WriteString("\t\t\t},\n")
 	}
-	
+
 	sb.WriteString("\t\t},\n")
 	sb.WriteString("\t}\n\n")
-	
+
 	// Determine constraints
 	maxWidth := test.Container.Width
 	maxHeight := test.Container.Height
@@ -575,10 +575,10 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 	if maxHeight == 0 {
 		maxHeight = 1000 // Default
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("\tconstraints := Loose(%.2f, %.2f)\n", maxWidth, maxHeight))
 	sb.WriteString("\tLayoutFlexbox(root, constraints)\n\n")
-	
+
 	// Add assertions
 	if test.Container.ExpectedWidth > 0 {
 		sb.WriteString(fmt.Sprintf("\tif math.Abs(root.Rect.Width-%.2f) > 1.0 {\n", test.Container.ExpectedWidth))
@@ -590,7 +590,7 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 		sb.WriteString(fmt.Sprintf("\t\tt.Errorf(\"Container height should be %.2f, got %%f\", root.Rect.Height)\n", test.Container.ExpectedHeight))
 		sb.WriteString("\t}\n")
 	}
-	
+
 	// Check child positions
 	for i, child := range test.Children {
 		if child.ExpectedX > 0 || child.ExpectedY > 0 {
@@ -612,7 +612,7 @@ func generateFlexboxTest(test WPTTest, idx int) string {
 			sb.WriteString("\t}\n")
 		}
 	}
-	
+
 	sb.WriteString("}\n")
 	return sb.String()
 }

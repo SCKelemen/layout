@@ -11,7 +11,7 @@ import (
 // Demonstrates Find, FindAll, Filter, Transform, Map, and Fold operations.
 
 func main() {
-	fmt.Println("=== Querying and Transforming Example ===\n")
+	fmt.Println("=== Querying and Transforming Example ===")
 
 	// Build a complex tree
 	tree := layout.VStack(
@@ -39,7 +39,7 @@ func main() {
 	// Layout the tree
 	layout.Layout(tree, layout.Loose(800, 600))
 
-	fmt.Println("=== Finding Nodes ===\n")
+	fmt.Println("=== Finding Nodes ===")
 
 	// Find first node with specific text
 	submit := tree.Find(func(n *layout.Node) bool {
@@ -81,7 +81,7 @@ func main() {
 	}
 	fmt.Printf("All text nodes narrow: %v\n", allTextNarrow)
 
-	fmt.Println("\n=== Collecting Statistics ===\n")
+	fmt.Println("\n=== Collecting Statistics ===")
 
 	// Count total nodes
 	totalNodes := tree.Fold(0, func(acc interface{}, n *layout.Node) interface{} {
@@ -126,7 +126,7 @@ func main() {
 	).(map[int]int)
 	fmt.Printf("Nodes per depth: %v\n", depthCounts)
 
-	fmt.Println("\n=== Transforming Trees ===\n")
+	fmt.Println("\n=== Transforming Trees ===")
 
 	// Double the width of buttons
 	widerButtons := tree.Transform(
@@ -165,7 +165,7 @@ func main() {
 	)
 	fmt.Printf("Added padding to all containers\n")
 
-	fmt.Println("\n=== Filtering ===\n")
+	fmt.Println("\n=== Filtering ===")
 
 	// Keep only nodes with text
 	textOnly := tree.FilterDeep(func(n *layout.Node) bool {
@@ -181,7 +181,7 @@ func main() {
 	wideCount := len(wideOnly.Children)
 	fmt.Printf("Filtered to wide elements: %d immediate children\n", wideCount)
 
-	fmt.Println("\n=== Original Unchanged ===\n")
+	fmt.Println("\n=== Original Unchanged ===")
 
 	// Verify original tree is unchanged
 	originalTextNodes := tree.FindAll(func(n *layout.Node) bool {

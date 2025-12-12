@@ -12,10 +12,10 @@ import (
 // and can be mixed together seamlessly.
 
 func main() {
-	fmt.Println("=== Classic vs Fluent API Comparison ===\n")
+	fmt.Println("=== Classic vs Fluent API Comparison ===")
 
 	// === Example 1: Simple Card ===
-	fmt.Println("Example 1: Simple Card\n")
+	fmt.Println("Example 1: Simple Card")
 
 	// Classic API
 	classicCard := &layout.Node{
@@ -74,7 +74,7 @@ func main() {
 	fmt.Printf("Rects identical: %v\n\n", classicCard.Rect == fluentCard.Rect)
 
 	// === Example 2: Using Helper Functions ===
-	fmt.Println("Example 2: Using Helper Functions\n")
+	fmt.Println("Example 2: Using Helper Functions")
 
 	// Classic with helpers
 	classicStack := layout.HStack(
@@ -103,7 +103,7 @@ func main() {
 	fmt.Printf("Rects identical: %v\n\n", classicStack.Rect == fluentStack.Rect)
 
 	// === Example 3: Mixing Both Styles ===
-	fmt.Println("Example 3: Mixing Both Styles\n")
+	fmt.Println("Example 3: Mixing Both Styles")
 
 	// Start with classic
 	mixed := layout.VStack(
@@ -130,7 +130,7 @@ func main() {
 		mixed.Style.Padding.Top, mixed.Style.Margin.Top)
 
 	// === Example 4: Building the Same Tree Two Ways ===
-	fmt.Println("Example 4: Complex Tree Two Ways\n")
+	fmt.Println("Example 4: Complex Tree Two Ways")
 
 	// Classic approach
 	classicTree := &layout.Node{
@@ -209,7 +209,7 @@ func main() {
 	fmt.Printf("All node rects match: %v\n\n", allMatch)
 
 	// === Example 5: Querying Works the Same ===
-	fmt.Println("Example 5: Querying Both Trees\n")
+	fmt.Println("Example 5: Querying Both Trees")
 
 	// Query classic tree
 	classicText := classicTree.FindAll(func(n *layout.Node) bool {
@@ -241,7 +241,7 @@ func main() {
 	fmt.Printf("Fluent scaled width:  %.0f\n\n", fluentScaled.Style.Width)
 
 	// === Summary ===
-	fmt.Println("=== Summary ===\n")
+	fmt.Println("=== Summary ===")
 	fmt.Println("✓ Classic and fluent APIs produce identical layouts")
 	fmt.Println("✓ Both can use helper functions (HStack, VStack, etc.)")
 	fmt.Println("✓ Both can be mixed in the same codebase")

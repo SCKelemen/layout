@@ -243,10 +243,10 @@ const (
 type AlignItems int
 
 const (
-	AlignItemsFlexStart AlignItems = iota
+	AlignItemsStretch AlignItems = iota // CSS default (zero value)
+	AlignItemsFlexStart
 	AlignItemsFlexEnd
 	AlignItemsCenter
-	AlignItemsStretch
 	AlignItemsBaseline
 )
 
@@ -255,10 +255,10 @@ const (
 type JustifyItems int
 
 const (
-	JustifyItemsStart JustifyItems = iota
+	JustifyItemsStretch JustifyItems = iota // CSS default (zero value)
+	JustifyItemsStart
 	JustifyItemsEnd
 	JustifyItemsCenter
-	JustifyItemsStretch
 )
 
 // AlignContent

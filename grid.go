@@ -454,19 +454,16 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			}
 		} else {
 			// No aspect ratio: apply justify-items and align-items alignment
-			// Default is stretch, but can be overridden
+			// Default is stretch (zero value), which matches CSS spec
 			justifyItems := node.Style.JustifyItems
 			alignItems := node.Style.AlignItems
 
-			// Note: JustifyItemsStart is 0 (iota), so we can't use == 0 to distinguish "not set" from "set to start"
-			// Since the zero value is JustifyItemsStart, we'll treat 0 as start (not default to stretch)
-			// This means if user wants stretch, they must explicitly set JustifyItemsStretch
-			// This is a limitation: we can't distinguish "not set" (should default to stretch per CSS spec) from "set to start" (0)
+			// Zero value is now JustifyItemsStretch (CSS default)
 			// Only default to stretch if the value is outside the valid enum range
-			if justifyItems > JustifyItemsStretch {
+			if justifyItems > JustifyItemsCenter {
 				justifyItems = JustifyItemsStretch
 			}
-			// For align-items, AlignItemsFlexStart is also 0 (iota), so we have the same issue
+			// Zero value is now AlignItemsStretch (CSS default)
 			// Only default to stretch if the value is outside the valid enum range
 			if alignItems > AlignItemsBaseline {
 				alignItems = AlignItemsStretch
@@ -537,9 +534,9 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Handle justify-items positioning (inline/row axis)
 		justifyItems := node.Style.JustifyItems
-		// Note: JustifyItemsStart is 0, so we can't use == 0 to check "not set"
+		// Zero value is now JustifyItemsStretch (CSS default)
 		// Only default to stretch if the value is outside the valid enum range
-		if justifyItems > JustifyItemsStretch {
+		if justifyItems > JustifyItemsCenter {
 			justifyItems = JustifyItemsStretch
 		}
 		// Items with aspect-ratio default to start alignment per spec
@@ -566,7 +563,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		// Handle align-items positioning (block/column axis)
 		alignItems := node.Style.AlignItems
-		// Note: AlignItemsFlexStart is 0, so we can't use == 0 to check "not set"
+		// Zero value is now AlignItemsStretch (CSS default)
 		// Only default to stretch if the value is outside the valid enum range
 		if alignItems > AlignItemsBaseline {
 			alignItems = AlignItemsStretch

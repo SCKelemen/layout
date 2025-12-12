@@ -522,24 +522,29 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 			// Set initial rect (will be updated by justify-content or reverse positioning)
 			// For reverse, we'll position from the end, so X/Y will be set there
-			// Safeguard: if mainSize/crossSize is 0 but explicit dimensions are set, use them for rect
+			// Safeguard: if mainSize/crossSize is 0 but explicit dimensions are set, use them
 			// This is a last-resort fix for cases where LayoutBlock returned 0
-			// Note: We don't update item.mainSize here as it may have been calculated from flex grow/shrink
+			// We also update item.mainSize/crossSize if they're 0, so justify-content calculations work correctly
 			rectWidth := item.mainSize
 			rectHeight := item.crossSize
 			if isRow {
 				if rectWidth == 0 && item.node.Style.Width >= 0 {
 					rectWidth = item.node.Style.Width
+					// Update mainSize so justify-content calculations use correct size
+					item.mainSize = item.node.Style.Width
 				}
 				if rectHeight == 0 && item.node.Style.Height >= 0 {
 					rectHeight = item.node.Style.Height
+					item.crossSize = item.node.Style.Height
 				}
 			} else {
 				if rectHeight == 0 && item.node.Style.Height >= 0 {
 					rectHeight = item.node.Style.Height
+					item.mainSize = item.node.Style.Height
 				}
 				if rectWidth == 0 && item.node.Style.Width >= 0 {
 					rectWidth = item.node.Style.Width
+					item.crossSize = item.node.Style.Width
 				}
 			}
 			if !isReverse {
@@ -574,6 +579,20 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 						Width:  rectWidth,
 						Height: rectHeight,
 					}
+				}
+			}
+		}
+
+		// Ensure item.mainSize is set correctly before justify-content calculation
+		// This is needed because justifyContentWithGap uses item.mainSize
+		for _, item := range line {
+			if isRow {
+				if item.mainSize == 0 && item.node.Style.Width >= 0 {
+					item.mainSize = item.node.Style.Width
+				}
+			} else {
+				if item.mainSize == 0 && item.node.Style.Height >= 0 {
+					item.mainSize = item.node.Style.Height
 				}
 			}
 		}
@@ -725,13 +744,21 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 	}
 
 	// Calculate total size of items in main axis (including margins)
+	// Use item.mainSize instead of item.node.Rect.Width/Height because mainSize is the
+	// actual flex-calculated size, while Rect.Width/Height might be set to explicit dimensions
+	// If mainSize is 0, fall back to rect width/height as a last resort
 	totalItemSize := 0.0
 	for _, item := range line {
-		if isRow {
-			totalItemSize += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd
-		} else {
-			totalItemSize += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd
+		itemSize := item.mainSize
+		if itemSize == 0 {
+			// Fallback to rect size if mainSize is 0
+			if isRow {
+				itemSize = item.node.Rect.Width
+			} else {
+				itemSize = item.node.Rect.Height
+			}
 		}
+		totalItemSize += itemSize + item.mainMarginStart + item.mainMarginEnd
 	}
 	// Add gaps between items
 	if len(line) > 1 {
@@ -757,10 +784,10 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 			for _, item := range line {
 				if isRow {
 					item.node.Rect.X += currentPos + item.mainMarginStart
-					currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
+					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				} else {
 					item.node.Rect.Y += currentPos + item.mainMarginStart
-					currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
+					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				}
 			}
 			return
@@ -788,14 +815,14 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 		if isRow {
 			// Row direction: modify X (main axis), preserve Y (cross axis)
 			item.node.Rect.X += currentPos + item.mainMarginStart
-			currentPos += item.node.Rect.Width + item.mainMarginStart + item.mainMarginEnd
+			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 			if i < len(line)-1 {
 				currentPos += gap
 			}
 		} else {
 			// Column direction: modify Y (main axis), preserve X (cross axis)
 			item.node.Rect.Y += currentPos + item.mainMarginStart
-			currentPos += item.node.Rect.Height + item.mainMarginStart + item.mainMarginEnd
+			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 			if i < len(line)-1 {
 				currentPos += gap
 			}

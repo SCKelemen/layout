@@ -456,14 +456,14 @@ func stringToJustifyContent(s string) layout.JustifyContent {
 
 func alignItemsToString(ai layout.AlignItems) string {
 	switch ai {
+	case layout.AlignItemsStretch:
+		return "stretch"
 	case layout.AlignItemsFlexStart:
 		return "flex-start"
 	case layout.AlignItemsFlexEnd:
 		return "flex-end"
 	case layout.AlignItemsCenter:
 		return "center"
-	case layout.AlignItemsStretch:
-		return "stretch"
 	case layout.AlignItemsBaseline:
 		return "baseline"
 	default:
@@ -473,31 +473,31 @@ func alignItemsToString(ai layout.AlignItems) string {
 
 func stringToAlignItems(s string) layout.AlignItems {
 	switch s {
+	case "stretch":
+		return layout.AlignItemsStretch // 0 (default)
 	case "flex-start":
 		return layout.AlignItemsFlexStart
 	case "flex-end":
 		return layout.AlignItemsFlexEnd
 	case "center":
 		return layout.AlignItemsCenter
-	case "stretch":
-		return layout.AlignItemsStretch
 	case "baseline":
 		return layout.AlignItemsBaseline
 	default:
-		return 0
+		return 0 // stretch (default)
 	}
 }
 
 func justifyItemsToString(ji layout.JustifyItems) string {
 	switch ji {
+	case layout.JustifyItemsStretch:
+		return "stretch"
 	case layout.JustifyItemsStart:
 		return "start"
 	case layout.JustifyItemsEnd:
 		return "end"
 	case layout.JustifyItemsCenter:
 		return "center"
-	case layout.JustifyItemsStretch:
-		return "stretch"
 	default:
 		return ""
 	}
@@ -505,16 +505,16 @@ func justifyItemsToString(ji layout.JustifyItems) string {
 
 func stringToJustifyItems(s string) layout.JustifyItems {
 	switch s {
+	case "stretch":
+		return layout.JustifyItemsStretch // 0 (default)
 	case "start":
 		return layout.JustifyItemsStart
 	case "end":
 		return layout.JustifyItemsEnd
 	case "center":
 		return layout.JustifyItemsCenter
-	case "stretch":
-		return layout.JustifyItemsStretch
 	default:
-		return 0
+		return 0 // stretch (default)
 	}
 }
 

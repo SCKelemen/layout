@@ -15,6 +15,8 @@ func Layout(root *Node, constraints Constraints) Size {
 		return LayoutFlexbox(root, constraints)
 	case DisplayGrid:
 		return LayoutGrid(root, constraints)
+	case DisplayInlineText:
+		return LayoutText(root, constraints)
 	case DisplayNone:
 		return Size{Width: 0, Height: 0}
 	default:

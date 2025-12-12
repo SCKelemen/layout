@@ -182,6 +182,8 @@ func LayoutBlock(node *Node, constraints Constraints) Size {
 			childSize = LayoutFlexbox(child, childConstraints)
 		} else if child.Style.Display == DisplayGrid {
 			childSize = LayoutGrid(child, childConstraints)
+		} else if child.Style.Display == DisplayInlineText {
+			childSize = LayoutText(child, childConstraints)
 		} else {
 			childSize = LayoutBlock(child, childConstraints)
 		}

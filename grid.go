@@ -138,7 +138,11 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		return constraints.Constrain(resultSize)
 	}
 
-	// Step 2: Place items using grid-auto-flow
+	// Step 2: Resolve named grid areas to explicit positions
+	// This must happen before auto-placement so area-based positions are treated as explicit
+	gridResolveAreas(node)
+
+	// Step 3: Place items using grid-auto-flow
 	// Use gridPlaceItems from grid_placement.go which handles row/column flow and dense packing
 	autoFlow := node.Style.GridAutoFlow
 	gridItems := gridPlaceItems(node, &rows, &columns, autoFlow)
@@ -146,7 +150,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	// Recalculate column sizes if columns were extended during placement
 	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
 
-	// Step 3: Measure children to determine row sizes
+	// Step 4: Measure children to determine row sizes
 	// Ensure rowSizes and rowHeights are properly sized for all rows
 	rowSizes := make([]float64, len(rows))
 	rowHeights := make([]float64, len(rows))

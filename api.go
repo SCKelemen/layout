@@ -1,6 +1,9 @@
 package layout
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // High-level API helpers inspired by SwiftUI and Flutter.
 // These provide a simpler, more ergonomic API for common use cases.
@@ -557,4 +560,95 @@ func RepeatTracks(count int, tracks ...GridTrack) []GridTrack {
 		result = append(result, tracks...)
 	}
 	return result
+}
+
+// NewGridTemplateAreas creates a new GridTemplateAreas with the specified grid dimensions.
+// Named areas can then be defined using DefineArea.
+//
+// Example:
+//
+//	areas := layout.NewGridTemplateAreas(3, 3) // 3 rows x 3 columns
+//	areas.DefineArea("header", 0, 1, 0, 3)      // Full width header
+//	areas.DefineArea("sidebar", 1, 3, 0, 1)     // Left sidebar
+//	areas.DefineArea("content", 1, 3, 1, 3)     // Main content area
+//
+// See: CSS Grid Layout Module Level 1 §7.3 (Named Areas)
+// https://www.w3.org/TR/css-grid-1/#grid-template-areas-property
+func NewGridTemplateAreas(rows, cols int) *GridTemplateAreas {
+	return &GridTemplateAreas{
+		Areas: make([]GridArea, 0),
+		Rows:  rows,
+		Cols:  cols,
+	}
+}
+
+// DefineArea adds a named area to the grid template.
+// Returns an error if the area overlaps with an existing area or is out of bounds.
+//
+// Parameters:
+//   - name: The name of the area (e.g., "header", "sidebar", "content")
+//   - rowStart: Starting row index (0-based, inclusive)
+//   - rowEnd: Ending row index (0-based, exclusive)
+//   - colStart: Starting column index (0-based, inclusive)
+//   - colEnd: Ending column index (0-based, exclusive)
+//
+// Example:
+//
+//	areas := layout.NewGridTemplateAreas(3, 3)
+//	err := areas.DefineArea("header", 0, 1, 0, 3) // Row 0, all columns
+//	if err != nil {
+//	    // Handle error (overlap or out of bounds)
+//	}
+func (gta *GridTemplateAreas) DefineArea(name string, rowStart, rowEnd, colStart, colEnd int) error {
+	// Validate bounds
+	if rowStart < 0 || rowEnd > gta.Rows || rowStart >= rowEnd {
+		return fmt.Errorf("invalid row range [%d,%d) for grid with %d rows", rowStart, rowEnd, gta.Rows)
+	}
+	if colStart < 0 || colEnd > gta.Cols || colStart >= colEnd {
+		return fmt.Errorf("invalid column range [%d,%d) for grid with %d columns", colStart, colEnd, gta.Cols)
+	}
+
+	newArea := GridArea{
+		Name:        name,
+		RowStart:    rowStart,
+		RowEnd:      rowEnd,
+		ColumnStart: colStart,
+		ColumnEnd:   colEnd,
+	}
+
+	// Check for overlaps with existing areas
+	for _, existing := range gta.Areas {
+		if areasOverlap(existing, newArea) {
+			return fmt.Errorf("area '%s' overlaps with existing area '%s'", name, existing.Name)
+		}
+	}
+
+	gta.Areas = append(gta.Areas, newArea)
+	return nil
+}
+
+// areasOverlap checks if two grid areas overlap.
+// Two areas overlap if they share any grid cells.
+func areasOverlap(a, b GridArea) bool {
+	// Check if areas are completely separated in rows or columns
+	if a.RowEnd <= b.RowStart || b.RowEnd <= a.RowStart {
+		return false // Separated vertically
+	}
+	if a.ColumnEnd <= b.ColumnStart || b.ColumnEnd <= a.ColumnStart {
+		return false // Separated horizontally
+	}
+	return true // They overlap
+}
+
+// PlaceInArea sets the GridArea property of a node, causing it to be placed
+// in the named grid area during layout.
+//
+// Example:
+//
+//	header := layout.PlaceInArea(&layout.Node{}, "header")
+//	sidebar := layout.PlaceInArea(&layout.Node{}, "sidebar")
+//	content := layout.PlaceInArea(&layout.Node{}, "content")
+func PlaceInArea(node *Node, areaName string) *Node {
+	node.Style.GridArea = areaName
+	return node
 }

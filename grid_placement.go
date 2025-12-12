@@ -207,3 +207,46 @@ func gridPlaceDense(items []*gridItem, rows, columns []GridTrack) {
 		}
 	}
 }
+
+// gridResolveAreas resolves named grid areas to explicit grid positions.
+// For each child node with GridArea set, finds the matching area definition
+// and sets the child's GridRowStart/End and GridColumnStart/End properties.
+//
+// Algorithm based on CSS Grid Layout Module Level 1:
+// - §7.3: Grid Template Areas
+//
+// See: https://www.w3.org/TR/css-grid-1/#grid-template-areas-property
+func gridResolveAreas(node *Node) {
+	// If no template areas defined, nothing to resolve
+	if node.Style.GridTemplateAreas == nil {
+		return
+	}
+
+	// Build lookup map of area names to definitions
+	areaMap := make(map[string]*GridArea)
+	for i := range node.Style.GridTemplateAreas.Areas {
+		area := &node.Style.GridTemplateAreas.Areas[i]
+		areaMap[area.Name] = area
+	}
+
+	// Resolve area names for all children
+	for _, child := range node.Children {
+		// Skip if no area name set
+		if child.Style.GridArea == "" {
+			continue
+		}
+
+		// Look up the area definition
+		area, found := areaMap[child.Style.GridArea]
+		if !found {
+			// Area name not found - skip this child (will use auto-placement)
+			continue
+		}
+
+		// Set explicit grid positions from the area definition
+		child.Style.GridRowStart = area.RowStart
+		child.Style.GridRowEnd = area.RowEnd
+		child.Style.GridColumnStart = area.ColumnStart
+		child.Style.GridColumnEnd = area.ColumnEnd
+	}
+}

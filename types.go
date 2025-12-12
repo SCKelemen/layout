@@ -147,7 +147,9 @@ type Style struct {
 	GridRowEnd          int          // -1 means auto
 	GridColumnStart     int          // -1 means auto
 	GridColumnEnd       int          // -1 means auto
-	JustifyItems        JustifyItems // Alignment along inline (row) axis. Default: Stretch
+	GridTemplateAreas   *GridTemplateAreas // Named grid areas (nil means not set)
+	GridArea            string             // Name of the grid area this item should be placed in (empty means not set)
+	JustifyItems        JustifyItems       // Alignment along inline (row) axis. Default: Stretch
 	JustifySelf         JustifyItems // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
 	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
 	// For Grid: Default is Stretch, but Start for items with aspect-ratio
@@ -545,6 +547,34 @@ const (
 	RepeatCountAutoFill = -1 // Auto-fill: create as many tracks as fit
 	RepeatCountAutoFit  = -2 // Auto-fit: auto-fill + collapse empty tracks
 )
+
+// GridArea represents a named grid region defined by row and column boundaries.
+// Used with grid-template-areas for structured grid layout.
+//
+// See: CSS Grid Layout Module Level 1 §7.3 (Named Areas)
+// https://www.w3.org/TR/css-grid-1/#grid-template-areas-property
+type GridArea struct {
+	Name        string // Name of the area (e.g., "header", "sidebar", "content")
+	RowStart    int    // Starting row index (0-based)
+	RowEnd      int    // Ending row index (exclusive)
+	ColumnStart int    // Starting column index (0-based)
+	ColumnEnd   int    // Ending column index (exclusive)
+}
+
+// GridTemplateAreas defines a collection of named grid areas.
+// This provides a structured, type-safe alternative to CSS string-based template areas.
+//
+// Example:
+//
+//	areas := NewGridTemplateAreas(3, 3)
+//	areas.DefineArea("header", 0, 1, 0, 3)  // Row 0, columns 0-3 (full width)
+//	areas.DefineArea("sidebar", 1, 3, 0, 1) // Rows 1-3, column 0 (left side)
+//	areas.DefineArea("content", 1, 3, 1, 3) // Rows 1-3, columns 1-3 (main area)
+type GridTemplateAreas struct {
+	Areas []GridArea // List of defined named areas
+	Rows  int        // Total number of rows in the grid
+	Cols  int        // Total number of columns in the grid
+}
 
 // Transform represents a 2D transformation matrix
 // Used for rotating, scaling, translating, and skewing elements

@@ -482,25 +482,31 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 	for i := range lines {
 		line := &lines[i]
 		lineWidth := line.Width
+		indent := 0.0
 
 		// First line gets text-indent (can be positive or negative)
 		if i == 0 && textIndent != 0 {
-			lineWidth += textIndent
+			indent = textIndent
 		}
 
 		// Calculate X offset based on text-align
+		// Per CSS Text Module Level 3 §7.2.1: text-indent is treated as a margin
+		// applied to the start edge (left in LTR)
 		switch align {
 		case TextAlignLeft:
-			line.OffsetX = 0.0
-			if i == 0 && textIndent != 0 {
-				line.OffsetX = textIndent
-			}
+			// Left-aligned: text starts at indent position
+			line.OffsetX = indent
 
 		case TextAlignRight:
-			line.OffsetX = contentWidth - lineWidth
+			// Right-aligned: indent reduces available width, text aligns to (contentWidth - indent)
+			// So text ends at (contentWidth - indent), not at contentWidth
+			line.OffsetX = contentWidth - lineWidth - indent
 
 		case TextAlignCenter:
-			line.OffsetX = (contentWidth - lineWidth) / 2
+			// Center-aligned: indent reduces available width, center within remaining space
+			// Available width is (contentWidth - indent), center the line within that
+			availableWidth := contentWidth - indent
+			line.OffsetX = indent + (availableWidth-lineWidth)/2
 
 		default:
 			line.OffsetX = 0.0

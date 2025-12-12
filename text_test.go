@@ -916,3 +916,98 @@ func TestTextMixedCJKEnglish(t *testing.T) {
 		t.Errorf("Mixed CJK/English text should wrap, got %d line(s)", lineCount)
 	}
 }
+
+// TestTextIndentWithAlignment tests text-indent with different alignment modes
+func TestTextIndentWithAlignment(t *testing.T) {
+	setupFakeMetrics()
+
+	tests := []struct {
+		name       string
+		align      TextAlign
+		indent     float64
+		expectFunc func(t *testing.T, offsetX, lineWidth, contentWidth float64)
+	}{
+		{
+			name:   "left-align-positive-indent",
+			align:  TextAlignLeft,
+			indent: 20,
+			expectFunc: func(t *testing.T, offsetX, lineWidth, contentWidth float64) {
+				// Left-aligned with positive indent: line should start at indent position
+				if offsetX != 20 {
+					t.Errorf("Expected offsetX=20, got %.2f", offsetX)
+				}
+			},
+		},
+		{
+			name:   "left-align-negative-indent",
+			align:  TextAlignLeft,
+			indent: -10,
+			expectFunc: func(t *testing.T, offsetX, lineWidth, contentWidth float64) {
+				// Left-aligned with negative indent: line should start before 0
+				if offsetX != -10 {
+					t.Errorf("Expected offsetX=-10, got %.2f", offsetX)
+				}
+			},
+		},
+		{
+			name:   "right-align-positive-indent",
+			align:  TextAlignRight,
+			indent: 20,
+			expectFunc: func(t *testing.T, offsetX, lineWidth, contentWidth float64) {
+				// Right-aligned with positive indent: indent reduces available width
+				// Content should be right-aligned within (contentWidth - indent)
+				// Text should end at (contentWidth - indent) not contentWidth
+				// So: offsetX = contentWidth - lineWidth - indent
+				// Example: contentWidth=200, lineWidth=50, indent=20
+				// Without indent: offsetX = 200 - 50 = 150 (ends at 200)
+				// With indent: offsetX = 200 - 50 - 20 = 130 (ends at 180, leaving 20px on right)
+				indent := 20.0
+				expectedOffset := contentWidth - lineWidth - indent
+				if math.Abs(offsetX-expectedOffset) > 0.1 {
+					t.Errorf("Expected offsetX=%.2f (text ends at %.2f), got %.2f (text ends at %.2f)",
+						expectedOffset, expectedOffset+lineWidth, offsetX, offsetX+lineWidth)
+				}
+			},
+		},
+		{
+			name:   "center-align-positive-indent",
+			align:  TextAlignCenter,
+			indent: 20,
+			expectFunc: func(t *testing.T, offsetX, lineWidth, contentWidth float64) {
+				// Center-aligned with positive indent: indent reduces available width
+				// Content should be centered within (contentWidth - indent)
+				// So: offsetX = indent + (contentWidth - indent - lineWidth) / 2
+				indent := 20.0
+				availableWidth := contentWidth - indent
+				expectedOffset := indent + (availableWidth-lineWidth)/2
+				if math.Abs(offsetX-expectedOffset) > 0.1 {
+					t.Errorf("Expected offsetX=%.2f, got %.2f", expectedOffset, offsetX)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text := "Hello" // 50px wide with fake metrics
+			node := Text(text, Style{
+				Width: 200,
+				TextStyle: &TextStyle{
+					FontSize:   16,
+					TextAlign:  tt.align,
+					TextIndent: tt.indent,
+				},
+			})
+
+			constraints := Loose(200, 200)
+			LayoutText(node, constraints)
+
+			if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
+				t.Fatal("TextLayout should have lines")
+			}
+
+			line := node.TextLayout.Lines[0]
+			tt.expectFunc(t, line.OffsetX, line.Width, 200)
+		})
+	}
+}

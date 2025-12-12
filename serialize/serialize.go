@@ -208,15 +208,13 @@ func styleToJSON(s *layout.Style) StyleJSON {
 	if s.JustifyContent != 0 {
 		sj.JustifyContent = justifyContentToString(s.JustifyContent)
 	}
-	if s.AlignItems != 0 {
-		sj.AlignItems = alignItemsToString(s.AlignItems)
-	}
+	// Serialize AlignItems (Default/0 will be omitted due to omitempty)
+	sj.AlignItems = alignItemsToString(s.AlignItems)
 	if s.AlignContent != 0 {
 		sj.AlignContent = alignContentToString(s.AlignContent)
 	}
-	if s.JustifyItems != 0 {
-		sj.JustifyItems = justifyItemsToString(s.JustifyItems)
-	}
+	// Serialize JustifyItems (Default/0 will be omitted due to omitempty)
+	sj.JustifyItems = justifyItemsToString(s.JustifyItems)
 	if s.BoxSizing != 0 {
 		sj.BoxSizing = boxSizingToString(s.BoxSizing)
 	}
@@ -467,14 +465,16 @@ func alignItemsToString(ai layout.AlignItems) string {
 	case layout.AlignItemsBaseline:
 		return "baseline"
 	default:
-		return ""
+		return "" // Zero value (stretch), will be omitted
 	}
 }
 
 func stringToAlignItems(s string) layout.AlignItems {
 	switch s {
+	case "":
+		return layout.AlignItemsStretch // Zero value (default)
 	case "stretch":
-		return layout.AlignItemsStretch // 0 (default)
+		return layout.AlignItemsStretch
 	case "flex-start":
 		return layout.AlignItemsFlexStart
 	case "flex-end":
@@ -484,7 +484,7 @@ func stringToAlignItems(s string) layout.AlignItems {
 	case "baseline":
 		return layout.AlignItemsBaseline
 	default:
-		return 0 // stretch (default)
+		return layout.AlignItemsStretch // Zero value (default)
 	}
 }
 
@@ -499,14 +499,16 @@ func justifyItemsToString(ji layout.JustifyItems) string {
 	case layout.JustifyItemsCenter:
 		return "center"
 	default:
-		return ""
+		return "" // Zero value (stretch), will be omitted
 	}
 }
 
 func stringToJustifyItems(s string) layout.JustifyItems {
 	switch s {
+	case "":
+		return layout.JustifyItemsStretch // Zero value (default)
 	case "stretch":
-		return layout.JustifyItemsStretch // 0 (default)
+		return layout.JustifyItemsStretch
 	case "start":
 		return layout.JustifyItemsStart
 	case "end":
@@ -514,7 +516,7 @@ func stringToJustifyItems(s string) layout.JustifyItems {
 	case "center":
 		return layout.JustifyItemsCenter
 	default:
-		return 0 // stretch (default)
+		return layout.JustifyItemsStretch // Zero value (default)
 	}
 }
 

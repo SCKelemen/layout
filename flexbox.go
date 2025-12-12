@@ -269,6 +269,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		}
 		// For single-line containers, apply stretch if align-items is stretch
 		// For multi-line, align-content will handle stretching
+		// Zero value is stretch (CSS Flexbox default)
 		if node.Style.AlignItems == AlignItemsStretch && len(lines) == 1 {
 			lineCrossSize = crossSize
 		}
@@ -485,6 +486,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		lineStartCrossOffset := lineOffsets[lineIdx]
 
 		// Re-apply align-items stretch if needed (for multi-line with align-content stretch)
+		// Zero value is stretch (CSS Flexbox default)
 		if node.Style.AlignItems == AlignItemsStretch {
 			// Update item cross sizes to fill line
 			for _, item := range line {

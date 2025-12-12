@@ -454,17 +454,14 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			}
 		} else {
 			// No aspect ratio: apply justify-items and align-items alignment
-			// Default is stretch (zero value), which matches CSS spec
+			// Zero value is stretch (CSS Grid default)
 			justifyItems := node.Style.JustifyItems
 			alignItems := node.Style.AlignItems
 
-			// Zero value is now JustifyItemsStretch (CSS default)
 			// Only default to stretch if the value is outside the valid enum range
 			if justifyItems > JustifyItemsCenter {
 				justifyItems = JustifyItemsStretch
 			}
-			// Zero value is now AlignItemsStretch (CSS default)
-			// Only default to stretch if the value is outside the valid enum range
 			if alignItems > AlignItemsBaseline {
 				alignItems = AlignItemsStretch
 			}
@@ -533,9 +530,8 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		var itemX, itemY float64
 
 		// Handle justify-items positioning (inline/row axis)
+		// Zero value is stretch (CSS Grid default)
 		justifyItems := node.Style.JustifyItems
-		// Zero value is now JustifyItemsStretch (CSS default)
-		// Only default to stretch if the value is outside the valid enum range
 		if justifyItems > JustifyItemsCenter {
 			justifyItems = JustifyItemsStretch
 		}
@@ -562,9 +558,8 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		}
 
 		// Handle align-items positioning (block/column axis)
+		// Zero value is stretch (CSS default - same for Grid and Flexbox)
 		alignItems := node.Style.AlignItems
-		// Zero value is now AlignItemsStretch (CSS default)
-		// Only default to stretch if the value is outside the valid enum range
 		if alignItems > AlignItemsBaseline {
 			alignItems = AlignItemsStretch
 		}

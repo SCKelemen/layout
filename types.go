@@ -243,7 +243,7 @@ const (
 type AlignItems int
 
 const (
-	AlignItemsStretch AlignItems = iota // CSS default (zero value)
+	AlignItemsStretch AlignItems = iota // CSS default (zero value) - same for Grid and Flexbox
 	AlignItemsFlexStart
 	AlignItemsFlexEnd
 	AlignItemsCenter
@@ -255,7 +255,7 @@ const (
 type JustifyItems int
 
 const (
-	JustifyItemsStretch JustifyItems = iota // CSS default (zero value)
+	JustifyItemsStretch JustifyItems = iota // CSS Grid default (zero value)
 	JustifyItemsStart
 	JustifyItemsEnd
 	JustifyItemsCenter

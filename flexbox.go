@@ -485,17 +485,8 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		lineCrossSize := lineCrossSizes[lineIdx]
 		lineStartCrossOffset := lineOffsets[lineIdx]
 
-		// Re-apply align-items stretch if needed (for multi-line with align-content stretch)
-		// Zero value is stretch (CSS Flexbox default)
-		if node.Style.AlignItems == AlignItemsStretch {
-			// Update item cross sizes to fill line
-			for _, item := range line {
-				item.crossSize = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
-				if item.crossSize < 0 {
-					item.crossSize = 0
-				}
-			}
-		}
+		// Note: align-items stretch will be applied per-item below when setting rects
+		// This ensures we use the correct crossSize/lineCrossSize values
 
 		// Re-align items in cross axis with updated line cross size
 		alignmentCrossSize := crossSize
@@ -508,6 +499,20 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 		for _, item := range line {
 			crossOffset := 0.0
+			// Ensure item.crossSize is set correctly for stretch before calculating offsets
+			// This must happen before we use item.crossSize in alignment calculations
+			if node.Style.AlignItems == AlignItemsStretch {
+				// For single-line, use crossSize; for multi-line, use lineCrossSize
+				if len(lines) == 1 {
+					item.crossSize = crossSize - item.crossMarginStart - item.crossMarginEnd
+				} else {
+					item.crossSize = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
+				}
+				if item.crossSize < 0 {
+					item.crossSize = 0
+				}
+			}
+			
 			itemCrossSizeWithMargins := item.crossSize + item.crossMarginStart + item.crossMarginEnd
 			switch node.Style.AlignItems {
 			case AlignItemsFlexStart:
@@ -529,12 +534,42 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 			// We also update item.mainSize/crossSize if they're 0, so justify-content calculations work correctly
 			rectWidth := item.mainSize
 			rectHeight := item.crossSize
+			
+			// Apply align-items stretch if needed (for cross-size)
+			// Zero value is stretch (CSS Flexbox default)
+			if node.Style.AlignItems == AlignItemsStretch {
+				if isRow {
+					// For row direction, cross-size is height
+					if len(lines) == 1 {
+						rectHeight = crossSize - item.crossMarginStart - item.crossMarginEnd
+					} else {
+						rectHeight = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
+					}
+					if rectHeight < 0 {
+						rectHeight = 0
+					}
+					item.crossSize = rectHeight
+				} else {
+					// For column direction, cross-size is width
+					if len(lines) == 1 {
+						rectWidth = crossSize - item.crossMarginStart - item.crossMarginEnd
+					} else {
+						rectWidth = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
+					}
+					if rectWidth < 0 {
+						rectWidth = 0
+					}
+					item.crossSize = rectWidth
+				}
+			}
+			
 			if isRow {
 				if rectWidth == 0 && item.node.Style.Width >= 0 {
 					rectWidth = item.node.Style.Width
 					// Update mainSize so justify-content calculations use correct size
 					item.mainSize = item.node.Style.Width
 				}
+				// For cross-size (height in row), if it's 0 and we have explicit height, use it
 				if rectHeight == 0 && item.node.Style.Height >= 0 {
 					rectHeight = item.node.Style.Height
 					item.crossSize = item.node.Style.Height

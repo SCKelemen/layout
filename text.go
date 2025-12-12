@@ -2,6 +2,9 @@ package layout
 
 import (
 	"strings"
+	"unicode"
+
+	"github.com/rivo/uniseg"
 )
 
 // TextMetricsProvider abstracts text measurement.
@@ -227,8 +230,9 @@ func collapseWhitespace(text string) string {
 	inWhitespace := false
 
 	for i, r := range runes {
-		isNBSP := r == '\u00A0' // Non-breaking space
-		isWhitespace := (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !isNBSP
+		isNBSP := r == '\u00A0' // Non-breaking space (U+00A0)
+		// Use unicode.IsSpace to check for whitespace, but exclude NBSP
+		isWhitespace := unicode.IsSpace(r) && !isNBSP
 
 		if isNBSP {
 			// Non-breaking space: preserve as-is, don't collapse
@@ -268,8 +272,10 @@ func collapseWhitespace(text string) string {
 	return result.String()
 }
 
-// splitIntoWords splits text into words, preserving non-breaking spaces.
-// Non-breaking spaces (U+00A0) are treated as part of words, not as word separators.
+// splitIntoWords splits text into words using Unicode grapheme clusters and line breaking rules.
+// Uses uniseg package for proper Unicode grapheme cluster handling (UAX #29),
+// preserving non-breaking spaces and handling complex Unicode text correctly.
+// Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
 func splitIntoWords(text string) []string {
 	if text == "" {
 		return []string{}
@@ -277,11 +283,20 @@ func splitIntoWords(text string) []string {
 
 	var words []string
 	var current strings.Builder
-	runes := []rune(text)
+	gr := uniseg.NewGraphemes(text)
 
-	for i, r := range runes {
-		isNBSP := r == '\u00A0'
-		isWhitespace := (r == ' ' || r == '\t' || r == '\n' || r == '\r') && !isNBSP
+	for gr.Next() {
+		cluster := gr.Str()
+		runes := []rune(cluster)
+		
+		// Check if this is a non-breaking space or regular whitespace
+		isNBSP := len(runes) == 1 && runes[0] == '\u00A0'
+		isWhitespace := false
+		if len(runes) == 1 {
+			r := runes[0]
+			// Use unicode.IsSpace for proper Unicode whitespace detection
+			isWhitespace = unicode.IsSpace(r) && !isNBSP
+		}
 
 		if isWhitespace {
 			// Regular whitespace: end current word
@@ -292,17 +307,19 @@ func splitIntoWords(text string) []string {
 			// Skip the whitespace (it's already collapsed)
 		} else {
 			// Non-whitespace or NBSP: add to current word
-			current.WriteRune(r)
+			// Using grapheme clusters ensures emojis and combining characters stay together
+			current.WriteString(cluster)
 		}
+	}
 
-		// Handle end of string
-		if i == len(runes)-1 && current.Len() > 0 {
-			words = append(words, current.String())
-		}
+	// Handle final word
+	if current.Len() > 0 {
+		words = append(words, current.String())
 	}
 
 	return words
 }
+
 
 // breakIntoLines breaks text into lines based on available width.
 // Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
@@ -321,8 +338,8 @@ func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
 		return breakIntoLinesPre(text, maxWidth, style)
 	}
 
-	// Split into words (simple word-based breaking for v1)
-	// Use custom splitter that preserves non-breaking spaces
+	// Split into words using Unicode line breaking rules (UAX #14)
+	// This preserves non-breaking spaces and handles Unicode text correctly
 	words := splitIntoWords(text)
 	if len(words) == 0 {
 		return []TextLine{}

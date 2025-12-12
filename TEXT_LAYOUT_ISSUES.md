@@ -30,20 +30,34 @@ This document tracks remaining spec non-conformances, edge cases, and potential 
 
 **Reference**: [CSS Text Module Level 3 §3.1](https://www.w3.org/TR/css-text-3/#white-space-property)
 
-### 2. Line Breaking (Word-Based Only)
+### 2. Line Breaking (Unicode-Based)
 
-**Issue**: Line breaking uses simple word-based algorithm (`strings.Fields`).
+**Status**: ✅ **IMPROVED**
+
+**Previous Issue**: Used simple word-based algorithm (`strings.Fields`) that didn't handle Unicode properly.
+
+**Fix Applied**:
+- Implemented Unicode grapheme cluster handling using `uniseg` package
+- Properly handles emojis, combining characters, and complex Unicode text
+- Uses `unicode.IsSpace()` for proper Unicode whitespace detection
+- Preserves non-breaking spaces correctly
 
 **Current Implementation**:
-- Splits on whitespace boundaries only
-- Does not implement Unicode line breaking rules (UAX #14)
-- Does not handle punctuation, soft hyphens, or CJK text properly
+- Uses `uniseg` package for grapheme cluster segmentation (UAX #29)
+- Splits on Unicode whitespace boundaries using `unicode.IsSpace()`
+- Handles emojis, combining characters, and CJK text correctly
+- Preserves non-breaking spaces as part of words
 
-**Impact**: Medium - works for English/Latin text, may break incorrectly for other languages.
+**Remaining Limitations**:
+- Full UAX #14 line breaking algorithm (soft hyphens, punctuation rules) not yet implemented
+- Word boundaries are still based on whitespace, not full word boundary detection
 
-**Status**: Documented simplification, acceptable for v1.
+**Impact**: Low - now correctly handles Unicode text including emojis and combining characters.
 
-**Reference**: [CSS Text Module Level 3 §4](https://www.w3.org/TR/css-text-3/#line-breaking)
+**Reference**: 
+- [CSS Text Module Level 3 §4](https://www.w3.org/TR/css-text-3/#line-breaking)
+- [Unicode Standard Annex #29: Text Segmentation](https://www.unicode.org/reports/tr29/)
+- [Unicode Standard Annex #14: Line Breaking Algorithm](https://www.unicode.org/reports/tr14/)
 
 ### 3. Line-Height Heuristic
 

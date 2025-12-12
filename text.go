@@ -106,6 +106,12 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	// 3. Perform line breaking (§4) with textMetrics.Measure
 	lines := breakIntoLines(processedText, contentWidth, *style)
 
+	// 3.5. Apply text-overflow if needed (ellipsis truncation)
+	// CSS Text Overflow Module Level 3: https://www.w3.org/TR/css-overflow-3/#text-overflow
+	if style.TextOverflow == TextOverflowEllipsis {
+		lines = applyTextOverflow(lines, contentWidth, *style)
+	}
+
 	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), and text-indent (§7.2.1)
 	lineHeight := resolveLineHeight(style.LineHeight, style.FontSize)
 	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, lineHeight)
@@ -736,6 +742,118 @@ func breakWordToFit(word string, maxWidth float64, style TextStyle) []string {
 	}
 
 	return pieces
+}
+
+// applyTextOverflow applies text-overflow: ellipsis to overflowing lines
+// CSS Text Overflow Module Level 3: https://www.w3.org/TR/css-overflow-3/#text-overflow
+func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) []TextLine {
+	if len(lines) == 0 {
+		return lines
+	}
+
+	// Measure ellipsis width
+	ellipsisText := "..."
+	ellipsisWidth, ellipsisAscent, ellipsisDescent := textMetrics.Measure(ellipsisText, style)
+
+	// Process each line that overflows
+	for i := range lines {
+		line := &lines[i]
+
+		// Check if this line overflows
+		if line.Width <= contentWidth {
+			continue // No overflow, no truncation needed
+		}
+
+		// Line overflows - need to truncate and add ellipsis
+		availableWidth := contentWidth - ellipsisWidth
+		if availableWidth <= 0 {
+			// Not enough space even for ellipsis - just show ellipsis
+			line.Boxes = []InlineBox{{
+				Kind:    InlineBoxText,
+				Text:    ellipsisText,
+				Width:   ellipsisWidth,
+				Ascent:  ellipsisAscent,
+				Descent: ellipsisDescent,
+			}}
+			line.Width = ellipsisWidth
+			line.SpaceCount = 0
+			line.SpaceWidth = 0
+			line.SpaceAdjustment = 0
+			continue
+		}
+
+		// Truncate boxes to fit within availableWidth
+		truncatedBoxes := []InlineBox{}
+		currentWidth := 0.0
+
+		for _, box := range line.Boxes {
+			if currentWidth+box.Width <= availableWidth {
+				// Box fits completely
+				truncatedBoxes = append(truncatedBoxes, box)
+				currentWidth += box.Width
+			} else {
+				// Box would overflow - truncate it
+				remainingWidth := availableWidth - currentWidth
+				if remainingWidth > 0 {
+					// Try to fit part of this box
+					truncatedText := truncateTextToWidth(box.Text, remainingWidth, style)
+					if truncatedText != "" {
+						truncWidth, truncAscent, truncDesc := textMetrics.Measure(truncatedText, style)
+						truncatedBoxes = append(truncatedBoxes, InlineBox{
+							Kind:    box.Kind,
+							Text:    truncatedText,
+							Width:   truncWidth,
+							Ascent:  truncAscent,
+							Descent: truncDesc,
+						})
+						currentWidth += truncWidth
+					}
+				}
+				break // Stop processing boxes
+			}
+		}
+
+		// Add ellipsis
+		truncatedBoxes = append(truncatedBoxes, InlineBox{
+			Kind:    InlineBoxText,
+			Text:    ellipsisText,
+			Width:   ellipsisWidth,
+			Ascent:  ellipsisAscent,
+			Descent: ellipsisDescent,
+		})
+
+		line.Boxes = truncatedBoxes
+		line.Width = currentWidth + ellipsisWidth
+		line.SpaceCount = 0 // Reset space tracking for truncated line
+		line.SpaceWidth = 0
+		line.SpaceAdjustment = 0
+	}
+
+	return lines
+}
+
+// truncateTextToWidth truncates text to fit within maxWidth
+func truncateTextToWidth(text string, maxWidth float64, style TextStyle) string {
+	runes := []rune(text)
+
+	// Binary search for the longest prefix that fits
+	left, right := 0, len(runes)
+	result := ""
+
+	for left <= right {
+		mid := (left + right) / 2
+		candidate := string(runes[:mid])
+		width, _, _ := textMetrics.Measure(candidate, style)
+
+		if width <= maxWidth {
+			result = candidate
+			left = mid + 1
+		} else {
+			right = mid - 1
+		}
+	}
+
+	return result
 }
 
 // resolveTextAlignLast resolves text-align-last auto to actual alignment

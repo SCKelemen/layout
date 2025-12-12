@@ -1020,6 +1020,238 @@ func TestOverflowWrapNormal(t *testing.T) {
 	}
 }
 
+func TestTextOverflowClip(t *testing.T) {
+	setupFakeMetrics()
+
+	// Default behavior - text overflows without ellipsis
+	text := "This is a very long text that will overflow"
+	node := Text(text, Style{
+		Width: 100,
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowClip, // Default
+		},
+	})
+
+	constraints := Loose(100, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should have one line that overflows
+	if len(node.TextLayout.Lines) != 1 {
+		t.Errorf("Expected 1 line, got %d", len(node.TextLayout.Lines))
+	}
+
+	line := node.TextLayout.Lines[0]
+	// Line should overflow (no truncation with clip)
+	if line.Width <= 100.0 {
+		t.Errorf("Line should overflow container (width > 100), got %.2f", line.Width)
+	}
+
+	// Should not contain ellipsis
+	for _, box := range line.Boxes {
+		if strings.Contains(box.Text, "...") {
+			t.Error("Text-overflow: clip should not add ellipsis")
+		}
+	}
+}
+
+func TestTextOverflowEllipsis(t *testing.T) {
+	setupFakeMetrics()
+
+	// Text should be truncated with ellipsis
+	text := "This is a very long text that will overflow"
+	node := Text(text, Style{
+		Width: 100,
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowEllipsis,
+		},
+	})
+
+	constraints := Loose(100, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// Should have one line
+	if len(node.TextLayout.Lines) != 1 {
+		t.Errorf("Expected 1 line, got %d", len(node.TextLayout.Lines))
+	}
+
+	line := node.TextLayout.Lines[0]
+
+	// Line should fit within container (truncated)
+	if line.Width > 100.0 {
+		t.Errorf("Line should fit within container (width <= 100), got %.2f", line.Width)
+	}
+
+	// Should contain ellipsis
+	hasEllipsis := false
+	for _, box := range line.Boxes {
+		if box.Text == "..." {
+			hasEllipsis = true
+			break
+		}
+	}
+	if !hasEllipsis {
+		t.Error("Text-overflow: ellipsis should add '...'")
+	}
+
+	// Text should be truncated (not all boxes present)
+	allText := ""
+	for _, box := range line.Boxes {
+		allText += box.Text
+	}
+	if !strings.HasSuffix(allText, "...") {
+		t.Errorf("Text should end with ellipsis, got: %s", allText)
+	}
+	if allText == text+"..." {
+		t.Error("Text should be truncated, not just have ellipsis appended")
+	}
+}
+
+func TestTextOverflowEllipsisAlignRight(t *testing.T) {
+	setupFakeMetrics()
+
+	// Test ellipsis with right alignment - use wider container to see offset
+	text := "This is a long text"
+	node := Text(text, Style{
+		Width: 200, // Wider container so truncated text has room for right-align offset
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowEllipsis,
+			TextAlign:    TextAlignRight,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	// With wider container, text won't overflow so no ellipsis needed
+	// Let's use a case that definitely overflows
+	text2 := "This is a very long text that definitely overflows the container width"
+	node2 := Text(text2, Style{
+		Width: 150,
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowEllipsis,
+			TextAlign:    TextAlignRight,
+		},
+	})
+
+	constraints2 := Loose(150, 200)
+	LayoutText(node2, constraints2)
+
+	line2 := node2.TextLayout.Lines[0]
+
+	// Should contain ellipsis
+	hasEllipsis := false
+	for _, box := range line2.Boxes {
+		if box.Text == "..." {
+			hasEllipsis = true
+			break
+		}
+	}
+	if !hasEllipsis {
+		t.Error("Should have ellipsis even with right alignment")
+	}
+
+	// Line should fit within container (truncated)
+	if line2.Width > 150.0 {
+		t.Errorf("Line should fit within container, got %.2f", line2.Width)
+	}
+
+	// Right-aligned truncated text should have non-negative offset
+	// (may be 0 if line fills most of the width)
+	if line2.OffsetX < 0 {
+		t.Errorf("Right-aligned text should have non-negative OffsetX, got %.2f", line2.OffsetX)
+	}
+}
+
+func TestTextOverflowEllipsisVeryNarrow(t *testing.T) {
+	setupFakeMetrics()
+
+	// Container too narrow even for ellipsis
+	text := "Hello world"
+	node := Text(text, Style{
+		Width: 20, // Very narrow - ellipsis is 30px (3 chars * 10px)
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowEllipsis,
+		},
+	})
+
+	constraints := Loose(20, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	line := node.TextLayout.Lines[0]
+
+	// Should show just ellipsis (or as much as fits)
+	// Line should not exceed container width significantly
+	if line.Width > 35.0 {
+		t.Errorf("Very narrow container should show minimal content, got width %.2f", line.Width)
+	}
+}
+
+func TestTextOverflowEllipsisNoOverflow(t *testing.T) {
+	setupFakeMetrics()
+
+	// Text fits - no ellipsis should be added
+	text := "Short"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:     16,
+			WhiteSpace:   WhiteSpaceNowrap,
+			TextOverflow: TextOverflowEllipsis,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil {
+		t.Fatal("TextLayout should be populated")
+	}
+
+	line := node.TextLayout.Lines[0]
+
+	// Should NOT contain ellipsis (text fits)
+	for _, box := range line.Boxes {
+		if box.Text == "..." {
+			t.Error("Should not add ellipsis when text fits")
+		}
+	}
+
+	// Text should be complete
+	allText := ""
+	for _, box := range line.Boxes {
+		allText += box.Text
+	}
+	if allText != text {
+		t.Errorf("Text should be complete, expected '%s', got '%s'", text, allText)
+	}
+}
+
 // TestLineHeightNormal tests normal line height (default)
 func TestLineHeightNormal(t *testing.T) {
 	setupFakeMetrics()

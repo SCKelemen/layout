@@ -353,6 +353,15 @@ const (
 	WhiteSpacePreLine // Collapse whitespace, preserve newlines, allow wrapping
 )
 
+// TextOverflow controls rendering of overflowing text
+// CSS Text Overflow Module Level 3: https://www.w3.org/TR/css-overflow-3/#text-overflow
+type TextOverflow int
+
+const (
+	TextOverflowClip TextOverflow = iota // Clip at content edge (default)
+	TextOverflowEllipsis                 // Show ellipsis (...) for overflow
+)
+
 // OverflowWrap controls breaking of long words
 // CSS Text Module Level 3 §5.3: https://www.w3.org/TR/css-text-3/#overflow-wrap-property
 type OverflowWrap int
@@ -410,6 +419,7 @@ type TextStyle struct {
 	WhiteSpace   WhiteSpace
 	OverflowWrap OverflowWrap // Controls breaking of long words
 	WordBreak    WordBreak    // Controls word breaking behavior
+	TextOverflow TextOverflow // Controls rendering of overflowing text
 
 	// Font (for measurement)
 	FontSize   float64

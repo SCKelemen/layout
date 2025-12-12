@@ -138,88 +138,13 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		return constraints.Constrain(resultSize)
 	}
 
-	// Determine grid positions for children (filter DisplayNone)
-	gridItems := make([]*gridItem, 0, len(children))
-	itemIndex := 0
-	for _, child := range children {
-		// Skip display:none children
-		if child.Style.Display == DisplayNone {
-			continue
-		}
-		item := &gridItem{
-			node: child,
-		}
+	// Step 2: Place items using grid-auto-flow
+	// Use gridPlaceItems from grid_placement.go which handles row/column flow and dense packing
+	autoFlow := node.Style.GridAutoFlow
+	gridItems := gridPlaceItems(node, &rows, &columns, autoFlow)
 
-		// Get grid position
-		rowStart := child.Style.GridRowStart
-		rowEnd := child.Style.GridRowEnd
-		colStart := child.Style.GridColumnStart
-		colEnd := child.Style.GridColumnEnd
-
-		// Auto placement (simplified - just place sequentially)
-		// -1 means explicit auto, 0 means unset (default value) - both should trigger auto-placement
-		// We need to distinguish between "explicitly set to 0" and "unset (defaults to 0)"
-		// For now, we'll treat 0 as unset if rowEnd is also 0 or -1 (unset)
-		// This means if both rowStart and rowEnd are unset, we auto-place
-		needsAutoRow := rowStart < 0 || (rowStart == 0 && rowEnd <= 0)
-		needsAutoCol := colStart < 0 || (colStart == 0 && colEnd <= 0)
-
-		if needsAutoRow {
-			// Use itemIndex (which only counts non-DisplayNone children) for auto-placement
-			rowStart = itemIndex / len(columns)
-			// Set rowEnd to rowStart + 1 for auto-placed items
-			rowEnd = rowStart + 1
-		} else {
-			// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
-			// Note: rowEnd=0 is invalid in CSS Grid (would be same as rowStart), so treat as auto
-			if rowEnd <= 0 {
-				rowEnd = rowStart + 1
-			}
-		}
-
-		if needsAutoCol {
-			// Use itemIndex (which only counts non-DisplayNone children) for auto-placement
-			colStart = itemIndex % len(columns)
-			// Set colEnd to colStart + 1 for auto-placed items
-			colEnd = colStart + 1
-		} else {
-			// If colEnd is -1 (explicit auto) or 0 (unset default), set it to colStart + 1
-			if colEnd <= 0 {
-				colEnd = colStart + 1
-			}
-		}
-
-		// Ensure we have enough rows/columns
-		if rowEnd > len(rows) {
-			// Extend rows with auto tracks
-			for rowEnd > len(rows) {
-				rows = append(rows, node.Style.GridAutoRows)
-				if rows[len(rows)-1].MinSize == 0 && rows[len(rows)-1].MaxSize == Unbounded && rows[len(rows)-1].Fraction == 0 {
-					rows[len(rows)-1] = AutoTrack()
-				}
-			}
-		}
-		if colEnd > len(columns) {
-			// Extend columns with auto tracks
-			for colEnd > len(columns) {
-				columns = append(columns, node.Style.GridAutoColumns)
-				if columns[len(columns)-1].MinSize == 0 && columns[len(columns)-1].MaxSize == Unbounded && columns[len(columns)-1].Fraction == 0 {
-					columns[len(columns)-1] = AutoTrack()
-				}
-			}
-			// Recalculate column sizes when columns are extended
-			// CRITICAL: Use the same contentWidth that was used initially
-			columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
-		}
-
-		item.rowStart = rowStart
-		item.rowEnd = rowEnd
-		item.colStart = colStart
-		item.colEnd = colEnd
-
-		gridItems = append(gridItems, item)
-		itemIndex++ // Increment AFTER using itemIndex for auto-placement
-	}
+	// Recalculate column sizes if columns were extended during placement
+	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns))
 
 	// Step 3: Measure children to determine row sizes
 	// Ensure rowSizes and rowHeights are properly sized for all rows

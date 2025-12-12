@@ -5,14 +5,17 @@ package layout
 // Algorithm based on CSS Grid Layout Module Level 1:
 // - §12: Grid Item Placement
 // - §12.1: Grid Item Placement Algorithm
-// - §8.3: Grid Auto-Flow (simplified implementation)
+// - §8.3: Grid Auto-Flow (row vs column, dense vs sparse)
 //
 // See: https://www.w3.org/TR/css-grid-1/#placement
 // See: https://www.w3.org/TR/css-grid-1/#auto-placement-algo
-func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack) []*gridItem {
+func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlow GridAutoFlow) []*gridItem {
 	children := node.Children
 	gridItems := make([]*gridItem, 0, len(children))
 	itemIndex := 0
+
+	// Determine if we're using row-major or column-major flow
+	isColumnFlow := autoFlow == GridAutoFlowColumn || autoFlow == GridAutoFlowColumnDense
 
 	for _, child := range children {
 		// Skip display:none children
@@ -29,30 +32,56 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack) []*grid
 		colStart := child.Style.GridColumnStart
 		colEnd := child.Style.GridColumnEnd
 
-		// Auto placement (simplified - just place sequentially)
+		// Auto placement based on grid-auto-flow
 		// -1 means explicit auto, 0 means unset (default value) - both should trigger auto-placement
 		needsAutoRow := rowStart < 0 || (rowStart == 0 && rowEnd <= 0)
 		needsAutoCol := colStart < 0 || (colStart == 0 && colEnd <= 0)
 
-		if needsAutoRow {
-			// Use itemIndex for auto-placement
-			rowStart = itemIndex / len(*columns)
-			rowEnd = rowStart + 1
-		} else {
-			// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
-			if rowEnd <= 0 {
-				rowEnd = rowStart + 1
-			}
-		}
-
-		if needsAutoCol {
-			// Use itemIndex for auto-placement
-			colStart = itemIndex % len(*columns)
-			colEnd = colStart + 1
-		} else {
-			// If colEnd is -1 (explicit auto) or 0 (unset default), set it to colStart + 1
-			if colEnd <= 0 {
+		if isColumnFlow {
+			// Column-major flow: items fill columns first, then rows
+			if needsAutoCol {
+				// Use itemIndex for auto-placement in column direction
+				colStart = itemIndex / len(*rows)
 				colEnd = colStart + 1
+			} else {
+				// If colEnd is -1 (explicit auto) or 0 (unset default), set it to colStart + 1
+				if colEnd <= 0 {
+					colEnd = colStart + 1
+				}
+			}
+
+			if needsAutoRow {
+				// Use itemIndex for auto-placement in row direction
+				rowStart = itemIndex % len(*rows)
+				rowEnd = rowStart + 1
+			} else {
+				// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
+				if rowEnd <= 0 {
+					rowEnd = rowStart + 1
+				}
+			}
+		} else {
+			// Row-major flow (default): items fill rows first, then columns
+			if needsAutoRow {
+				// Use itemIndex for auto-placement in row direction
+				rowStart = itemIndex / len(*columns)
+				rowEnd = rowStart + 1
+			} else {
+				// If rowEnd is -1 (explicit auto) or 0 (unset default), set it to rowStart + 1
+				if rowEnd <= 0 {
+					rowEnd = rowStart + 1
+				}
+			}
+
+			if needsAutoCol {
+				// Use itemIndex for auto-placement in column direction
+				colStart = itemIndex % len(*columns)
+				colEnd = colStart + 1
+			} else {
+				// If colEnd is -1 (explicit auto) or 0 (unset default), set it to colStart + 1
+				if colEnd <= 0 {
+					colEnd = colStart + 1
+				}
 			}
 		}
 
@@ -83,6 +112,12 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack) []*grid
 
 		gridItems = append(gridItems, item)
 		itemIndex++
+	}
+
+	// Apply dense packing if requested
+	isDense := autoFlow == GridAutoFlowRowDense || autoFlow == GridAutoFlowColumnDense
+	if isDense {
+		gridPlaceDense(gridItems, *rows, *columns)
 	}
 
 	return gridItems

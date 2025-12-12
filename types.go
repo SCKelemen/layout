@@ -139,6 +139,7 @@ type Style struct {
 	GridTemplateColumns []GridTrack
 	GridAutoRows        GridTrack
 	GridAutoColumns     GridTrack
+	GridAutoFlow        GridAutoFlow // Auto-placement algorithm (default: row)
 	GridGap             float64
 	GridRowGap          float64
 	GridColumnGap       float64
@@ -295,6 +296,17 @@ const (
 	AlignContentCenter
 	AlignContentSpaceBetween
 	AlignContentSpaceAround
+)
+
+// GridAutoFlow controls the auto-placement algorithm for grid items
+// See: https://www.w3.org/TR/css-grid-1/#grid-auto-flow-property
+type GridAutoFlow int
+
+const (
+	GridAutoFlowRow GridAutoFlow = iota // Default: row-major, sequential
+	GridAutoFlowColumn                  // Column-major, sequential
+	GridAutoFlowRowDense                // Row-major with dense packing
+	GridAutoFlowColumnDense             // Column-major with dense packing
 )
 
 // BoxSizing

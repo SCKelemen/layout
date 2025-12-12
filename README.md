@@ -175,6 +175,285 @@ constraints := layout.Loose(600, 400)
 layout.Layout(root, constraints)
 ```
 
+## Fluent API
+
+The library provides a **Roslyn-style fluent API** for working with layout trees. This API offers immutable operations, powerful querying, and elegant tree transformations.
+
+### Two API Styles
+
+You can use either the classic mutable style or the new fluent immutable style:
+
+```go
+// Classic style (still supported)
+node := &layout.Node{Style: layout.Style{Width: 100}}
+layout.Padding(node, 10)
+
+// Fluent style
+node := (&layout.Node{}).WithWidth(100).WithPadding(10)
+```
+
+### Navigation & Querying
+
+Find and traverse nodes in your layout tree:
+
+```go
+root := layout.HStack(
+    layout.Fixed(100, 50).WithText("Item 1"),
+    layout.Fixed(200, 50).WithText("Item 2"),
+    layout.Fixed(150, 50).WithText("Item 3"),
+)
+
+// Find all nodes with text
+textNodes := root.FindAll(func(n *layout.Node) bool {
+    return n.Text != ""
+})
+
+// Find first wide node
+wide := root.Find(func(n *layout.Node) bool {
+    return n.Style.Width > 150
+})
+
+// Check if any child is flex
+hasFlex := root.Any(func(n *layout.Node) bool {
+    return n.Style.Display == layout.DisplayFlex
+})
+
+// Get all descendants
+allNodes := root.Descendants()
+
+// Filter by display type
+grids := root.OfDisplayType(layout.DisplayGrid)
+```
+
+### Immutable Modifications
+
+Create modified copies without changing the original:
+
+```go
+original := layout.HStack(
+    layout.Fixed(100, 50),
+    layout.Fixed(200, 50),
+)
+
+// Create variants without modifying original
+padded := original.WithPadding(16)
+withMargin := original.WithMargin(8)
+wider := original.WithWidth(500)
+
+// Method chaining
+styled := original.
+    WithPadding(16).
+    WithMargin(8).
+    WithDisplay(layout.DisplayFlex).
+    AddChild(layout.Fixed(100, 50))
+
+// Original unchanged
+fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top) // 0
+fmt.Printf("Variant padding: %.0f\n", padded.Style.Padding.Top)    // 16
+```
+
+### Parent Navigation with Context
+
+Walk up the tree to find ancestors:
+
+```go
+root := layout.VStack(
+    layout.HStack(
+        layout.Fixed(100, 50).WithText("Target"),
+    ),
+)
+
+// Wrap root in context for parent tracking
+ctx := layout.NewContext(root)
+
+// Find a node and walk up to find container
+targetCtx := ctx.FindDown(func(n *layout.Node) bool {
+    return n.Text == "Target"
+})
+
+// Find containing flex container
+flexCtx := targetCtx.FindUp(func(n *layout.Node) bool {
+    return n.Style.Display == layout.DisplayFlex
+})
+
+// Get all ancestors
+ancestors := targetCtx.Ancestors()
+fmt.Printf("Found %d ancestors\n", len(ancestors))
+
+// Get depth in tree
+depth := targetCtx.Depth()
+fmt.Printf("Node is %d levels deep\n", depth)
+
+// Get siblings
+siblings := targetCtx.Siblings()
+```
+
+### Transformations
+
+Apply operations across the tree:
+
+```go
+root := layout.HStack(
+    layout.Fixed(100, 50),
+    layout.Fixed(200, 100),
+    layout.Fixed(150, 75),
+)
+
+// Transform: Selectively modify nodes
+doubled := root.Transform(
+    func(n *layout.Node) bool {
+        return n.Style.Width > 0 && n.Style.Width < 200
+    },
+    func(n *layout.Node) *layout.Node {
+        return n.WithWidth(n.Style.Width * 2)
+    },
+)
+
+// Map: Apply to all nodes
+scaled := root.Map(func(n *layout.Node) *layout.Node {
+    return n.
+        WithWidth(n.Style.Width * 1.5).
+        WithHeight(n.Style.Height * 1.5)
+})
+
+// Filter: Keep only matching children (shallow)
+wide := root.Filter(func(n *layout.Node) bool {
+    return n.Style.Width >= 150
+})
+
+// FilterDeep: Recursive filtering
+visible := root.FilterDeep(func(n *layout.Node) bool {
+    return n.Style.Display != layout.DisplayNone
+})
+
+// Fold: Reduce tree to single value
+totalWidth := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
+    return acc.(float64) + n.Style.Width
+}).(float64)
+
+count := root.Fold(0, func(acc interface{}, n *layout.Node) interface{} {
+    return acc.(int) + 1
+}).(int)
+
+// FoldWithContext: With depth information
+depthMap := root.FoldWithContext(
+    make(map[int]int),
+    func(acc interface{}, n *layout.Node, depth int) interface{} {
+        m := acc.(map[int]int)
+        m[depth]++
+        return m
+    },
+).(map[int]int)
+```
+
+### Practical Examples
+
+#### Building a Card Layout with Fluent API
+
+```go
+func CreateCard(title, body string, width float64) *layout.Node {
+    return layout.VStack().
+        WithWidth(width).
+        WithPadding(16).
+        WithMargin(8).
+        AddChildren(
+            layout.Fixed(0, 32).WithText(title),
+            layout.Fixed(0, 0).WithText(body),
+        )
+}
+
+// Create multiple cards
+cards := []*layout.Node{
+    CreateCard("Title 1", "Body 1", 200),
+    CreateCard("Title 2", "Body 2", 200),
+    CreateCard("Title 3", "Body 3", 200),
+}
+
+container := layout.HStack().
+    WithPadding(20).
+    AddChildren(cards...)
+```
+
+#### Conditional Styling
+
+```go
+func ApplyTheme(root *layout.Node, darkMode bool) *layout.Node {
+    padding := 8.0
+    margin := 4.0
+
+    if darkMode {
+        padding = 12.0
+        margin = 6.0
+    }
+
+    return root.Map(func(n *layout.Node) *layout.Node {
+        return n.WithPadding(padding).WithMargin(margin)
+    })
+}
+
+lightTheme := ApplyTheme(root, false)
+darkTheme := ApplyTheme(root, true)
+```
+
+#### Statistics and Analysis
+
+```go
+// Count nodes by display type
+displayCounts := root.FoldWithContext(
+    make(map[layout.Display]int),
+    func(acc interface{}, n *layout.Node, depth int) interface{} {
+        m := acc.(map[layout.Display]int)
+        m[n.Style.Display]++
+        return m
+    },
+).(map[layout.Display]int)
+
+// Find maximum depth
+maxDepth := root.FoldWithContext(
+    0,
+    func(acc interface{}, n *layout.Node, depth int) interface{} {
+        current := acc.(int)
+        if depth > current {
+            return depth
+        }
+        return current
+    },
+).(int)
+
+// Sum all padding
+totalPadding := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
+    sum := acc.(float64)
+    return sum + n.Style.Padding.Top + n.Style.Padding.Right +
+           n.Style.Padding.Bottom + n.Style.Padding.Left
+}).(float64)
+```
+
+#### Tree Manipulation
+
+```go
+// Remove all hidden nodes
+visible := root.FilterDeep(func(n *layout.Node) bool {
+    return n.Style.Display != layout.DisplayNone
+})
+
+// Add padding to all containers
+padded := root.Transform(
+    func(n *layout.Node) bool {
+        return len(n.Children) > 0
+    },
+    func(n *layout.Node) *layout.Node {
+        return n.WithPadding(10)
+    },
+)
+
+// Clone tree and modify
+variant := root.CloneDeep().
+    WithPadding(20).
+    Map(func(n *layout.Node) *layout.Node {
+        return n.WithMargin(5)
+    })
+```
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) - Installation and quick examples

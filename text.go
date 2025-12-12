@@ -354,8 +354,13 @@ func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextL
 	}
 
 	lines := []TextLine{}
-	current := TextLine{Boxes: []InlineBox{}}
+	current := TextLine{
+		Boxes:      []InlineBox{},
+		SpaceCount: 0,
+		SpaceWidth: 0.0,
+	}
 	currentWidth := 0.0
+	lastWordHadTrailingSpace := false // Track if last word had a trailing space
 
 	// First line gets text-indent
 	firstLineIndent := style.TextIndent
@@ -374,59 +379,98 @@ func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextL
 			continue
 		}
 
-		// Measure segment
-		segmentWidth, ascent, descent := textMetrics.Measure(segment, style)
+		// Segments may include trailing spaces - check and handle separately
+		hasTrailingSpace := len(segment) > 0 && segment[len(segment)-1] == ' '
+		wordText := segment
+		var spaceWidth float64
 
-		// Check if we need to break BEFORE adding this segment
+		if hasTrailingSpace {
+			// Strip trailing space and measure it separately
+			wordText = segment[:len(segment)-1]
+			spaceWidth, _, _ = textMetrics.Measure(" ", style)
+			if style.WordSpacing != -1 {
+				spaceWidth += style.WordSpacing
+			}
+		}
+
+		// Skip if word is empty (segment was just a space)
+		if len(wordText) == 0 {
+			continue
+		}
+
+		// Measure the word (without trailing space)
+		wordWidth, ascent, descent := textMetrics.Measure(wordText, style)
+
+		// Check if we need to break BEFORE adding this word
 		effectiveLineWidth := currentWidth
 		if len(current.Boxes) == 0 && firstLineIndent != 0 {
 			effectiveLineWidth += firstLineIndent
 		}
 
-		// Add space before segment if not first segment in line (for word spacing)
-		if len(current.Boxes) > 0 {
-			spaceWidth, _, _ := textMetrics.Measure(" ", style)
-			if style.WordSpacing != -1 {
-				spaceWidth += style.WordSpacing
-			}
+		// Add this word's width (space from previous word is already in currentWidth)
+		effectiveLineWidth += wordWidth
+		if hasTrailingSpace {
 			effectiveLineWidth += spaceWidth
 		}
-		effectiveLineWidth += segmentWidth
 
-		// Break if this segment would exceed maxWidth (and we have content already on this line)
+		// Break if this word would exceed maxWidth (and we have content already on this line)
 		if maxWidth > 0 && maxWidth < Unbounded && effectiveLineWidth > maxWidth && len(current.Boxes) > 0 && canBreakBefore(style.WhiteSpace) {
-			// Break line
-			current.Width = currentWidth
+			// Remove trailing space from line end if last word had one (not used for justification)
+			if lastWordHadTrailingSpace && current.SpaceCount > 0 {
+				// Get the last space width
+				lastSpaceWidth := current.SpaceWidth / float64(current.SpaceCount)
+				current.Width = currentWidth - lastSpaceWidth
+				current.SpaceCount--
+				current.SpaceWidth -= lastSpaceWidth
+			} else {
+				current.Width = currentWidth
+			}
+
 			lines = append(lines, current)
-			current = TextLine{Boxes: []InlineBox{}}
+			current = TextLine{
+				Boxes:      []InlineBox{},
+				SpaceCount: 0,
+				SpaceWidth: 0.0,
+			}
 			currentWidth = 0.0
+			lastWordHadTrailingSpace = false
 			firstLineIndent = 0.0 // Only first line gets indent
 		}
 
-		// Add space before segment if not first segment in line
-		if len(current.Boxes) > 0 {
-			spaceWidth, _, _ := textMetrics.Measure(" ", style)
-			if style.WordSpacing != -1 {
-				spaceWidth += style.WordSpacing
-			}
-			currentWidth += spaceWidth
-		}
-
-		// Add segment to current line
+		// Add the word to current line
 		box := InlineBox{
 			Kind:    InlineBoxText,
-			Text:    segment,
-			Width:   segmentWidth,
+			Text:    wordText,
+			Width:   wordWidth,
 			Ascent:  ascent,
 			Descent: descent,
 		}
 		current.Boxes = append(current.Boxes, box)
-		currentWidth += segmentWidth
+		currentWidth += wordWidth
+
+		// Track space after this word (if it has one)
+		if hasTrailingSpace {
+			current.SpaceCount++
+			current.SpaceWidth += spaceWidth
+			currentWidth += spaceWidth
+			lastWordHadTrailingSpace = true
+		} else {
+			lastWordHadTrailingSpace = false
+		}
 	}
 
 	// Add final line
 	if len(current.Boxes) > 0 {
-		current.Width = currentWidth
+		// Remove trailing space from line end if last word had one (not used for justification)
+		if lastWordHadTrailingSpace && current.SpaceCount > 0 {
+			// Get the last space width
+			lastSpaceWidth := current.SpaceWidth / float64(current.SpaceCount)
+			current.Width = currentWidth - lastSpaceWidth
+			current.SpaceCount--
+			current.SpaceWidth -= lastSpaceWidth
+		} else {
+			current.Width = currentWidth
+		}
 		lines = append(lines, current)
 	}
 
@@ -507,6 +551,32 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 			// Available width is (contentWidth - indent), center the line within that
 			availableWidth := contentWidth - indent
 			line.OffsetX = indent + (availableWidth-lineWidth)/2
+
+		case TextAlignJustify:
+			// Justified: distribute extra space evenly across inter-word spaces
+			// Per CSS Text Module Level 3 §7.1.1: last line is NOT justified
+			isLastLine := (i == len(lines)-1)
+			hasMultipleWords := line.SpaceCount > 0
+
+			if !isLastLine && hasMultipleWords {
+				// Calculate available width (accounting for text-indent)
+				availableWidth := contentWidth
+				if i == 0 && indent != 0 {
+					availableWidth -= indent
+				}
+
+				// Distribute extra space evenly across all inter-word spaces
+				extraSpace := availableWidth - lineWidth
+				if extraSpace > 0 {
+					line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
+					line.Width = availableWidth // Update to fill width
+				}
+				// Justified text starts at indent position (like left-align)
+				line.OffsetX = indent
+			} else {
+				// Last line or single word: treat as left-aligned
+				line.OffsetX = indent
+			}
 
 		default:
 			line.OffsetX = 0.0

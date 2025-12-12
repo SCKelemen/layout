@@ -202,6 +202,285 @@ func TestTextAlignCenter(t *testing.T) {
 	}
 }
 
+// TestTextAlignJustify tests basic text justification with multiple lines
+func TestTextAlignJustify(t *testing.T) {
+	setupFakeMetrics()
+
+	// "Hello world foo" with width 120 creates two lines:
+	// Line 1: "Hello world" (110px) - should justify to 120px
+	// Line 2: "foo" (30px) - last line, not justified
+	text := "Hello world foo"
+	node := Text(text, Style{
+		Width: 120,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			TextAlign: TextAlignJustify,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	firstLine := node.TextLayout.Lines[0]
+	lastLine := node.TextLayout.Lines[1]
+
+	// First line should be justified to full width
+	if math.Abs(firstLine.Width-120.0) > 0.1 {
+		t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+	}
+
+	// Should have 1 space to adjust
+	if firstLine.SpaceCount != 1 {
+		t.Errorf("Expected 1 space in first line, got %d", firstLine.SpaceCount)
+	}
+
+	// Space adjustment should be 10px (120 - 110)
+	expectedAdjustment := 10.0
+	if math.Abs(firstLine.SpaceAdjustment-expectedAdjustment) > 0.1 {
+		t.Errorf("Expected space adjustment %.2f, got %.2f",
+			expectedAdjustment, firstLine.SpaceAdjustment)
+	}
+
+	// Should start at left (like left-align)
+	if firstLine.OffsetX != 0.0 {
+		t.Errorf("First line should start at 0, got %.2f", firstLine.OffsetX)
+	}
+
+	// Last line should NOT be justified
+	if math.Abs(lastLine.Width-30.0) > 0.1 {
+		t.Errorf("Last line should not be justified (30px), got %.2f", lastLine.Width)
+	}
+}
+
+// TestJustifyLastLineNotJustified tests that last line is not justified
+func TestJustifyLastLineNotJustified(t *testing.T) {
+	setupFakeMetrics()
+
+	// Two lines: "Hello world" + "test"
+	// Only first line should be justified
+	text := "Hello world test"
+	node := Text(text, Style{
+		Width: 120, // Forces wrap after "world"
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			TextAlign: TextAlignJustify,
+		},
+	})
+
+	constraints := Loose(120, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	firstLine := node.TextLayout.Lines[0]
+	lastLine := node.TextLayout.Lines[1]
+
+	// First line: justified (full width)
+	if math.Abs(firstLine.Width-120.0) > 0.1 {
+		t.Errorf("First line should be justified to 120px, got %.2f", firstLine.Width)
+	}
+
+	// Last line: NOT justified (natural width)
+	// "test" = 40px
+	if math.Abs(lastLine.Width-40.0) > 0.1 {
+		t.Errorf("Last line should not be justified (40px), got width %.2f", lastLine.Width)
+	}
+
+	// Last line should be left-aligned
+	if lastLine.OffsetX != 0.0 {
+		t.Errorf("Last line should be left-aligned, got offsetX %.2f", lastLine.OffsetX)
+	}
+
+	// Last line should have no space adjustment
+	if lastLine.SpaceAdjustment != 0.0 {
+		t.Errorf("Last line should have no space adjustment, got %.2f", lastLine.SpaceAdjustment)
+	}
+}
+
+// TestJustifySingleWord tests that single-word lines are not justified
+func TestJustifySingleWord(t *testing.T) {
+	setupFakeMetrics()
+
+	text := "Hello"
+	node := Text(text, Style{
+		Width: 200,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			TextAlign: TextAlignJustify,
+		},
+	})
+
+	constraints := Loose(200, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
+		t.Fatal("TextLayout should have lines")
+	}
+
+	line := node.TextLayout.Lines[0]
+
+	// Single word: NOT justified (no spaces to adjust)
+	if line.SpaceCount != 0 {
+		t.Errorf("Single word should have 0 spaces, got %d", line.SpaceCount)
+	}
+
+	// Should be natural width, not full width
+	// "Hello" = 50px
+	if math.Abs(line.Width-50.0) > 0.1 {
+		t.Errorf("Single word should not be justified (50px), got width %.2f", line.Width)
+	}
+
+	// Should have no space adjustment
+	if line.SpaceAdjustment != 0.0 {
+		t.Errorf("Single word should have no space adjustment, got %.2f", line.SpaceAdjustment)
+	}
+
+	// Should be left-aligned
+	if line.OffsetX != 0.0 {
+		t.Errorf("Single word should be left-aligned, got offsetX %.2f", line.OffsetX)
+	}
+}
+
+// TestJustifyMultipleSpaces tests even distribution across multiple spaces
+func TestJustifyMultipleSpaces(t *testing.T) {
+	setupFakeMetrics()
+
+	// Create multi-line text to test multiple spaces on first line
+	// "The quick brown fox" with width 160 creates two lines:
+	// Line 1: "The quick brown" (150px) - should justify to 160px
+	// Line 2: "fox" (30px) - last line, not justified
+	text := "The quick brown fox"
+	node := Text(text, Style{
+		Width: 160,
+		TextStyle: &TextStyle{
+			FontSize:  16,
+			TextAlign: TextAlignJustify,
+		},
+	})
+
+	constraints := Loose(160, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	firstLine := node.TextLayout.Lines[0]
+
+	// Should have 2 spaces
+	if firstLine.SpaceCount != 2 {
+		t.Errorf("Expected 2 spaces, got %d", firstLine.SpaceCount)
+	}
+
+	// Extra space: 160 - 150 = 10px, distributed over 2 spaces = 5px each
+	expectedAdjustment := 5.0
+	if math.Abs(firstLine.SpaceAdjustment-expectedAdjustment) > 0.1 {
+		t.Errorf("Expected space adjustment %.2f, got %.2f",
+			expectedAdjustment, firstLine.SpaceAdjustment)
+	}
+
+	// First line should be full width
+	if math.Abs(firstLine.Width-160.0) > 0.1 {
+		t.Errorf("First line should be justified to 160px, got %.2f", firstLine.Width)
+	}
+}
+
+// TestJustifyWithTextIndent tests text-indent interaction with justification
+func TestJustifyWithTextIndent(t *testing.T) {
+	setupFakeMetrics()
+
+	// Use normal white-space mode (not pre) to test text-indent with justify
+	// "First line here\nMore text here" with 150px width creates multiple lines
+	// First line gets text-indent of 20px, reducing available width to 130px
+	text := "First line here and text"
+	node := Text(text, Style{
+		Width: 150,
+		TextStyle: &TextStyle{
+			FontSize:   16,
+			TextAlign:  TextAlignJustify,
+			TextIndent: 20,
+		},
+	})
+
+	constraints := Loose(150, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	firstLine := node.TextLayout.Lines[0]
+
+	// First line: indent affects available width (150 - 20 = 130)
+	// Should justify to fill that reduced width
+	if math.Abs(firstLine.Width-130.0) > 0.1 {
+		t.Errorf("First line should justify to 130px (150 - 20 indent), got %.2f", firstLine.Width)
+	}
+
+	// First line should start at indent
+	if firstLine.OffsetX != 20.0 {
+		t.Errorf("First line should start at indent (20), got offsetX %.2f", firstLine.OffsetX)
+	}
+
+	// First line should have justified (spaceAdjustment > 0)
+	if firstLine.SpaceAdjustment == 0.0 {
+		t.Errorf("First line should have space adjustment, got 0")
+	}
+}
+
+// TestJustifyWithWordSpacing tests word-spacing interaction with justification
+func TestJustifyWithWordSpacing(t *testing.T) {
+	setupFakeMetrics()
+
+	// "Hello world test" with 5px word-spacing, width 130
+	// Line 1: "Hello world" = 100px (chars) + 15px (space with word-spacing) = 115px
+	// Should justify to 130px: extra 15px distributed to the 1 space
+	// Line 2: "test" = 40px - not justified
+	text := "Hello world test"
+	node := Text(text, Style{
+		Width: 130,
+		TextStyle: &TextStyle{
+			FontSize:    16,
+			TextAlign:   TextAlignJustify,
+			WordSpacing: 5,
+		},
+	})
+
+	constraints := Loose(130, 200)
+	LayoutText(node, constraints)
+
+	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
+		t.Fatal("TextLayout should have at least 2 lines")
+	}
+
+	firstLine := node.TextLayout.Lines[0]
+
+	// Total line width should be 130px
+	if math.Abs(firstLine.Width-130.0) > 0.1 {
+		t.Errorf("First line should be 130px, got %.2f", firstLine.Width)
+	}
+
+	// Should have 1 space
+	if firstLine.SpaceCount != 1 {
+		t.Errorf("Expected 1 space, got %d", firstLine.SpaceCount)
+	}
+
+	// Space adjustment accounts for base+word-spacing already included
+	// Original space width: 15px (10 base + 5 word-spacing)
+	// Extra space: 130 - 115 = 15px
+	expectedAdjustment := 15.0
+	if math.Abs(firstLine.SpaceAdjustment-expectedAdjustment) > 0.1 {
+		t.Errorf("Expected space adjustment %.2f, got %.2f",
+			expectedAdjustment, firstLine.SpaceAdjustment)
+	}
+}
+
 // TestTextAlignDefault tests that default resolves to left in LTR
 func TestTextAlignDefault(t *testing.T) {
 	setupFakeMetrics()

@@ -437,6 +437,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	// We reverse the lines and recalculate offsets so the last line is at the top
 	if wrapReverse && len(lines) > 1 {
 		// Reverse the order of lines and their corresponding data
+		// Note: lineOffsets will be recalculated below, so we don't need to reverse them
 		for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
 			lines[i], lines[j] = lines[j], lines[i]
 			lineCrossSizes[i], lineCrossSizes[j] = lineCrossSizes[j], lineCrossSizes[i]
@@ -509,6 +510,10 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		default:
 			startOffset = 0
 		}
+		// Reset lineOffsets before recalculating for reversed order
+		for i := range lineOffsets {
+			lineOffsets[i] = 0
+		}
 		// Calculate offsets from startOffset for non-space-between/space-around
 		if alignContent != AlignContentSpaceBetween && alignContent != AlignContentSpaceAround {
 			currentOffset := startOffset
@@ -555,8 +560,16 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 
 		for _, item := range line {
 			// Set initial rect dimensions
-			rectWidth := item.mainSize
-			rectHeight := item.crossSize
+			// For row: mainSize=width, crossSize=height
+			// For column: mainSize=height, crossSize=width
+			var rectWidth, rectHeight float64
+			if isRow {
+				rectWidth = item.mainSize
+				rectHeight = item.crossSize
+			} else {
+				rectWidth = item.crossSize
+				rectHeight = item.mainSize
+			}
 
 			// Apply align-items stretch if needed (for cross-size)
 			// Use lineCrossSize consistently - it already accounts for single-line stretch

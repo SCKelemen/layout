@@ -24,9 +24,9 @@ type GenerateOptions struct {
 func newGenerateCommand() *clix.Command {
 	opts := &GenerateOptions{}
 
-	cmd := clix.NewCommand("generate",
-		clix.WithDescription("Generate test files from WPT JSON"),
-		clix.WithLongHelp(`Generate test files in various languages from WPT JSON specifications.
+	cmd := clix.NewCommand("generate")
+	cmd.Short = "Generate test files from WPT JSON"
+	cmd.Long = `Generate test files in various languages from WPT JSON specifications.
 
 Generation modes:
   - standalone: Complete tests using the layout library
@@ -46,29 +46,62 @@ Examples:
   wptest generate test.json --output my_test.go
   wptest generate test.json --standalone
   wptest generate test.json --standalone --binding context
-  wptest generate test.json --package mypackage`),
-		clix.WithArgs(clix.Args{
-			clix.NewArg("test-file", clix.WithArgRequired()),
-		}),
-		clix.WithHandler(func(ctx context.Context, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("test-file argument required")
-			}
-			return generateTest(ctx, args[0], opts)
-		}),
-	)
+  wptest generate test.json --package mypackage`
 
-	flags := cmd.Flags()
-	flags.StringVar(&opts.output, "output", "", "Output file (default: derived from input)")
-	flags.StringVar(&opts.output, "o", "", "Output file (default: derived from input)")
-	flags.StringVar(&opts.packageName, "package", "layout_test", "Package name")
-	flags.StringVar(&opts.packageName, "p", "layout_test", "Package name")
-	flags.BoolVar(&opts.standalone, "standalone", false, "Generate standalone test")
-	flags.BoolVar(&opts.standalone, "s", false, "Generate standalone test")
-	flags.StringVar(&opts.binding, "binding", "old", "CEL API binding (old|context)")
-	flags.StringVar(&opts.binding, "b", "old", "CEL API binding (old|context)")
-	flags.StringVar(&opts.lang, "lang", "go", "Target language (go|rust|js)")
-	flags.StringVar(&opts.lang, "l", "go", "Target language (go|rust|js)")
+	cmd.Run = func(ctx *clix.Context) error {
+		if len(ctx.Args) < 1 {
+			return fmt.Errorf("test-file argument required")
+		}
+		return generateTest(ctx.Context, ctx.Args[0], opts)
+	}
+
+	cmd.Flags.StringVar(clix.StringVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "output",
+			Short: "o",
+			Usage: "Output file (default: derived from input)",
+		},
+		Value: &opts.output,
+	})
+
+	cmd.Flags.StringVar(clix.StringVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "package",
+			Short: "p",
+			Usage: "Package name",
+		},
+		Default: "layout_test",
+		Value:   &opts.packageName,
+	})
+
+	cmd.Flags.BoolVar(clix.BoolVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "standalone",
+			Short: "s",
+			Usage: "Generate standalone test",
+		},
+		Value: &opts.standalone,
+	})
+
+	cmd.Flags.StringVar(clix.StringVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "binding",
+			Short: "b",
+			Usage: "CEL API binding (old|context)",
+		},
+		Default: "old",
+		Value:   &opts.binding,
+	})
+
+	cmd.Flags.StringVar(clix.StringVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "lang",
+			Short: "l",
+			Usage: "Target language (go|rust|js)",
+		},
+		Default: "go",
+		Value:   &opts.lang,
+	})
 
 	return cmd
 }

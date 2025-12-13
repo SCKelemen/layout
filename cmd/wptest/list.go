@@ -20,9 +20,9 @@ type ListOptions struct {
 func newListCommand() *clix.Command {
 	opts := &ListOptions{}
 
-	cmd := clix.NewCommand("list",
-		clix.WithDescription("List available WPT tests"),
-		clix.WithLongHelp(`List Web Platform Tests in a directory.
+	cmd := clix.NewCommand("list")
+	cmd.Short = "List available WPT tests"
+	cmd.Long = `List Web Platform Tests in a directory.
 
 By default, searches for *.json files in the current directory.
 You can specify a different directory or use glob patterns.
@@ -31,24 +31,34 @@ Examples:
   wptest list
   wptest list tests/
   wptest list --pattern "*flexbox*"
-  wptest list --verbose`),
-		clix.WithArgs(clix.Args{
-			clix.NewArg("directory", clix.WithArgDefault(".")),
-		}),
-		clix.WithHandler(func(ctx context.Context, args []string) error {
-			dir := "."
-			if len(args) > 0 {
-				dir = args[0]
-			}
-			return listTests(ctx, dir, opts)
-		}),
-	)
+  wptest list --verbose`
 
-	flags := cmd.Flags()
-	flags.StringVar(&opts.pattern, "pattern", "*", "Glob pattern to match test files")
-	flags.StringVar(&opts.pattern, "p", "*", "Glob pattern to match test files")
-	flags.BoolVar(&opts.verbose, "verbose", false, "Show detailed test information")
-	flags.BoolVar(&opts.verbose, "v", false, "Show detailed test information")
+	cmd.Run = func(ctx *clix.Context) error {
+		dir := "."
+		if len(ctx.Args) > 0 {
+			dir = ctx.Args[0]
+		}
+		return listTests(ctx.Context, dir, opts)
+	}
+
+	cmd.Flags.StringVar(clix.StringVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "pattern",
+			Short: "p",
+			Usage: "Glob pattern to match test files",
+		},
+		Default: "*",
+		Value:   &opts.pattern,
+	})
+
+	cmd.Flags.BoolVar(clix.BoolVarOptions{
+		FlagOptions: clix.FlagOptions{
+			Name:  "verbose",
+			Short: "v",
+			Usage: "Show detailed test information",
+		},
+		Value: &opts.verbose,
+	})
 
 	return cmd
 }

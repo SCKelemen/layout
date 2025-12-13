@@ -19,17 +19,18 @@ func main() {
 
 	app := newApp()
 
-	if err := app.ExecuteContext(ctx); err != nil {
+	if err := app.Run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func newApp() *clix.App {
-	app := clix.NewApp("wptest",
-		clix.WithVersion(version),
-		clix.WithDescription("WPT (Web Platform Test) CLI for layout testing"),
-		clix.WithLongHelp(`wptest is a CLI tool for working with Web Platform Tests.
+	app := clix.NewApp("wptest")
+	app.Version = version
+	app.Description = "WPT (Web Platform Test) CLI for layout testing"
+
+	app.Root.Long = `wptest is a CLI tool for working with Web Platform Tests.
 
 It provides commands for:
   - Running layout tests with CEL assertions
@@ -37,13 +38,12 @@ It provides commands for:
   - Listing available tests
   - Selecting CEL API bindings (old/new/context)
   - Type-directed fuzzing (future)
-  - Property-based testing (future)`),
-	)
+  - Property-based testing (future)`
 
 	// Add commands
-	app.AddCommand(newRunCommand())
-	app.AddCommand(newListCommand())
-	app.AddCommand(newGenerateCommand())
+	app.Root.AddCommand(newRunCommand())
+	app.Root.AddCommand(newListCommand())
+	app.Root.AddCommand(newGenerateCommand())
 
 	return app
 }

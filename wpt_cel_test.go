@@ -8,9 +8,11 @@ func TestCELBasicPositioning(t *testing.T) {
 	// Create a simple layout tree
 	root := &Node{
 		Style: Style{
-			Display: DisplayFlex,
-			Width:   600,
-			Height:  100,
+			Display:        DisplayFlex,
+			FlexDirection:  FlexDirectionRow,
+			JustifyContent: JustifyContentSpaceBetween,
+			Width:          600,
+			Height:         100,
 		},
 		Children: []*Node{
 			{
@@ -78,8 +80,8 @@ func TestCELBasicPositioning(t *testing.T) {
 			shouldPass: true,
 		},
 		{
-			name:       "Second child X (should be after first)",
-			expression: "getX(child(root(), 1)) == 100.0",
+			name:       "Second child X (space-between positioning)",
+			expression: "getX(child(root(), 1)) == 500.0",
 			shouldPass: true,
 		},
 		{
@@ -407,9 +409,11 @@ func TestCELComplexExpressions(t *testing.T) {
 func TestCELEvaluateAll(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Display: DisplayFlex,
-			Width:   600,
-			Height:  100,
+			Display:        DisplayFlex,
+			FlexDirection:  FlexDirectionRow,
+			JustifyContent: JustifyContentSpaceBetween,
+			Width:          600,
+			Height:         100,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 100, Height: 50}},

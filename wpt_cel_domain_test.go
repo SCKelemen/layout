@@ -97,6 +97,18 @@ func TestDomainCELBasic(t *testing.T) {
 		// Relative tolerance (percentage)
 		{"equal relative", "equal(100.0, 101.0, relative(2.0))", true},
 
+		// Asymmetric absolute tolerance (minDelta, maxDelta)
+		{"equal asymmetric absolute positive", "equal(105.0, 100.0, absolute(-2.0, 10.0))", true},   // 100 + 5 is within [-2, +10]
+		{"equal asymmetric absolute negative", "equal(99.0, 100.0, absolute(-2.0, 10.0))", true},    // 100 - 1 is within [-2, +10]
+		{"equal asymmetric absolute fail low", "equal(97.0, 100.0, absolute(-2.0, 10.0))", false},   // 100 - 3 is outside [-2, +10]
+		{"equal asymmetric absolute fail high", "equal(111.0, 100.0, absolute(-2.0, 10.0))", false}, // 100 + 11 is outside [-2, +10]
+
+		// Asymmetric relative tolerance (minPercent, maxPercent)
+		{"equal asymmetric relative positive", "equal(109.0, 100.0, relative(-5.0, 10.0))", true},   // 109/100 = 1.09 is within [0.95, 1.10]
+		{"equal asymmetric relative negative", "equal(96.0, 100.0, relative(-5.0, 10.0))", true},    // 96/100 = 0.96 is within [0.95, 1.10]
+		{"equal asymmetric relative fail low", "equal(93.0, 100.0, relative(-5.0, 10.0))", false},   // 93/100 = 0.93 is outside [0.95, 1.10]
+		{"equal asymmetric relative fail high", "equal(112.0, 100.0, relative(-5.0, 10.0))", false}, // 112/100 = 1.12 is outside [0.95, 1.10]
+
 		// Between helper
 		{"between", "between(250.0, 200.0, 300.0)", true},
 	}
@@ -614,7 +626,7 @@ func TestToleranceTypes(t *testing.T) {
 		t.Error("Exact tolerance should not match different values")
 	}
 
-	// Test Absolute tolerance
+	// Test Absolute tolerance (symmetric)
 	abs := AbsoluteTolerance(0.1)
 	if !abs.Matches(1.0, 1.05) {
 		t.Error("Absolute tolerance should match within range")
@@ -623,13 +635,45 @@ func TestToleranceTypes(t *testing.T) {
 		t.Error("Absolute tolerance should not match outside range")
 	}
 
-	// Test Relative tolerance
+	// Test Asymmetric Absolute tolerance
+	absAsym := AsymmetricAbsoluteTolerance(-2.0, 10.0)
+	// v1 must be in [v2 - 2, v2 + 10] => [98, 110] for v2=100
+	if !absAsym.Matches(105.0, 100.0) {
+		t.Error("Asymmetric absolute should match 105 (within [98, 110])")
+	}
+	if !absAsym.Matches(99.0, 100.0) {
+		t.Error("Asymmetric absolute should match 99 (within [98, 110])")
+	}
+	if absAsym.Matches(97.0, 100.0) {
+		t.Error("Asymmetric absolute should not match 97 (outside [98, 110])")
+	}
+	if absAsym.Matches(111.0, 100.0) {
+		t.Error("Asymmetric absolute should not match 111 (outside [98, 110])")
+	}
+
+	// Test Relative tolerance (symmetric)
 	rel := RelativeTolerance(5.0) // 5%
 	if !rel.Matches(100.0, 104.0) {
 		t.Error("Relative tolerance should match within 5%")
 	}
 	if rel.Matches(100.0, 110.0) {
 		t.Error("Relative tolerance should not match outside 5%")
+	}
+
+	// Test Asymmetric Relative tolerance
+	relAsym := AsymmetricRelativeTolerance(-5.0, 10.0)
+	// v1 must be in [v2 * 0.95, v2 * 1.10] => [95, 110] for v2=100
+	if !relAsym.Matches(109.0, 100.0) {
+		t.Error("Asymmetric relative should match 109 (within [95, 110])")
+	}
+	if !relAsym.Matches(96.0, 100.0) {
+		t.Error("Asymmetric relative should match 96 (within [95, 110])")
+	}
+	if relAsym.Matches(93.0, 100.0) {
+		t.Error("Asymmetric relative should not match 93 (outside [95, 110])")
+	}
+	if relAsym.Matches(112.0, 100.0) {
+		t.Error("Asymmetric relative should not match 112 (outside [95, 110])")
 	}
 
 	// Test ULP tolerance

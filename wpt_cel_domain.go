@@ -392,8 +392,10 @@ func (s *Selector) Value() interface{} {
 // Tolerance represents comparison tolerance with different modes
 type Tolerance struct {
 	mode         string  // "exact", "absolute", "relative", "ulp"
-	value        float64 // Tolerance value
-	absoluteOnly bool    // For relative mode, whether to also check absolute
+	value        float64 // Tolerance value (for symmetric)
+	minValue     float64 // Minimum tolerance (for asymmetric)
+	maxValue     float64 // Maximum tolerance (for asymmetric)
+	isAsymmetric bool    // Whether tolerance is asymmetric
 }
 
 // Implement ref.Val interface for Tolerance
@@ -424,22 +426,44 @@ func (t *Tolerance) Value() interface{} {
 
 // ExactTolerance creates a tolerance for exact equality
 func ExactTolerance() *Tolerance {
-	return &Tolerance{mode: "exact", value: 0}
+	return &Tolerance{mode: "exact", value: 0, isAsymmetric: false}
 }
 
-// AbsoluteTolerance creates a tolerance for absolute difference
+// AbsoluteTolerance creates a tolerance for absolute difference (symmetric)
 func AbsoluteTolerance(value float64) *Tolerance {
-	return &Tolerance{mode: "absolute", value: value}
+	return &Tolerance{mode: "absolute", value: value, isAsymmetric: false}
 }
 
-// RelativeTolerance creates a tolerance for relative difference (percentage)
+// AsymmetricAbsoluteTolerance creates a tolerance for asymmetric absolute difference
+// Example: AsymmetricAbsoluteTolerance(-5.0, 10.0) allows v1 to be in [v2-5.0, v2+10.0]
+func AsymmetricAbsoluteTolerance(minDelta, maxDelta float64) *Tolerance {
+	return &Tolerance{
+		mode:         "absolute",
+		minValue:     minDelta,
+		maxValue:     maxDelta,
+		isAsymmetric: true,
+	}
+}
+
+// RelativeTolerance creates a tolerance for relative difference (percentage, symmetric)
 func RelativeTolerance(percent float64) *Tolerance {
-	return &Tolerance{mode: "relative", value: percent}
+	return &Tolerance{mode: "relative", value: percent, isAsymmetric: false}
+}
+
+// AsymmetricRelativeTolerance creates a tolerance for asymmetric relative difference
+// Example: AsymmetricRelativeTolerance(-5.0, 10.0) allows v1 to be in [v2*0.95, v2*1.10]
+func AsymmetricRelativeTolerance(minPercent, maxPercent float64) *Tolerance {
+	return &Tolerance{
+		mode:         "relative",
+		minValue:     minPercent,
+		maxValue:     maxPercent,
+		isAsymmetric: true,
+	}
 }
 
 // ULPTolerance creates a tolerance based on Units in the Last Place
 func ULPTolerance(ulps int) *Tolerance {
-	return &Tolerance{mode: "ulp", value: float64(ulps)}
+	return &Tolerance{mode: "ulp", value: float64(ulps), isAsymmetric: false}
 }
 
 // Matches checks if two values match within this tolerance
@@ -448,6 +472,12 @@ func (t *Tolerance) Matches(v1, v2 float64) bool {
 	case "exact":
 		return v1 == v2
 	case "absolute":
+		if t.isAsymmetric {
+			// Asymmetric: v1 must be in [v2 + minValue, v2 + maxValue]
+			diff := v1 - v2
+			return diff >= t.minValue && diff <= t.maxValue
+		}
+		// Symmetric: |v1 - v2| <= value
 		diff := v1 - v2
 		if diff < 0 {
 			diff = -diff
@@ -457,6 +487,14 @@ func (t *Tolerance) Matches(v1, v2 float64) bool {
 		if v2 == 0 {
 			return v1 == 0
 		}
+		if t.isAsymmetric {
+			// Asymmetric: v1 must be in [v2 * (1 + minPercent/100), v2 * (1 + maxPercent/100)]
+			ratio := v1 / v2
+			minRatio := 1.0 + t.minValue/100.0
+			maxRatio := 1.0 + t.maxValue/100.0
+			return ratio >= minRatio && ratio <= maxRatio
+		}
+		// Symmetric: |v1 - v2| / v2 <= percent/100
 		diff := v1 - v2
 		if diff < 0 {
 			diff = -diff
@@ -467,7 +505,7 @@ func (t *Tolerance) Matches(v1, v2 float64) bool {
 		}
 		return relativeDiff <= t.value/100.0
 	case "ulp":
-		// Simplified ULP comparison
+		// Simplified ULP comparison (always symmetric)
 		diff := v1 - v2
 		if diff < 0 {
 			diff = -diff
@@ -949,6 +987,15 @@ func DomainCELEnv(root *Node) (*cel.Env, *ElementRef, error) {
 				cel.DynType,
 				cel.UnaryBinding(func(value ref.Val) ref.Val {
 					return AbsoluteTolerance(value.Value().(float64))
+				})),
+			cel.Overload("absolute_tolerance_asymmetric",
+				[]*cel.Type{cel.DoubleType, cel.DoubleType},
+				cel.DynType,
+				cel.BinaryBinding(func(minVal, maxVal ref.Val) ref.Val {
+					return AsymmetricAbsoluteTolerance(
+						minVal.Value().(float64),
+						maxVal.Value().(float64),
+					)
 				}))),
 
 		cel.Function("relative",
@@ -957,6 +1004,15 @@ func DomainCELEnv(root *Node) (*cel.Env, *ElementRef, error) {
 				cel.DynType,
 				cel.UnaryBinding(func(percent ref.Val) ref.Val {
 					return RelativeTolerance(percent.Value().(float64))
+				})),
+			cel.Overload("relative_tolerance_asymmetric",
+				[]*cel.Type{cel.DoubleType, cel.DoubleType},
+				cel.DynType,
+				cel.BinaryBinding(func(minPercent, maxPercent ref.Val) ref.Val {
+					return AsymmetricRelativeTolerance(
+						minPercent.Value().(float64),
+						maxPercent.Value().(float64),
+					)
 				}))),
 
 		cel.Function("ulp",

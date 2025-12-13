@@ -149,9 +149,10 @@ type WPTViewport struct {
 
 // WPTElementResult represents expected values for an element
 type WPTElementResult struct {
-	ID       string                 `json:"id,omitempty"`
-	Path     string                 `json:"path"`
-	Expected map[string]interface{} `json:"expected"`
+	ID         string                 `json:"id,omitempty"`
+	Path       string                 `json:"path"`
+	Expected   map[string]interface{} `json:"expected"`
+	Assertions []CELAssertion         `json:"assertions,omitempty"`
 }
 
 // WPTTolerance defines acceptable differences

@@ -1,7 +1,6 @@
 package layout
 
 import (
-	"fmt"
 	"math"
 	"testing"
 )
@@ -11,7 +10,7 @@ type TestContext struct {
 	t                *testing.T
 	test             *WPTTest
 	browserName      string
-	tolerance        Tolerance
+	tolerance        WPTTolerance
 	customTolerances map[string]float64
 }
 
@@ -77,7 +76,7 @@ type Element struct {
 	ctx      *TestContext
 	path     string
 	actual   interface{} // Your node type
-	expected ElementResult
+	expected WPTElementResult
 }
 
 // For finds an element by path and returns an Element for assertions
@@ -87,7 +86,7 @@ func (ctx *TestContext) For(path string, actual interface{}) *Element {
 
 	// Find expected result for this path
 	browser := ctx.test.Results[ctx.browserName]
-	var expected *ElementResult
+	var expected *WPTElementResult
 	for i := range browser.Elements {
 		if browser.Elements[i].Path == path {
 			expected = &browser.Elements[i]
@@ -254,7 +253,7 @@ func (el *Element) ExpectProperty(name string, actual float64) *Element {
 // Helper functions for common assertions without creating Element
 
 // ExpectX is a standalone helper for X position
-func ExpectX(t *testing.T, path string, expected ElementResult, actual float64, tolerance float64) {
+func ExpectX(t *testing.T, path string, expected WPTElementResult, actual float64, tolerance float64) {
 	t.Helper()
 	expectedX, _ := expected.Expected["x"].(float64)
 	diff := math.Abs(actual - expectedX)
@@ -265,7 +264,7 @@ func ExpectX(t *testing.T, path string, expected ElementResult, actual float64, 
 }
 
 // ExpectY is a standalone helper for Y position
-func ExpectY(t *testing.T, path string, expected ElementResult, actual float64, tolerance float64) {
+func ExpectY(t *testing.T, path string, expected WPTElementResult, actual float64, tolerance float64) {
 	t.Helper()
 	expectedY, _ := expected.Expected["y"].(float64)
 	diff := math.Abs(actual - expectedY)
@@ -276,7 +275,7 @@ func ExpectY(t *testing.T, path string, expected ElementResult, actual float64, 
 }
 
 // ExpectWidth is a standalone helper for width
-func ExpectWidth(t *testing.T, path string, expected ElementResult, actual float64, tolerance float64) {
+func ExpectWidth(t *testing.T, path string, expected WPTElementResult, actual float64, tolerance float64) {
 	t.Helper()
 	expectedWidth, _ := expected.Expected["width"].(float64)
 	diff := math.Abs(actual - expectedWidth)
@@ -287,7 +286,7 @@ func ExpectWidth(t *testing.T, path string, expected ElementResult, actual float
 }
 
 // ExpectHeight is a standalone helper for height
-func ExpectHeight(t *testing.T, path string, expected ElementResult, actual float64, tolerance float64) {
+func ExpectHeight(t *testing.T, path string, expected WPTElementResult, actual float64, tolerance float64) {
 	t.Helper()
 	expectedHeight, _ := expected.Expected["height"].(float64)
 	diff := math.Abs(actual - expectedHeight)
@@ -295,6 +294,116 @@ func ExpectHeight(t *testing.T, path string, expected ElementResult, actual floa
 		t.Errorf("%s: height mismatch: expected %.2f, got %.2f (diff=%.2f, tolerance=%.2f)",
 			path, expectedHeight, actual, diff, tolerance)
 	}
+}
+
+// CEL Assertion Evaluation
+
+// EvaluateAssertions evaluates all CEL assertions for the test
+// Returns true if all assertions passed
+func (ctx *TestContext) EvaluateAssertions(root *Node) bool {
+	ctx.t.Helper()
+
+	// Create CEL environment
+	celEnv, err := NewLayoutCELEnv(root)
+	if err != nil {
+		ctx.t.Errorf("Failed to create CEL environment: %v", err)
+		return false
+	}
+
+	allPassed := true
+	browser := ctx.test.Results[ctx.browserName]
+
+	// Evaluate assertions for each element
+	for _, elem := range browser.Elements {
+		if len(elem.Assertions) == 0 {
+			continue
+		}
+
+		for _, assertion := range elem.Assertions {
+			result := celEnv.Evaluate(assertion)
+			if !result.Passed {
+				allPassed = false
+				ctx.t.Errorf("%s: Assertion failed: %s\n  Expression: %s\n  Error: %s",
+					elem.Path,
+					assertion.Message,
+					assertion.Expression,
+					result.Error)
+			}
+		}
+	}
+
+	return allPassed
+}
+
+// EvaluateElementAssertions evaluates CEL assertions for a specific element
+// Returns true if all assertions passed
+func (ctx *TestContext) EvaluateElementAssertions(root *Node, path string) bool {
+	ctx.t.Helper()
+
+	// Create CEL environment
+	celEnv, err := NewLayoutCELEnv(root)
+	if err != nil {
+		ctx.t.Errorf("Failed to create CEL environment: %v", err)
+		return false
+	}
+
+	browser := ctx.test.Results[ctx.browserName]
+
+	// Find element by path
+	var elem *WPTElementResult
+	for i := range browser.Elements {
+		if browser.Elements[i].Path == path {
+			elem = &browser.Elements[i]
+			break
+		}
+	}
+
+	if elem == nil {
+		ctx.t.Errorf("Element not found: %s", path)
+		return false
+	}
+
+	if len(elem.Assertions) == 0 {
+		return true
+	}
+
+	allPassed := true
+	for _, assertion := range elem.Assertions {
+		result := celEnv.Evaluate(assertion)
+		if !result.Passed {
+			allPassed = false
+			ctx.t.Errorf("%s: Assertion failed: %s\n  Expression: %s\n  Error: %s",
+				path,
+				assertion.Message,
+				assertion.Expression,
+				result.Error)
+		}
+	}
+
+	return allPassed
+}
+
+// EvaluateCustomAssertion evaluates a custom CEL assertion
+func (ctx *TestContext) EvaluateCustomAssertion(root *Node, assertion CELAssertion) bool {
+	ctx.t.Helper()
+
+	// Create CEL environment
+	celEnv, err := NewLayoutCELEnv(root)
+	if err != nil {
+		ctx.t.Errorf("Failed to create CEL environment: %v", err)
+		return false
+	}
+
+	result := celEnv.Evaluate(assertion)
+	if !result.Passed {
+		ctx.t.Errorf("Assertion failed: %s\n  Expression: %s\n  Error: %s",
+			assertion.Message,
+			assertion.Expression,
+			result.Error)
+		return false
+	}
+
+	return true
 }
 
 // Example usage documentation

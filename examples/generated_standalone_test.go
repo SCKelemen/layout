@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"github.com/SCKelemen/layout"
+	"github.com/SCKelemen/wpt-test-gen/pkg/cel"
 )
 
 // Browser test for CSS Test: Flexbox with CEL assertions
@@ -20,7 +21,7 @@ func TestTestCelAssertions(t *testing.T) {
 	})
 
 	// Create CEL environment
-	env, err := layout.NewLayoutCELEnv(root)
+	env, err := cel.NewLayoutCELEnv(root)
 	if err != nil {
 		t.Fatalf("Failed to create CEL environment: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestTestCelAssertions(t *testing.T) {
 	}
 
 	for _, assertionData := range assertions {
-		assertion := layout.CELAssertion{
+		assertion := cel.CELAssertion{
 			Type:       "layout",
 			Expression: assertionData.expr,
 			Message:    assertionData.message,

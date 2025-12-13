@@ -503,3 +503,89 @@ go test -v ./...
 
 MIT
 
+
+## WPT Testing with CEL Assertions
+
+This library integrates with [wpt-test-gen](https://github.com/SCKelemen/wpt-test-gen) for Web Platform Test-style testing using [CEL (Common Expression Language)](https://github.com/google/cel-spec) assertions.
+
+### Using CEL Assertions in Tests
+
+```go
+import (
+    "testing"
+    "github.com/SCKelemen/layout"
+    "github.com/SCKelemen/wpt-test-gen/pkg/cel"
+)
+
+func TestFlexboxLayout(t *testing.T) {
+    // Build your layout
+    root := &layout.Node{
+        Style: layout.Style{
+            Display:        layout.DisplayFlex,
+            JustifyContent: layout.JustifyContentSpaceBetween,
+            Width:          600,
+            Height:         100,
+        },
+        Children: []*layout.Node{
+            {Style: layout.Style{Width: 100, Height: 50}},
+            {Style: layout.Style{Width: 100, Height: 50}},
+        },
+    }
+
+    // Run layout
+    layout.Layout(root, layout.Tight(600, 100))
+
+    // Create CEL environment
+    env, _ := cel.NewLayoutCELEnv(root)
+
+    // Define assertions using CEL expressions
+    assertions := []cel.CELAssertion{
+        {
+            Expression: "getX(child(root(), 0)) == 0.0",
+            Message:    "first-child-at-start",
+        },
+        {
+            Expression: "getRight(child(root(), 1)) == getWidth(root())",
+            Message:    "last-child-at-end",
+        },
+    }
+
+    // Evaluate assertions
+    results := env.EvaluateAll(assertions)
+
+    for _, result := range results {
+        if !result.Passed {
+            t.Errorf("Assertion '%s' failed: %s", result.Assertion.Message, result.Error)
+        }
+    }
+}
+```
+
+### Available CEL Functions
+
+- **Node access**: `root()`, `child(node, index)`, `parent(node)`
+- **Position**: `getX(node)`, `getY(node)`, `getTop(node)`, `getLeft(node)`
+- **Size**: `getWidth(node)`, `getHeight(node)`
+- **Edges**: `getRight(node)`, `getBottom(node)`
+
+### Language-Agnostic Testing
+
+For testing from other languages (JavaScript, Python, Rust, etc.), use the `wptest eval` command:
+
+```bash
+# Install wptest CLI
+go install github.com/SCKelemen/wpt-test-gen/cmd/wptest@latest
+
+# Test via JSON stdin/stdout
+echo '{
+  "layout": {"display": "flex", "width": 600, ...},
+  "assertions": [{"expression": "getX(root()) == 0.0", ...}]
+}' | wptest eval
+```
+
+See [wpt-test-gen examples](https://github.com/SCKelemen/wpt-test-gen/tree/main/examples/cross-language) for JavaScript, Python, and Rust examples.
+
+### Example Test
+
+See [layout_wpt_example_test.go](layout_wpt_example_test.go) for complete examples of testing flexbox and grid layouts with CEL assertions.
+

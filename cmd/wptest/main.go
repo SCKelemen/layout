@@ -44,6 +44,7 @@ It provides commands for:
 	app.Root.AddCommand(newRunCommand())
 	app.Root.AddCommand(newListCommand())
 	app.Root.AddCommand(newGenerateCommand())
+	app.Root.AddCommand(newEvalCommand())
 
 	return app
 }

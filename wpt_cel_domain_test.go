@@ -682,3 +682,466 @@ func TestToleranceTypes(t *testing.T) {
 		t.Error("ULP tolerance should match identical values")
 	}
 }
+
+// TestDomainCELBoxModel tests box model, border, and size constraint properties
+func TestDomainCELBoxModel(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:     DisplayFlex,
+			Width:       600,
+			Height:      100,
+			MinWidth:    400,
+			MinHeight:   80,
+			MaxWidth:    800,
+			MaxHeight:   200,
+			AspectRatio: 6.0,
+			BoxSizing:   BoxSizingBorderBox,
+			Border: Spacing{
+				Top:    5,
+				Right:  10,
+				Bottom: 15,
+				Left:   20,
+			},
+			Padding: Spacing{
+				Top:    8,
+				Right:  12,
+				Bottom: 16,
+				Left:   24,
+			},
+		},
+	}
+
+	Layout(root, Constraints{
+		MinWidth:  0,
+		MaxWidth:  1000,
+		MinHeight: 0,
+		MaxHeight: 400,
+	})
+
+	env, rootRef, err := DomainCELEnv(root)
+	if err != nil {
+		t.Fatalf("Failed to create domain CEL environment: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		expression string
+		expected   interface{}
+	}{
+		// Border properties
+		{"border top", "borderTop(root)", 5.0},
+		{"border right", "borderRight(root)", 10.0},
+		{"border bottom", "borderBottom(root)", 15.0},
+		{"border left", "borderLeft(root)", 20.0},
+
+		// Size constraints
+		{"min width", "minWidth(root)", 400.0},
+		{"min height", "minHeight(root)", 80.0},
+		{"max width", "maxWidth(root)", 800.0},
+		{"max height", "maxHeight(root)", 200.0},
+		{"aspect ratio", "aspectRatio(root)", 6.0},
+
+		// Box sizing
+		{"box sizing", "boxSizing(root)", "border-box"},
+
+		// Combined assertions
+		{"borders sum horizontal", "borderLeft(root) + borderRight(root)", 30.0},
+		{"borders sum vertical", "borderTop(root) + borderBottom(root)", 20.0},
+		{"padding sum horizontal", "paddingLeft(root) + paddingRight(root)", 36.0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ast, issues := env.Compile(tt.expression)
+			if issues != nil && issues.Err() != nil {
+				t.Fatalf("Failed to compile expression %q: %v", tt.expression, issues.Err())
+			}
+
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("Failed to create program for %q: %v", tt.expression, err)
+			}
+
+			out, _, err := prg.Eval(map[string]interface{}{
+				"root":   rootRef,
+				"assert": &Assert{},
+			})
+			if err != nil {
+				t.Fatalf("Failed to evaluate %q: %v", tt.expression, err)
+			}
+
+			switch expected := tt.expected.(type) {
+			case float64:
+				actual, ok := out.Value().(float64)
+				if !ok {
+					t.Errorf("Expected float64, got %T", out.Value())
+				}
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			case string:
+				actual := out.Value().(string)
+				if actual != expected {
+					t.Errorf("Expected %q, got %q", expected, actual)
+				}
+			case bool:
+				actual := out.Value().(bool)
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			}
+		})
+	}
+}
+
+// TestDomainCELFlexboxExtended tests additional flexbox properties
+func TestDomainCELFlexboxExtended(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:        DisplayFlex,
+			FlexDirection:  FlexDirectionRow,
+			FlexGap:        16,
+			FlexRowGap:     12,
+			FlexColumnGap:  8,
+			Width:          600,
+			Height:         100,
+		},
+		Children: []*Node{
+			{
+				Style: Style{
+					Width:      100,
+					Height:     50,
+					FlexGrow:   1.0,
+					FlexShrink: 0.5,
+					FlexBasis:  80,
+					Order:      2,
+				},
+			},
+			{
+				Style: Style{
+					Width:      100,
+					Height:     50,
+					FlexGrow:   2.0,
+					FlexShrink: 1.0,
+					FlexBasis:  100,
+					Order:      1,
+				},
+			},
+		},
+	}
+
+	Layout(root, Constraints{
+		MinWidth:  0,
+		MaxWidth:  800,
+		MinHeight: 0,
+		MaxHeight: 600,
+	})
+
+	env, rootRef, err := DomainCELEnv(root)
+	if err != nil {
+		t.Fatalf("Failed to create domain CEL environment: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		expression string
+		expected   interface{}
+	}{
+		// Flex gap properties
+		{"flex gap", "flexGap(root)", 16.0},
+		{"flex row gap", "flexRowGap(root)", 12.0},
+		{"flex column gap", "flexColumnGap(root)", 8.0},
+
+		// First child flex properties
+		{"child 0 flex grow", "flexGrow(child(root, 0))", 1.0},
+		{"child 0 flex shrink", "flexShrink(child(root, 0))", 0.5},
+		{"child 0 flex basis", "flexBasis(child(root, 0))", 80.0},
+		{"child 0 order", "order(child(root, 0))", int64(2)},
+
+		// Second child flex properties
+		{"child 1 flex grow", "flexGrow(child(root, 1))", 2.0},
+		{"child 1 flex shrink", "flexShrink(child(root, 1))", 1.0},
+		{"child 1 flex basis", "flexBasis(child(root, 1))", 100.0},
+		{"child 1 order", "order(child(root, 1))", int64(1)},
+
+		// Assertions about flex properties
+		{"different flex grow", "flexGrow(child(root, 1)) > flexGrow(child(root, 0))", true},
+		{"different order", "order(child(root, 1)) < order(child(root, 0))", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ast, issues := env.Compile(tt.expression)
+			if issues != nil && issues.Err() != nil {
+				t.Fatalf("Failed to compile expression %q: %v", tt.expression, issues.Err())
+			}
+
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("Failed to create program for %q: %v", tt.expression, err)
+			}
+
+			out, _, err := prg.Eval(map[string]interface{}{
+				"root":   rootRef,
+				"assert": &Assert{},
+			})
+			if err != nil {
+				t.Fatalf("Failed to evaluate %q: %v", tt.expression, err)
+			}
+
+			switch expected := tt.expected.(type) {
+			case float64:
+				actual, ok := out.Value().(float64)
+				if !ok {
+					t.Errorf("Expected float64, got %T", out.Value())
+				}
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			case int64:
+				actual, ok := out.Value().(int64)
+				if !ok {
+					t.Errorf("Expected int64, got %T", out.Value())
+				}
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			case bool:
+				actual := out.Value().(bool)
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			}
+		})
+	}
+}
+
+// TestDomainCELBoxAlignment tests box alignment properties
+func TestDomainCELBoxAlignment(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:      DisplayFlex,
+			AlignItems:   AlignItemsCenter,
+			JustifyItems: JustifyItemsCenter,
+			Width:        600,
+			Height:       100,
+		},
+		Children: []*Node{
+			{
+				Style: Style{
+					Width:       100,
+					Height:      50,
+					AlignSelf:   AlignItemsFlexStart,
+					JustifySelf: JustifyItemsEnd,
+				},
+			},
+			{
+				Style: Style{
+					Width:       100,
+					Height:      50,
+					AlignSelf:   AlignItemsStretch,
+					JustifySelf: JustifyItemsStart,
+				},
+			},
+		},
+	}
+
+	Layout(root, Constraints{
+		MinWidth:  0,
+		MaxWidth:  800,
+		MinHeight: 0,
+		MaxHeight: 600,
+	})
+
+	env, rootRef, err := DomainCELEnv(root)
+	if err != nil {
+		t.Fatalf("Failed to create domain CEL environment: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		expression string
+		expected   interface{}
+	}{
+		// Parent box alignment
+		{"align items", "alignItems(root)", "center"},
+		{"justify items", "justifyItems(root)", "center"},
+
+		// Child box alignment
+		{"child 0 align self", "alignSelf(child(root, 0))", "flex-start"},
+		{"child 0 justify self", "justifySelf(child(root, 0))", "end"},
+		{"child 1 align self", "alignSelf(child(root, 1))", "stretch"},
+		{"child 1 justify self", "justifySelf(child(root, 1))", "start"},
+
+		// Assertions
+		{"different align self", "alignSelf(child(root, 0)) != alignSelf(child(root, 1))", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ast, issues := env.Compile(tt.expression)
+			if issues != nil && issues.Err() != nil {
+				t.Fatalf("Failed to compile expression %q: %v", tt.expression, issues.Err())
+			}
+
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("Failed to create program for %q: %v", tt.expression, err)
+			}
+
+			out, _, err := prg.Eval(map[string]interface{}{
+				"root":   rootRef,
+				"assert": &Assert{},
+			})
+			if err != nil {
+				t.Fatalf("Failed to evaluate %q: %v", tt.expression, err)
+			}
+
+			switch expected := tt.expected.(type) {
+			case string:
+				actual := out.Value().(string)
+				if actual != expected {
+					t.Errorf("Expected %q, got %q", expected, actual)
+				}
+			case bool:
+				actual := out.Value().(bool)
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			}
+		})
+	}
+}
+
+// TestDomainCELGrid tests grid layout properties
+func TestDomainCELGrid(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:      DisplayFlex, // Using flex as proxy since grid not fully implemented
+			GridAutoFlow: GridAutoFlowRowDense,
+			GridGap:      16,
+			GridRowGap:   12,
+			GridColumnGap: 8,
+			Width:        600,
+			Height:       400,
+		},
+		Children: []*Node{
+			{
+				Style: Style{
+					Width:           100,
+					Height:          100,
+					GridRowStart:    1,
+					GridRowEnd:      3,
+					GridColumnStart: 1,
+					GridColumnEnd:   2,
+					GridArea:        "header",
+				},
+			},
+			{
+				Style: Style{
+					Width:           100,
+					Height:          100,
+					GridRowStart:    3,
+					GridRowEnd:      4,
+					GridColumnStart: 2,
+					GridColumnEnd:   4,
+					GridArea:        "content",
+				},
+			},
+		},
+	}
+
+	Layout(root, Constraints{
+		MinWidth:  0,
+		MaxWidth:  800,
+		MinHeight: 0,
+		MaxHeight: 600,
+	})
+
+	env, rootRef, err := DomainCELEnv(root)
+	if err != nil {
+		t.Fatalf("Failed to create domain CEL environment: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		expression string
+		expected   interface{}
+	}{
+		// Grid container properties
+		{"grid auto flow", "gridAutoFlow(root)", "row-dense"},
+		{"grid gap", "gridGap(root)", 16.0},
+		{"grid row gap", "gridRowGap(root)", 12.0},
+		{"grid column gap", "gridColumnGap(root)", 8.0},
+
+		// First child grid properties
+		{"child 0 grid row start", "gridRowStart(child(root, 0))", int64(1)},
+		{"child 0 grid row end", "gridRowEnd(child(root, 0))", int64(3)},
+		{"child 0 grid column start", "gridColumnStart(child(root, 0))", int64(1)},
+		{"child 0 grid column end", "gridColumnEnd(child(root, 0))", int64(2)},
+		{"child 0 grid area", "gridArea(child(root, 0))", "header"},
+
+		// Second child grid properties
+		{"child 1 grid row start", "gridRowStart(child(root, 1))", int64(3)},
+		{"child 1 grid row end", "gridRowEnd(child(root, 1))", int64(4)},
+		{"child 1 grid column start", "gridColumnStart(child(root, 1))", int64(2)},
+		{"child 1 grid column end", "gridColumnEnd(child(root, 1))", int64(4)},
+		{"child 1 grid area", "gridArea(child(root, 1))", "content"},
+
+		// Assertions about grid properties
+		{"child 0 spans 2 rows", "gridRowEnd(child(root, 0)) - gridRowStart(child(root, 0))", int64(2)},
+		{"child 1 spans 2 columns", "gridColumnEnd(child(root, 1)) - gridColumnStart(child(root, 1))", int64(2)},
+		{"different grid areas", "gridArea(child(root, 0)) != gridArea(child(root, 1))", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ast, issues := env.Compile(tt.expression)
+			if issues != nil && issues.Err() != nil {
+				t.Fatalf("Failed to compile expression %q: %v", tt.expression, issues.Err())
+			}
+
+			prg, err := env.Program(ast)
+			if err != nil {
+				t.Fatalf("Failed to create program for %q: %v", tt.expression, err)
+			}
+
+			out, _, err := prg.Eval(map[string]interface{}{
+				"root":   rootRef,
+				"assert": &Assert{},
+			})
+			if err != nil {
+				t.Fatalf("Failed to evaluate %q: %v", tt.expression, err)
+			}
+
+			switch expected := tt.expected.(type) {
+			case float64:
+				actual, ok := out.Value().(float64)
+				if !ok {
+					t.Errorf("Expected float64, got %T", out.Value())
+				}
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			case int64:
+				actual, ok := out.Value().(int64)
+				if !ok {
+					t.Errorf("Expected int64, got %T", out.Value())
+				}
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			case string:
+				actual := out.Value().(string)
+				if actual != expected {
+					t.Errorf("Expected %q, got %q", expected, actual)
+				}
+			case bool:
+				actual := out.Value().(bool)
+				if actual != expected {
+					t.Errorf("Expected %v, got %v", expected, actual)
+				}
+			}
+		})
+	}
+}

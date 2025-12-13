@@ -301,6 +301,82 @@ func (e *ElementRef) PaddingLeft() float64 {
 	return e.node.Style.Padding.Left
 }
 
+// Border accessors
+
+func (e *ElementRef) BorderTop() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.Border.Top
+}
+
+func (e *ElementRef) BorderRight() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.Border.Right
+}
+
+func (e *ElementRef) BorderBottom() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.Border.Bottom
+}
+
+func (e *ElementRef) BorderLeft() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.Border.Left
+}
+
+// Size constraints
+
+func (e *ElementRef) MinWidth() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.MinWidth
+}
+
+func (e *ElementRef) MinHeight() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.MinHeight
+}
+
+func (e *ElementRef) MaxWidth() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.MaxWidth
+}
+
+func (e *ElementRef) MaxHeight() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.MaxHeight
+}
+
+func (e *ElementRef) AspectRatio() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.AspectRatio
+}
+
+// Box model
+
+func (e *ElementRef) BoxSizing() string {
+	if e.node == nil {
+		return ""
+	}
+	return boxSizingToString(e.node.Style.BoxSizing)
+}
+
 // Flexbox property accessors
 
 func (e *ElementRef) FlexDirection() string {
@@ -338,6 +414,143 @@ func (e *ElementRef) FlexWrap() string {
 	return flexWrapToString(e.node.Style.FlexWrap)
 }
 
+func (e *ElementRef) FlexGrow() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexGrow
+}
+
+func (e *ElementRef) FlexShrink() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexShrink
+}
+
+func (e *ElementRef) FlexBasis() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexBasis
+}
+
+func (e *ElementRef) FlexGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexGap
+}
+
+func (e *ElementRef) FlexRowGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexRowGap
+}
+
+func (e *ElementRef) FlexColumnGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.FlexColumnGap
+}
+
+func (e *ElementRef) Order() int {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.Order
+}
+
+// Box alignment properties
+
+func (e *ElementRef) AlignSelf() string {
+	if e.node == nil {
+		return ""
+	}
+	return alignItemsToString(e.node.Style.AlignSelf)
+}
+
+func (e *ElementRef) JustifyItems() string {
+	if e.node == nil {
+		return ""
+	}
+	return justifyItemsToString(e.node.Style.JustifyItems)
+}
+
+func (e *ElementRef) JustifySelf() string {
+	if e.node == nil {
+		return ""
+	}
+	return justifyItemsToString(e.node.Style.JustifySelf)
+}
+
+// Grid property accessors
+
+func (e *ElementRef) GridAutoFlow() string {
+	if e.node == nil {
+		return ""
+	}
+	return gridAutoFlowToString(e.node.Style.GridAutoFlow)
+}
+
+func (e *ElementRef) GridGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.GridGap
+}
+
+func (e *ElementRef) GridRowGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.GridRowGap
+}
+
+func (e *ElementRef) GridColumnGap() float64 {
+	if e.node == nil {
+		return 0
+	}
+	return e.node.Style.GridColumnGap
+}
+
+func (e *ElementRef) GridRowStart() int {
+	if e.node == nil {
+		return -1
+	}
+	return e.node.Style.GridRowStart
+}
+
+func (e *ElementRef) GridRowEnd() int {
+	if e.node == nil {
+		return -1
+	}
+	return e.node.Style.GridRowEnd
+}
+
+func (e *ElementRef) GridColumnStart() int {
+	if e.node == nil {
+		return -1
+	}
+	return e.node.Style.GridColumnStart
+}
+
+func (e *ElementRef) GridColumnEnd() int {
+	if e.node == nil {
+		return -1
+	}
+	return e.node.Style.GridColumnEnd
+}
+
+func (e *ElementRef) GridArea() string {
+	if e.node == nil {
+		return ""
+	}
+	return e.node.Style.GridArea
+}
+
 // Utility methods
 
 func (e *ElementRef) ChildCount() int {
@@ -353,6 +566,49 @@ func (e *ElementRef) IsRoot() bool {
 
 func (e *ElementRef) Path() string {
 	return e.path
+}
+
+// Enum to string converters (additional ones not in wpt_cel.go)
+
+func boxSizingToString(bs BoxSizing) string {
+	switch bs {
+	case BoxSizingContentBox:
+		return "content-box"
+	case BoxSizingBorderBox:
+		return "border-box"
+	default:
+		return "content-box"
+	}
+}
+
+func justifyItemsToString(ji JustifyItems) string {
+	switch ji {
+	case JustifyItemsStretch:
+		return "stretch"
+	case JustifyItemsStart:
+		return "start"
+	case JustifyItemsEnd:
+		return "end"
+	case JustifyItemsCenter:
+		return "center"
+	default:
+		return "stretch"
+	}
+}
+
+func gridAutoFlowToString(gaf GridAutoFlow) string {
+	switch gaf {
+	case GridAutoFlowRow:
+		return "row"
+	case GridAutoFlowColumn:
+		return "column"
+	case GridAutoFlowRowDense:
+		return "row-dense"
+	case GridAutoFlowColumnDense:
+		return "column-dense"
+	default:
+		return "row"
+	}
 }
 
 // Selector Support
@@ -900,6 +1156,330 @@ func DomainCELEnv(root *Node) (*cel.Env, *ElementRef, error) {
 				cel.UnaryBinding(func(elem ref.Val) ref.Val {
 					if e, ok := elem.(*ElementRef); ok {
 						return types.String(e.FlexWrap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexGrow",
+			cel.Overload("flexGrow_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexGrow())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexShrink",
+			cel.Overload("flexShrink_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexShrink())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexBasis",
+			cel.Overload("flexBasis_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexBasis())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexGap",
+			cel.Overload("flexGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexRowGap",
+			cel.Overload("flexRowGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexRowGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("flexColumnGap",
+			cel.Overload("flexColumnGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.FlexColumnGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("order",
+			cel.Overload("order_element",
+				[]*cel.Type{cel.DynType},
+				cel.IntType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Int(e.Order())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		// Border accessors
+		cel.Function("borderTop",
+			cel.Overload("borderTop_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.BorderTop())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("borderRight",
+			cel.Overload("borderRight_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.BorderRight())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("borderBottom",
+			cel.Overload("borderBottom_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.BorderBottom())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("borderLeft",
+			cel.Overload("borderLeft_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.BorderLeft())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		// Size constraints
+		cel.Function("minWidth",
+			cel.Overload("minWidth_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.MinWidth())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("minHeight",
+			cel.Overload("minHeight_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.MinHeight())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("maxWidth",
+			cel.Overload("maxWidth_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.MaxWidth())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("maxHeight",
+			cel.Overload("maxHeight_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.MaxHeight())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("aspectRatio",
+			cel.Overload("aspectRatio_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.AspectRatio())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		// Box model
+		cel.Function("boxSizing",
+			cel.Overload("boxSizing_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.BoxSizing())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		// Box alignment properties
+		cel.Function("alignSelf",
+			cel.Overload("alignSelf_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.AlignSelf())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("justifyItems",
+			cel.Overload("justifyItems_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.JustifyItems())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("justifySelf",
+			cel.Overload("justifySelf_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.JustifySelf())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		// Grid properties
+		cel.Function("gridAutoFlow",
+			cel.Overload("gridAutoFlow_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.GridAutoFlow())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridGap",
+			cel.Overload("gridGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.GridGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridRowGap",
+			cel.Overload("gridRowGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.GridRowGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridColumnGap",
+			cel.Overload("gridColumnGap_element",
+				[]*cel.Type{cel.DynType},
+				cel.DoubleType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Double(e.GridColumnGap())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridRowStart",
+			cel.Overload("gridRowStart_element",
+				[]*cel.Type{cel.DynType},
+				cel.IntType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Int(e.GridRowStart())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridRowEnd",
+			cel.Overload("gridRowEnd_element",
+				[]*cel.Type{cel.DynType},
+				cel.IntType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Int(e.GridRowEnd())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridColumnStart",
+			cel.Overload("gridColumnStart_element",
+				[]*cel.Type{cel.DynType},
+				cel.IntType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Int(e.GridColumnStart())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridColumnEnd",
+			cel.Overload("gridColumnEnd_element",
+				[]*cel.Type{cel.DynType},
+				cel.IntType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.Int(e.GridColumnEnd())
+					}
+					return types.NewErr("expected Element")
+				}))),
+
+		cel.Function("gridArea",
+			cel.Overload("gridArea_element",
+				[]*cel.Type{cel.DynType},
+				cel.StringType,
+				cel.UnaryBinding(func(elem ref.Val) ref.Val {
+					if e, ok := elem.(*ElementRef); ok {
+						return types.String(e.GridArea())
 					}
 					return types.NewErr("expected Element")
 				}))),

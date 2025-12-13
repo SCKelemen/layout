@@ -17,7 +17,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^24.33.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0"

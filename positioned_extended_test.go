@@ -75,4 +75,3 @@ func TestLayoutWithPositioning(t *testing.T) {
 		t.Errorf("Expected Y=50, got %.2f", child.Rect.Y)
 	}
 }
-

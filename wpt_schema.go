@@ -11,21 +11,21 @@ import (
 
 // WPTTest represents a Web Platform Test in universal JSON format
 type WPTTest struct {
-	Version     string          `json:"version"`
-	ID          string          `json:"id"`
-	Title       string          `json:"title"`
-	Description string          `json:"description,omitempty"`
-	Source      WPTSource       `json:"source"`
-	Generated   WPTGenerated    `json:"generated"`
-	Spec        WPTSpec         `json:"spec"`
-	Categories  []string        `json:"categories"`
-	Tags        []string        `json:"tags"`
-	Properties  []string        `json:"properties"`
-	Layout      WPTLayoutTree   `json:"layout"`
-	Constraints WPTConstraints  `json:"constraints"`
-	Results     WPTResults      `json:"results"`
-	Notes       []string        `json:"notes,omitempty"`
-	KnownIssues []string        `json:"knownIssues,omitempty"`
+	Version     string         `json:"version"`
+	ID          string         `json:"id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description,omitempty"`
+	Source      WPTSource      `json:"source"`
+	Generated   WPTGenerated   `json:"generated"`
+	Spec        WPTSpec        `json:"spec"`
+	Categories  []string       `json:"categories"`
+	Tags        []string       `json:"tags"`
+	Properties  []string       `json:"properties"`
+	Layout      WPTLayoutTree  `json:"layout"`
+	Constraints WPTConstraints `json:"constraints"`
+	Results     WPTResults     `json:"results"`
+	Notes       []string       `json:"notes,omitempty"`
+	KnownIssues []string       `json:"knownIssues,omitempty"`
 }
 
 // WPTSource tracks the original test file
@@ -65,19 +65,19 @@ type WPTStyle struct {
 	Position string `json:"position,omitempty"`
 
 	// Flexbox
-	FlexDirection  string `json:"flexDirection,omitempty"`
-	FlexWrap       string `json:"flexWrap,omitempty"`
-	JustifyContent string `json:"justifyContent,omitempty"`
-	AlignItems     string `json:"alignItems,omitempty"`
-	AlignContent   string `json:"alignContent,omitempty"`
-	AlignSelf      string `json:"alignSelf,omitempty"`
-	FlexGrow       *float64 `json:"flexGrow,omitempty"`
-	FlexShrink     *float64 `json:"flexShrink,omitempty"`
+	FlexDirection  string      `json:"flexDirection,omitempty"`
+	FlexWrap       string      `json:"flexWrap,omitempty"`
+	JustifyContent string      `json:"justifyContent,omitempty"`
+	AlignItems     string      `json:"alignItems,omitempty"`
+	AlignContent   string      `json:"alignContent,omitempty"`
+	AlignSelf      string      `json:"alignSelf,omitempty"`
+	FlexGrow       *float64    `json:"flexGrow,omitempty"`
+	FlexShrink     *float64    `json:"flexShrink,omitempty"`
 	FlexBasis      interface{} `json:"flexBasis,omitempty"` // number or "auto"
 
 	// Grid
-	GridTemplateColumns string  `json:"gridTemplateColumns,omitempty"`
-	GridTemplateRows    string  `json:"gridTemplateRows,omitempty"`
+	GridTemplateColumns string   `json:"gridTemplateColumns,omitempty"`
+	GridTemplateRows    string   `json:"gridTemplateRows,omitempty"`
 	GridGap             *float64 `json:"gridGap,omitempty"`
 
 	// Box Model
@@ -137,8 +137,8 @@ type WPTBrowser struct {
 
 // WPTRendered tracks rendering metadata
 type WPTRendered struct {
-	Timestamp string       `json:"timestamp"`
-	Viewport  WPTViewport  `json:"viewport"`
+	Timestamp string      `json:"timestamp"`
+	Viewport  WPTViewport `json:"viewport"`
 }
 
 // WPTViewport represents the viewport size

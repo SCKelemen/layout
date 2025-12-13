@@ -65,4 +65,3 @@ func TestUnconstrained(t *testing.T) {
 		t.Error("Unconstrained should have min=0, max=unbounded")
 	}
 }
-

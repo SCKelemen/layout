@@ -127,4 +127,3 @@ func TestGridAutoRowPositioning(t *testing.T) {
 			minY2, grid.Children[1].Rect.Y)
 	}
 }
-

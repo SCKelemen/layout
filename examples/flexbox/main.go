@@ -18,19 +18,19 @@ func main() {
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
-					FlexGrow: 1,
+					FlexGrow:  1,
 					MinHeight: 50,
 				},
 			},
 			{
 				Style: layout.Style{
-					FlexGrow: 2,
+					FlexGrow:  2,
 					MinHeight: 50,
 				},
 			},
 			{
 				Style: layout.Style{
-					FlexGrow: 1,
+					FlexGrow:  1,
 					MinHeight: 50,
 				},
 			},
@@ -49,4 +49,3 @@ func main() {
 			i+1, child.Rect.X, child.Rect.Y, child.Rect.Width, child.Rect.Height, child.Style.FlexGrow)
 	}
 }
-

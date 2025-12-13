@@ -16,9 +16,9 @@ func TestGridJustifySelfBasic(t *testing.T) {
 			Height:              100,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, JustifySelf: 0}},                   // Use parent's justify-items (start)
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd}},     // Override: end
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsCenter}},  // Override: center
+			{Style: Style{Width: 50, Height: 50, JustifySelf: 0}},                  // Use parent's justify-items (start)
+			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd}},    // Override: end
+			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsCenter}}, // Override: center
 		},
 	}
 
@@ -53,9 +53,9 @@ func TestGridAlignSelfBasic(t *testing.T) {
 			Height:              300,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, AlignSelf: 0}},                    // Use parent's align-items (start)
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexEnd}},    // Override: end
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsCenter}},     // Override: center
+			{Style: Style{Width: 50, Height: 50, AlignSelf: 0}},                 // Use parent's align-items (start)
+			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexEnd}}, // Override: end
+			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsCenter}},  // Override: center
 		},
 	}
 
@@ -256,9 +256,9 @@ func TestGridSelfAlignmentMixed(t *testing.T) {
 			Height:              200,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},                                                      // Use container alignment (center, center)
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsStart}},                      // Override justify only
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexStart}},                      // Override align only
+			{Style: Style{Width: 50, Height: 50}},                                                             // Use container alignment (center, center)
+			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsStart}},                             // Override justify only
+			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexStart}},                             // Override align only
 			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd, AlignSelf: AlignItemsFlexEnd}}, // Override both
 		},
 	}

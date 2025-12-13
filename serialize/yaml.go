@@ -5,7 +5,7 @@ package serialize
 
 import (
 	"gopkg.in/yaml.v3"
-	
+
 	"github.com/SCKelemen/layout"
 )
 
@@ -29,4 +29,3 @@ func FromYAML(data []byte) (*layout.Node, error) {
 	}
 	return jsonToNode(&nodeJSON), nil
 }
-

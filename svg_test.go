@@ -11,12 +11,12 @@ func TestGetSVGTransform(t *testing.T) {
 			Transform: IdentityTransform(),
 		},
 	}
-	
+
 	result := GetSVGTransform(node)
 	if result != "" {
 		t.Errorf("Expected empty string for identity transform, got %q", result)
 	}
-	
+
 	// Test with actual transform
 	node.Style.Transform = Translate(10, 20)
 	result = GetSVGTransform(node)
@@ -34,13 +34,13 @@ func TestGetFinalRect(t *testing.T) {
 			Transform: IdentityTransform(),
 		},
 	}
-	
+
 	result := GetFinalRect(node)
 	if result.X != 10 || result.Y != 20 || result.Width != 100 || result.Height != 50 {
 		t.Errorf("Expected rect (10, 20, 100, 50), got (%.2f, %.2f, %.2f, %.2f)",
 			result.X, result.Y, result.Width, result.Height)
 	}
-	
+
 	// Test with transform
 	node.Style.Transform = Translate(5, 10)
 	result = GetFinalRect(node)
@@ -61,18 +61,17 @@ func TestCollectNodesForSVG(t *testing.T) {
 			{},
 		},
 	}
-	
+
 	var nodes []*Node
 	CollectNodesForSVG(root, &nodes)
-	
+
 	// Should collect root + 2 children + 1 grandchild = 4 nodes
 	if len(nodes) != 4 {
 		t.Errorf("Expected 4 nodes, got %d", len(nodes))
 	}
-	
+
 	// First should be root
 	if nodes[0] != root {
 		t.Error("First node should be root")
 	}
 }
-

@@ -372,7 +372,7 @@ func TestFindUp(t *testing.T) {
 
 	t.Run("find flex container ancestor", func(t *testing.T) {
 		// Start from grandchild1 (inside child1 which is flex)
-		childCtx := rootCtx.ChildAt(0) // child1 (Flex)
+		childCtx := rootCtx.ChildAt(0)       // child1 (Flex)
 		grandchildCtx := childCtx.ChildAt(0) // grandchild1 (Block)
 
 		flexCtx := grandchildCtx.FindUp(func(n *Node) bool {

@@ -15,11 +15,11 @@ func TestFlexboxAlignSelfBasic(t *testing.T) {
 			Height:         100,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 30, AlignSelf: 0}},                    // Use parent's align-items (flex-start)
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexEnd}},    // Override: flex-end
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsCenter}},     // Override: center
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsStretch}},    // Override: stretch
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexStart}},  // Override: flex-start
+			{Style: Style{Width: 50, Height: 30, AlignSelf: 0}},                   // Use parent's align-items (flex-start)
+			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexEnd}},   // Override: flex-end
+			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsCenter}},    // Override: center
+			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsStretch}},   // Override: stretch
+			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexStart}}, // Override: flex-start
 		},
 	}
 
@@ -67,9 +67,9 @@ func TestFlexboxAlignSelfColumn(t *testing.T) {
 			Height:         300,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 30, Height: 50, AlignSelf: 0}},                    // Use parent's align-items (flex-start)
-			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsFlexEnd}},    // Override: flex-end
-			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsCenter}},     // Override: center
+			{Style: Style{Width: 30, Height: 50, AlignSelf: 0}},                 // Use parent's align-items (flex-start)
+			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsFlexEnd}}, // Override: flex-end
+			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsCenter}},  // Override: center
 		},
 	}
 

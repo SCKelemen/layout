@@ -21,7 +21,7 @@ const (
 
 	// Prohibited breaks
 	ClassWJ BreakClass = iota + 5 // Word Joiner
-	ClassZW                      // Zero Width Space
+	ClassZW                       // Zero Width Space
 
 	// Break opportunities
 	ClassBA BreakClass = iota + 10 // Break After
@@ -365,4 +365,3 @@ func findLineBreakOpportunitiesWithHyphens(text string, hyphens Hyphens) []int {
 
 	return breakPoints
 }
-

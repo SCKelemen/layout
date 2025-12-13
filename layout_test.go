@@ -74,7 +74,7 @@ func TestLayoutNone(t *testing.T) {
 		Style: Style{
 			Display: DisplayNone,
 			Width:   100,
-			Height: 100,
+			Height:  100,
 		},
 		Children: []*Node{},
 	}
@@ -90,7 +90,7 @@ func TestLayoutNone(t *testing.T) {
 func TestConstraintsTight(t *testing.T) {
 	// Test tight constraints
 	constraints := Tight(200, 100)
-	
+
 	if constraints.MinWidth != 200 || constraints.MaxWidth != 200 {
 		t.Errorf("Tight constraints should have min == max")
 	}
@@ -102,7 +102,7 @@ func TestConstraintsTight(t *testing.T) {
 func TestConstraintsLoose(t *testing.T) {
 	// Test loose constraints
 	constraints := Loose(200, 100)
-	
+
 	if constraints.MinWidth != 0 || constraints.MaxWidth != 200 {
 		t.Errorf("Loose constraints should have min=0, max=specified")
 	}
@@ -114,10 +114,10 @@ func TestConstraintsLoose(t *testing.T) {
 func TestConstraintsConstrain(t *testing.T) {
 	// Test Constrain method
 	constraints := Loose(200, 100)
-	
+
 	size := Size{Width: 300, Height: 50}
 	constrained := constraints.Constrain(size)
-	
+
 	if constrained.Width != 200 {
 		t.Errorf("Width should be constrained to 200, got %.2f", constrained.Width)
 	}
@@ -125,4 +125,3 @@ func TestConstraintsConstrain(t *testing.T) {
 		t.Errorf("Height should not be constrained (50 < 100), got %.2f", constrained.Height)
 	}
 }
-

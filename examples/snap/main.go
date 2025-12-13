@@ -25,19 +25,19 @@ func main() {
 			{
 				Style: layout.Style{
 					Position: layout.PositionAbsolute,
-					Left:    12.3, // Will snap to 10
-					Top:     17.8, // Will snap to 20
-					Width:   50,
-					Height:  50,
+					Left:     12.3, // Will snap to 10
+					Top:      17.8, // Will snap to 20
+					Width:    50,
+					Height:   50,
 				},
 			},
 			{
 				Style: layout.Style{
 					Position: layout.PositionAbsolute,
-					Left:    23.7, // Will snap to 20
-					Top:     45.2, // Will snap to 50
-					Width:   50,
-					Height:  50,
+					Left:     23.7, // Will snap to 20
+					Top:      45.2, // Will snap to 50
+					Width:    50,
+					Height:   50,
 				},
 			},
 		},
@@ -72,10 +72,10 @@ func main() {
 			{
 				Style: layout.Style{
 					Position: layout.PositionAbsolute,
-					Left:    17.3, // 12.3 relative to (5, 5) -> snaps to 15
-					Top:     22.8, // 17.8 relative to (5, 5) -> snaps to 25
-					Width:   50,
-					Height:  50,
+					Left:     17.3, // 12.3 relative to (5, 5) -> snaps to 15
+					Top:      22.8, // 17.8 relative to (5, 5) -> snaps to 25
+					Width:    50,
+					Height:   50,
 				},
 			},
 		},
@@ -94,4 +94,3 @@ func main() {
 	fmt.Println("  - Flexbox: justify-content, align-items")
 	fmt.Println("  - Grid: justify-items, align-items, grid gaps")
 }
-

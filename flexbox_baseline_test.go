@@ -9,11 +9,11 @@ func TestFlexboxBaselineAlignment(t *testing.T) {
 	// CSS Flexbox §10.3.1: Baseline alignment
 	root := &Node{
 		Style: Style{
-			Display:        DisplayFlex,
-			FlexDirection:  FlexDirectionRow,
-			AlignItems:     AlignItemsBaseline,
-			Width:          300,
-			Height:         100,
+			Display:       DisplayFlex,
+			FlexDirection: FlexDirectionRow,
+			AlignItems:    AlignItemsBaseline,
+			Width:         300,
+			Height:        100,
 		},
 		Children: []*Node{
 			{
@@ -67,11 +67,11 @@ func TestFlexboxBaselineAlignment(t *testing.T) {
 func TestFlexboxBaselineAlignmentWithMargins(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Display:        DisplayFlex,
-			FlexDirection:  FlexDirectionRow,
-			AlignItems:     AlignItemsBaseline,
-			Width:          300,
-			Height:         100,
+			Display:       DisplayFlex,
+			FlexDirection: FlexDirectionRow,
+			AlignItems:    AlignItemsBaseline,
+			Width:         300,
+			Height:        100,
 		},
 		Children: []*Node{
 			{
@@ -112,11 +112,11 @@ func TestFlexboxBaselineAlignmentNoBaseline(t *testing.T) {
 	// Items without baseline should use their height as default baseline (align bottom edge)
 	root := &Node{
 		Style: Style{
-			Display:        DisplayFlex,
-			FlexDirection:  FlexDirectionRow,
-			AlignItems:     AlignItemsBaseline,
-			Width:          300,
-			Height:         100,
+			Display:       DisplayFlex,
+			FlexDirection: FlexDirectionRow,
+			AlignItems:    AlignItemsBaseline,
+			Width:         300,
+			Height:        100,
 		},
 		Children: []*Node{
 			{
@@ -154,11 +154,11 @@ func TestFlexboxBaselineAlignmentColumn(t *testing.T) {
 	// In column direction, baseline alignment applies to the cross axis (horizontal)
 	root := &Node{
 		Style: Style{
-			Display:        DisplayFlex,
-			FlexDirection:  FlexDirectionColumn,
-			AlignItems:     AlignItemsBaseline,
-			Width:          100,
-			Height:         300,
+			Display:       DisplayFlex,
+			FlexDirection: FlexDirectionColumn,
+			AlignItems:    AlignItemsBaseline,
+			Width:         100,
+			Height:        300,
 		},
 		Children: []*Node{
 			{
@@ -200,12 +200,12 @@ func TestFlexboxBaselineAlignmentMultiLine(t *testing.T) {
 	// Each line in a multi-line flex container has its own baseline alignment
 	root := &Node{
 		Style: Style{
-			Display:        DisplayFlex,
-			FlexDirection:  FlexDirectionRow,
-			FlexWrap:       FlexWrapWrap,
-			AlignItems:     AlignItemsBaseline,
-			Width:          100,
-			Height:         200,
+			Display:       DisplayFlex,
+			FlexDirection: FlexDirectionRow,
+			FlexWrap:      FlexWrapWrap,
+			AlignItems:    AlignItemsBaseline,
+			Width:         100,
+			Height:        200,
 		},
 		Children: []*Node{
 			{

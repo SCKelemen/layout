@@ -234,4 +234,3 @@ func TestGridRowPositioningWithPadding(t *testing.T) {
 			expectedDiff, actualDiff, item0Y, item1Y)
 	}
 }
-

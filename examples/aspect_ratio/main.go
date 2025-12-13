@@ -14,7 +14,7 @@ func main() {
 	fmt.Println("Example 1: Image with 16:9 aspect ratio")
 	image := &layout.Node{
 		Style: layout.Style{
-			Width: 800,
+			Width:  800,
 			Height: -1, // Explicitly set to auto
 		},
 	}
@@ -35,7 +35,7 @@ func main() {
 	fmt.Println("Example 2: Video that fills container width")
 	video := &layout.Node{
 		Style: layout.Style{
-			Width: -1,  // Auto - will use container width
+			Width:  -1, // Auto - will use container width
 			Height: -1, // Auto - will be calculated from aspect ratio
 		},
 	}
@@ -74,7 +74,7 @@ func main() {
 	fmt.Println("Example 4: Element with height set, aspect ratio calculates width")
 	element := &layout.Node{
 		Style: layout.Style{
-			Width: -1,  // Auto - will be calculated from aspect ratio
+			Width:  -1, // Auto - will be calculated from aspect ratio
 			Height: 300,
 		},
 	}
@@ -89,4 +89,3 @@ func main() {
 		element.Rect.Width, element.Rect.Height, element.Rect.Width/element.Rect.Height)
 	fmt.Printf("Expected: 400 x 300 (4:3 = 1.333...)\n")
 }
-

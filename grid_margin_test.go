@@ -24,14 +24,14 @@ func TestGridMargin(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Margin:         Uniform(10),
+					Margin:          Uniform(10),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 1,
-					Margin:         Uniform(10),
+					Margin:          Uniform(10),
 				},
 			},
 		},
@@ -59,4 +59,3 @@ func TestGridMargin(t *testing.T) {
 		t.Errorf("First item height should be %.2f (cell - margins), got %.2f", expectedHeight, root.Children[0].Rect.Height)
 	}
 }
-

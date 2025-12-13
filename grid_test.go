@@ -294,8 +294,8 @@ func TestGridNested(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Display: DisplayGrid,
-					GridRowStart: 0,
+					Display:         DisplayGrid,
+					GridRowStart:    0,
 					GridColumnStart: 0,
 					GridTemplateRows: []GridTrack{
 						FixedTrack(50),
@@ -320,19 +320,18 @@ func TestGridNested(t *testing.T) {
 	}
 }
 
-
 // TestRepeatTracksBasic tests basic repeat() functionality
 func TestRepeatTracksBasic(t *testing.T) {
 	// Test basic repeat with single track
 	tracks := RepeatTracks(3, FixedTrack(100))
-	
+
 	if len(tracks) != 3 {
 		t.Errorf("Expected 3 tracks, got %d", len(tracks))
 	}
-	
+
 	for i, track := range tracks {
 		if track.MinSize != 100 || track.MaxSize != 100 {
-			t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v", 
+			t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v",
 				i, track.MinSize, track.MaxSize)
 		}
 	}
@@ -342,17 +341,17 @@ func TestRepeatTracksBasic(t *testing.T) {
 func TestRepeatTracksMultiplePattern(t *testing.T) {
 	// Test repeat with pattern: [100px, 1fr, 100px, 1fr, 100px, 1fr]
 	tracks := RepeatTracks(3, FixedTrack(100), FractionTrack(1))
-	
+
 	if len(tracks) != 6 {
 		t.Errorf("Expected 6 tracks (3 repetitions * 2 tracks), got %d", len(tracks))
 	}
-	
+
 	// Check pattern: fixed, fraction, fixed, fraction, fixed, fraction
 	for i := 0; i < 6; i++ {
 		if i%2 == 0 {
 			// Even indices should be fixed tracks
 			if tracks[i].MinSize != 100 || tracks[i].MaxSize != 100 {
-				t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v", 
+				t.Errorf("Track %d: expected 100px fixed track, got MinSize=%v MaxSize=%v",
 					i, tracks[i].MinSize, tracks[i].MaxSize)
 			}
 		} else {
@@ -367,7 +366,7 @@ func TestRepeatTracksMultiplePattern(t *testing.T) {
 // TestRepeatTracksZeroCount tests repeat() with zero count (edge case)
 func TestRepeatTracksZeroCount(t *testing.T) {
 	tracks := RepeatTracks(0, FixedTrack(100))
-	
+
 	if len(tracks) != 0 {
 		t.Errorf("Expected empty tracks array for count=0, got %d tracks", len(tracks))
 	}
@@ -376,7 +375,7 @@ func TestRepeatTracksZeroCount(t *testing.T) {
 // TestRepeatTracksNegativeCount tests repeat() with negative count (edge case)
 func TestRepeatTracksNegativeCount(t *testing.T) {
 	tracks := RepeatTracks(-1, FixedTrack(100))
-	
+
 	if len(tracks) != 0 {
 		t.Errorf("Expected empty tracks array for count=-1, got %d tracks", len(tracks))
 	}
@@ -385,7 +384,7 @@ func TestRepeatTracksNegativeCount(t *testing.T) {
 // TestRepeatTracksEmptyPattern tests repeat() with empty track pattern (edge case)
 func TestRepeatTracksEmptyPattern(t *testing.T) {
 	tracks := RepeatTracks(3)
-	
+
 	if len(tracks) != 0 {
 		t.Errorf("Expected empty tracks array for empty pattern, got %d tracks", len(tracks))
 	}
@@ -427,11 +426,11 @@ func TestRepeatTracksGridIntegration(t *testing.T) {
 func TestRepeatTracksMixedPattern(t *testing.T) {
 	// Create pattern: [100px, auto, 1fr]
 	tracks := RepeatTracks(2, FixedTrack(100), AutoTrack(), FractionTrack(1))
-	
+
 	if len(tracks) != 6 {
 		t.Errorf("Expected 6 tracks (2 repetitions * 3 tracks), got %d", len(tracks))
 	}
-	
+
 	// Verify pattern: fixed, auto, fr, fixed, auto, fr
 	expected := []struct{ fixed, auto, fr bool }{
 		{fixed: true},
@@ -441,17 +440,17 @@ func TestRepeatTracksMixedPattern(t *testing.T) {
 		{auto: true},
 		{fr: true},
 	}
-	
+
 	for i, exp := range expected {
 		track := tracks[i]
 		if exp.fixed {
 			if track.MinSize != 100 || track.MaxSize != 100 {
-				t.Errorf("Track %d: expected fixed 100px, got MinSize=%v MaxSize=%v", 
+				t.Errorf("Track %d: expected fixed 100px, got MinSize=%v MaxSize=%v",
 					i, track.MinSize, track.MaxSize)
 			}
 		} else if exp.auto {
 			if track.MinSize != 0 || track.MaxSize != Unbounded || track.Fraction != 0 {
-				t.Errorf("Track %d: expected auto track, got MinSize=%v MaxSize=%v Fraction=%v", 
+				t.Errorf("Track %d: expected auto track, got MinSize=%v MaxSize=%v Fraction=%v",
 					i, track.MinSize, track.MaxSize, track.Fraction)
 			}
 		} else if exp.fr {
@@ -499,19 +498,19 @@ func TestGridTemplateAreasBasic(t *testing.T) {
 
 	// Header: row 0, columns 0-3 → X=0, Y=0
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {
-		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)", 
+		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)",
 			container.Children[0].Rect.X, container.Children[0].Rect.Y)
 	}
 
 	// Sidebar: rows 1-3, column 0 → X=0, Y=50
 	if container.Children[1].Rect.X != 0 || container.Children[1].Rect.Y != 50 {
-		t.Errorf("Sidebar should be at (0,50), got (%.0f,%.0f)", 
+		t.Errorf("Sidebar should be at (0,50), got (%.0f,%.0f)",
 			container.Children[1].Rect.X, container.Children[1].Rect.Y)
 	}
 
 	// Content: rows 1-3, columns 1-3 → X=100, Y=50
 	if container.Children[2].Rect.X != 100 || container.Children[2].Rect.Y != 50 {
-		t.Errorf("Content should be at (100,50), got (%.0f,%.0f)", 
+		t.Errorf("Content should be at (100,50), got (%.0f,%.0f)",
 			container.Children[2].Rect.X, container.Children[2].Rect.Y)
 	}
 }
@@ -519,7 +518,7 @@ func TestGridTemplateAreasBasic(t *testing.T) {
 // TestGridTemplateAreasOverlap tests that overlapping areas are detected
 func TestGridTemplateAreasOverlap(t *testing.T) {
 	areas := NewGridTemplateAreas(3, 3)
-	
+
 	// Define first area
 	err := areas.DefineArea("header", 0, 1, 0, 3)
 	if err != nil {
@@ -591,7 +590,7 @@ func TestGridTemplateAreasMultipleChildren(t *testing.T) {
 	// They should both start at (0,0) since they span the full grid
 	for i, child := range container.Children {
 		if child.Rect.X != 0 || child.Rect.Y != 0 {
-			t.Errorf("Child %d should be at (0,0), got (%.0f,%.0f)", 
+			t.Errorf("Child %d should be at (0,0), got (%.0f,%.0f)",
 				i, child.Rect.X, child.Rect.Y)
 		}
 	}
@@ -635,13 +634,13 @@ func TestGridTemplateAreasMixedPlacement(t *testing.T) {
 
 	// Header (area-based): row 0, columns 0-2 → (0,0)
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {
-		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)", 
+		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)",
 			container.Children[0].Rect.X, container.Children[0].Rect.Y)
 	}
 
 	// Explicit placement: row 1, column 0 → (0,50)
 	if container.Children[1].Rect.X != 0 || container.Children[1].Rect.Y != 50 {
-		t.Errorf("Explicit child should be at (0,50), got (%.0f,%.0f)", 
+		t.Errorf("Explicit child should be at (0,50), got (%.0f,%.0f)",
 			container.Children[1].Rect.X, container.Children[1].Rect.Y)
 	}
 
@@ -681,7 +680,7 @@ func TestGridTemplateAreasUndefinedArea(t *testing.T) {
 
 	// Header should be placed correctly
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {
-		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)", 
+		t.Errorf("Header should be at (0,0), got (%.0f,%.0f)",
 			container.Children[0].Rect.X, container.Children[0].Rect.Y)
 	}
 
@@ -716,13 +715,13 @@ func TestGridTemplateAreasNoAreas(t *testing.T) {
 	// Should use normal auto-placement (row-major)
 	// Child 0: (0,0)
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {
-		t.Errorf("Child 0 should be at (0,0), got (%.0f,%.0f)", 
+		t.Errorf("Child 0 should be at (0,0), got (%.0f,%.0f)",
 			container.Children[0].Rect.X, container.Children[0].Rect.Y)
 	}
 
 	// Child 1: (100,0)
 	if container.Children[1].Rect.X != 100 || container.Children[1].Rect.Y != 0 {
-		t.Errorf("Child 1 should be at (100,0), got (%.0f,%.0f)", 
+		t.Errorf("Child 1 should be at (100,0), got (%.0f,%.0f)",
 			container.Children[1].Rect.X, container.Children[1].Rect.Y)
 	}
 }

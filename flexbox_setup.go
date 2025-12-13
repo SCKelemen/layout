@@ -12,11 +12,11 @@ type flexboxSetup struct {
 	contentHeight     float64
 
 	// Axis determination
-	isRow              bool
-	mainSize           float64
-	crossSize          float64
-	hasExplicitMainSize   bool
-	hasExplicitCrossSize  bool
+	isRow                bool
+	mainSize             float64
+	crossSize            float64
+	hasExplicitMainSize  bool
+	hasExplicitCrossSize bool
 }
 
 // flexboxDetermineLineLength initializes the flexbox layout state and determines line length.

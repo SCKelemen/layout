@@ -158,4 +158,3 @@ func TestTransformSerialization(t *testing.T) {
 		t.Errorf("Transform.A mismatch: got %v, want %v", deserialized.Style.Transform.A, root.Style.Transform.A)
 	}
 }
-

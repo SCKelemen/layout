@@ -143,14 +143,14 @@ type Style struct {
 	GridGap             float64
 	GridRowGap          float64
 	GridColumnGap       float64
-	GridRowStart        int          // -1 means auto
-	GridRowEnd          int          // -1 means auto
-	GridColumnStart     int          // -1 means auto
-	GridColumnEnd       int          // -1 means auto
+	GridRowStart        int                // -1 means auto
+	GridRowEnd          int                // -1 means auto
+	GridColumnStart     int                // -1 means auto
+	GridColumnEnd       int                // -1 means auto
 	GridTemplateAreas   *GridTemplateAreas // Named grid areas (nil means not set)
 	GridArea            string             // Name of the grid area this item should be placed in (empty means not set)
 	JustifyItems        JustifyItems       // Alignment along inline (row) axis. Default: Stretch
-	JustifySelf         JustifyItems // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
+	JustifySelf         JustifyItems       // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
 	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
 	// For Grid: Default is Stretch, but Start for items with aspect-ratio
 	// AlignSelf (defined in Flexbox section) also works for Grid items
@@ -171,9 +171,9 @@ type Style struct {
 	FitContentWidth  float64       // Maximum width for fit-content (only used when WidthSizing = IntrinsicSizeFitContent)
 	FitContentHeight float64       // Maximum height for fit-content (only used when HeightSizing = IntrinsicSizeFitContent)
 
-	Padding     Spacing
-	Margin      Spacing // Margin is supported in Flexbox and Grid layouts
-	Border      Spacing
+	Padding Spacing
+	Margin  Spacing // Margin is supported in Flexbox and Grid layouts
+	Border  Spacing
 
 	// Box model
 	BoxSizing BoxSizing
@@ -313,10 +313,10 @@ const (
 type GridAutoFlow int
 
 const (
-	GridAutoFlowRow GridAutoFlow = iota // Default: row-major, sequential
-	GridAutoFlowColumn                  // Column-major, sequential
-	GridAutoFlowRowDense                // Row-major with dense packing
-	GridAutoFlowColumnDense             // Column-major with dense packing
+	GridAutoFlowRow         GridAutoFlow = iota // Default: row-major, sequential
+	GridAutoFlowColumn                          // Column-major, sequential
+	GridAutoFlowRowDense                        // Row-major with dense packing
+	GridAutoFlowColumnDense                     // Column-major with dense packing
 )
 
 // BoxSizing
@@ -367,11 +367,11 @@ const (
 type TextJustify int
 
 const (
-	TextJustifyAuto TextJustify = iota // Browser chooses (we use inter-word)
-	TextJustifyInterWord               // Expand spaces between words only
-	TextJustifyInterCharacter          // Expand spaces between characters
-	TextJustifyDistribute              // Like inter-character but optimized for CJK
-	TextJustifyNone                    // Disable justification
+	TextJustifyAuto           TextJustify = iota // Browser chooses (we use inter-word)
+	TextJustifyInterWord                         // Expand spaces between words only
+	TextJustifyInterCharacter                    // Expand spaces between characters
+	TextJustifyDistribute                        // Like inter-character but optimized for CJK
+	TextJustifyNone                              // Disable justification
 )
 
 // WhiteSpace controls how whitespace and line breaks are handled.
@@ -391,8 +391,8 @@ const (
 type TextOverflow int
 
 const (
-	TextOverflowClip TextOverflow = iota // Clip at content edge (default)
-	TextOverflowEllipsis                 // Show ellipsis (...) for overflow
+	TextOverflowClip     TextOverflow = iota // Clip at content edge (default)
+	TextOverflowEllipsis                     // Show ellipsis (...) for overflow
 )
 
 // OverflowWrap controls breaking of long words
@@ -400,9 +400,9 @@ const (
 type OverflowWrap int
 
 const (
-	OverflowWrapNormal OverflowWrap = iota // Break only at allowed break points
-	OverflowWrapBreakWord                  // Break anywhere if word would overflow
-	OverflowWrapAnywhere                   // Like break-word but affects intrinsic sizing
+	OverflowWrapNormal    OverflowWrap = iota // Break only at allowed break points
+	OverflowWrapBreakWord                     // Break anywhere if word would overflow
+	OverflowWrapAnywhere                      // Like break-word but affects intrinsic sizing
 )
 
 // WordBreak controls word breaking behavior
@@ -410,9 +410,9 @@ const (
 type WordBreak int
 
 const (
-	WordBreakNormal WordBreak = iota // Break at word boundaries (default)
-	WordBreakBreakAll                // Break between any characters
-	WordBreakKeepAll                 // Don't break between CJK characters
+	WordBreakNormal   WordBreak = iota // Break at word boundaries (default)
+	WordBreakBreakAll                  // Break between any characters
+	WordBreakKeepAll                   // Don't break between CJK characters
 )
 
 // TextTransform controls text case transformation
@@ -420,12 +420,12 @@ const (
 type TextTransform int
 
 const (
-	TextTransformNone TextTransform = iota // No transformation (default)
-	TextTransformUppercase                 // Convert to uppercase
-	TextTransformLowercase                 // Convert to lowercase
-	TextTransformCapitalize                // Capitalize first letter of each word
-	TextTransformFullWidth                 // Convert to full-width characters
-	TextTransformFullSizeKana              // Convert kana to full-size
+	TextTransformNone         TextTransform = iota // No transformation (default)
+	TextTransformUppercase                         // Convert to uppercase
+	TextTransformLowercase                         // Convert to lowercase
+	TextTransformCapitalize                        // Capitalize first letter of each word
+	TextTransformFullWidth                         // Convert to full-width characters
+	TextTransformFullSizeKana                      // Convert kana to full-size
 )
 
 // Hyphens controls automatic hyphenation
@@ -566,8 +566,9 @@ const (
 // These are distinct from -1 (auto) to maintain backward compatibility.
 //
 // Usage:
-//   node.Style.Width = SizeMinContent  // Use min-content width
-//   node.Style.Width = SizeMaxContent  // Use max-content width
+//
+//	node.Style.Width = SizeMinContent  // Use min-content width
+//	node.Style.Width = SizeMaxContent  // Use max-content width
 const (
 	SizeMinContent = -2.0 // Use min-content intrinsic size
 	SizeMaxContent = -3.0 // Use max-content intrinsic size

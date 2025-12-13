@@ -213,9 +213,9 @@ func TestFlexboxAlignItemsStretch(t *testing.T) {
 	// Test align-items: stretch
 	root := &Node{
 		Style: Style{
-			Display:     DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			AlignItems:  AlignItemsStretch,
+			AlignItems:    AlignItemsStretch,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 50}}, // No height specified
@@ -239,9 +239,9 @@ func TestFlexboxAlignItemsCenter(t *testing.T) {
 	// Test align-items: center
 	root := &Node{
 		Style: Style{
-			Display:     DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			AlignItems:  AlignItemsCenter,
+			AlignItems:    AlignItemsCenter,
 		},
 		Children: []*Node{
 			{Style: Style{Width: 50, Height: 30}},
@@ -333,4 +333,3 @@ func TestFlexboxNested(t *testing.T) {
 		t.Errorf("Expected 2 children in nested container, got %d", len(root.Children[0].Children))
 	}
 }
-

@@ -11,9 +11,9 @@ package layout
 // Contexts are created on-demand and only allocate memory for accessed paths,
 // making them efficient for large trees where only partial navigation is needed.
 type NodeContext struct {
-	Node   *Node         // The wrapped node
-	parent *NodeContext  // Parent context (nil for root)
-	depth  int           // Distance from root (root = 0)
+	Node   *Node        // The wrapped node
+	parent *NodeContext // Parent context (nil for root)
+	depth  int          // Distance from root (root = 0)
 }
 
 // NewContext creates a new context wrapping the root node.

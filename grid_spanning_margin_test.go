@@ -61,11 +61,11 @@ func TestGridSpanningMargin(t *testing.T) {
 	// Item 1 Height = cellHeight - margin.Top - margin.Bottom = 110 - 5 - 5 = 100
 	// Item 1 bottom = 5 + 100 = 105
 	// Item 1 bottom with margin = 105 + 5 = 110
-	
+
 	// Item 2 is in row 2, so cellY = 120 (row 0 + gap + row 1 + gap)
 	// Item 2 Y = cellY + margin.Top = 120 + 5 = 125
 	// Item 2 top with margin = 125 - 5 = 120
-	
+
 	// Gap between item 1 bottom (with margin) and item 2 top (with margin)
 	// Should be exactly the row gap (10)
 	item1BottomWithMargin := item1.Rect.Y + item1.Rect.Height + item1.Style.Margin.Bottom
@@ -81,4 +81,3 @@ func TestGridSpanningMargin(t *testing.T) {
 		}
 	}
 }
-

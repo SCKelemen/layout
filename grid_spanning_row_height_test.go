@@ -169,7 +169,7 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 		t.Errorf("Items in same row should start at same Y: item2=%.2f, item3=%.2f",
 			item2Top, item3Top)
 	}
-	
+
 	// Item 1 spans rows 0-1, so it should fill the cell (row0 + gap + row1)
 	// Row heights: row0=46, row1=71 (from calculations above)
 	// So item1 should have height = 46 + 8 + 71 = 125
@@ -186,31 +186,31 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 	// Item 1 should end at: row0 + gap + row1 = 46 + 8 + 71 = 125
 	// Item 2 starts at: row0 + gap + row1 = 46 + 8 + 71 = 125 (same as item1's end)
 	// So there should be no gap - they're in the same row
-	
+
 	// Actually, item1 ends at the end of row 1, and item2 starts at the start of row 1
 	// So item1.bottom should equal item2.top (they're both in row 1, but item1 spans rows 0-1)
 	// Wait, that's not right. Item1 spans rows 0-1, so it ends at the end of row 1
 	// Item2 is in row 1 only, so it starts at the start of row 1
 	// So item1.bottom should be > item2.top
-	
+
 	// Actually, in CSS Grid, items in the same row start at the same Y position
 	// But item1 spans rows 0-1, so it starts at row 0 and ends at row 1
 	// Item2 is in row 1 only, so it starts at row 1
 	// So item1.bottom should equal item2.top (they meet at the boundary between rows 0 and 1)
-	
+
 	// But wait, item1 spans rows 0-1, so it fills the cell from row 0 to row 1
 	// Item2 is in row 1, so it starts at the start of row 1
 	// So item1.bottom (end of row 1) should equal item2.top (start of row 1)
 	// Actually no - item1 fills rows 0-1, so it ends at the end of row 1
 	// Item2 is in row 1, so it starts at the start of row 1
 	// So item1.bottom should be > item2.top
-	
+
 	// Let me just check that item2 and item3 start at the same Y (they're both in row 1)
 	if math.Abs(item2Top-item3Top) > 0.01 {
 		t.Errorf("Items in same row should start at same Y: item2=%.2f, item3=%.2f",
 			item2Top, item3Top)
 	}
-	
+
 	// Item 1 should end at the end of row 1, which is where item2/item3 start
 	// So item1.bottom should equal item2.top (no gap, they're adjacent)
 	// Actually, there's a gap between rows, but item1 spans across the gap
@@ -218,11 +218,10 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 	// But wait, item1 spans rows 0-1, so it ends at the end of row 1
 	// Item2 is in row 1, so it starts at the start of row 1
 	// So they should overlap or be adjacent
-	
+
 	// Actually, I think the issue is that item1 and item2 are both in row 1, but item1 spans rows 0-1
 	// So item1.bottom should be at the end of row 1, and item2.top should be at the start of row 1
 	// But in CSS Grid, items in the same row start at the same Y position
 	// So item1.top (row 0) < item2.top (row 1), and item1.bottom (end of row 1) should be > item2.top
-	
-}
 
+}

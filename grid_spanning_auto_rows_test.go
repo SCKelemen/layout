@@ -48,7 +48,7 @@ func TestGridSpanningAutoRows(t *testing.T) {
 	// Row 0 should be 150px (max of 100 from spanning item, 150 from item in row 0)
 	// Row 1 should be 100px (from spanning item)
 	// Row 2 should be 100px (from spanning item)
-	
+
 	// Spanning item should span all 3 rows
 	spanningItem := root.Children[0]
 	expectedHeight := 150.0 + 100.0 + 100.0 // Sum of row heights
@@ -108,4 +108,3 @@ func TestGridSpanningWithoutMinHeight(t *testing.T) {
 	// Rows should collapse to 0 (or minimal height from safeguards)
 	// This is correct CSS Grid behavior
 }
-

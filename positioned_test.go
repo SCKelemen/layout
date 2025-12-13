@@ -137,7 +137,7 @@ func TestPositionFixed(t *testing.T) {
 	child := root.Children[0]
 	// Fixed positioning uses viewport, not parent
 	expectedX := 800.0 - 100.0 - 10.0 // viewport width - child width - right offset
-	expectedY := 10.0                  // top offset
+	expectedY := 10.0                 // top offset
 
 	if math.Abs(child.Rect.X-expectedX) > 1.0 {
 		t.Errorf("Expected X=%.2f, got %.2f", expectedX, child.Rect.X)
@@ -179,4 +179,3 @@ func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
 		t.Errorf("Expected width %.2f, got %.2f", expectedWidth, child.Rect.Width)
 	}
 }
-

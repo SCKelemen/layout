@@ -61,4 +61,3 @@ func main() {
 	gridJSON, _ := serialize.ToJSON(grid)
 	fmt.Println(string(gridJSON))
 }
-

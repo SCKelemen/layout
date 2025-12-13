@@ -197,4 +197,3 @@ func TestBlockEmpty(t *testing.T) {
 		t.Errorf("Empty block height should be 100, got %.2f", size.Height)
 	}
 }
-

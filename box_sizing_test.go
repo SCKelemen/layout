@@ -204,12 +204,12 @@ func TestBoxSizingMinMaxBorderBox(t *testing.T) {
 func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:      200,
-			Height:     -1, // auto, will be calculated from aspect ratio
+			Width:       200,
+			Height:      -1, // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
-			Padding:    Uniform(10),
-			Border:     Uniform(5),
-			BoxSizing:  BoxSizingContentBox,
+			Padding:     Uniform(10),
+			Border:      Uniform(5),
+			BoxSizing:   BoxSizingContentBox,
 		},
 		Children: []*Node{},
 	}
@@ -236,12 +236,12 @@ func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 func TestBoxSizingAspectRatioBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:      200,
-			Height:     -1, // auto, will be calculated from aspect ratio
+			Width:       200,
+			Height:      -1, // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
-			Padding:    Uniform(10),
-			Border:     Uniform(5),
-			BoxSizing:  BoxSizingBorderBox,
+			Padding:     Uniform(10),
+			Border:      Uniform(5),
+			BoxSizing:   BoxSizingBorderBox,
 		},
 		Children: []*Node{},
 	}

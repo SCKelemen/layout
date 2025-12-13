@@ -1947,6 +1947,7 @@ func TestTextIndentWithAlignment(t *testing.T) {
 		})
 	}
 }
+
 // TestTextAlignLastRight tests right-alignment of the last line
 func TestTextAlignLastRight(t *testing.T) {
 	setupFakeMetrics()
@@ -2081,7 +2082,7 @@ func TestTextAlignLastAutoFollowsTextAlign(t *testing.T) {
 	}{
 		{"Auto with left", TextAlignLeft, true, false},
 		{"Auto with right", TextAlignRight, false, true},
-		{"Auto with center", TextAlignCenter, false, false}, // centered, neither left nor right edge
+		{"Auto with center", TextAlignCenter, false, false},  // centered, neither left nor right edge
 		{"Auto with justify", TextAlignJustify, true, false}, // Auto with justify becomes left
 	}
 

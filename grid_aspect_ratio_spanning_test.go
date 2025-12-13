@@ -135,11 +135,11 @@ func TestGridAspectRatioSpanningBoth(t *testing.T) {
 			// Item spanning 2 rows and 2 columns with aspect ratio 2:1
 			{
 				Style: Style{
-					GridRowStart:   0,
-					GridRowEnd:     2,
+					GridRowStart:    0,
+					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					AspectRatio:    2.0, // width:height = 2:1
+					AspectRatio:     2.0, // width:height = 2:1
 				},
 			},
 		},
@@ -170,4 +170,3 @@ func TestGridAspectRatioSpanningBoth(t *testing.T) {
 		t.Errorf("Item should maintain aspect ratio 2:1: got %.2f:1", actualRatio)
 	}
 }
-

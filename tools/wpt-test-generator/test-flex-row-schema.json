@@ -1,0 +1,196 @@
+{
+  "version": "1.0.0",
+  "id": "test-flex-row",
+  "title": "Simple Flex Row Test",
+  "description": "Browser test for Simple Flex Row Test",
+  "source": {
+    "url": "file:///Users/samuel.kelemen/Code/github.com/SCKelemen/layout/tools/wpt-test-generator/test-flex-row.html",
+    "file": "test-flex-row.html",
+    "commit": null
+  },
+  "generated": {
+    "timestamp": "2025-12-13T10:22:19.110Z",
+    "tool": "wpt-test-generator v1.0.0"
+  },
+  "spec": {
+    "name": "CSS Flexbox Level 1",
+    "section": "Layout",
+    "url": "https://www.w3.org/TR/css-flexbox-1/"
+  },
+  "categories": [
+    "flexbox",
+    "layout"
+  ],
+  "tags": [],
+  "properties": [
+    "justify-content",
+    "align-items"
+  ],
+  "layout": {
+    "type": "container",
+    "id": "container",
+    "style": {
+      "display": "flex",
+      "justifyContent": "space-between",
+      "alignItems": "flex-start",
+      "width": 600,
+      "height": 100
+    },
+    "children": [
+      {
+        "type": "block",
+        "id": "item1",
+        "style": {
+          "width": 100,
+          "height": 50
+        }
+      },
+      {
+        "type": "block",
+        "id": "item2",
+        "style": {
+          "width": 100,
+          "height": 50
+        }
+      },
+      {
+        "type": "block",
+        "id": "item3",
+        "style": {
+          "width": 100,
+          "height": 50
+        }
+      }
+    ]
+  },
+  "constraints": {
+    "type": "loose",
+    "width": 800,
+    "height": 600
+  },
+  "results": {
+    "chrome": {
+      "browser": {
+        "name": "Chrome",
+        "version": "Puppeteer Latest",
+        "engine": "Blink"
+      },
+      "rendered": {
+        "timestamp": "2025-12-13T10:22:19.109Z",
+        "viewport": {
+          "width": 800,
+          "height": 600
+        }
+      },
+      "elements": [
+        {
+          "id": "container",
+          "path": "root",
+          "expected": {
+            "x": 0,
+            "y": 0,
+            "width": 600,
+            "height": 100
+          }
+        },
+        {
+          "id": "item1",
+          "path": "root.children[0]",
+          "expected": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        },
+        {
+          "id": "item2",
+          "path": "root.children[1]",
+          "expected": {
+            "x": 250,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        },
+        {
+          "id": "item3",
+          "path": "root.children[2]",
+          "expected": {
+            "x": 500,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        }
+      ],
+      "tolerance": {
+        "position": 1,
+        "size": 1,
+        "numeric": 0.01
+      }
+    },
+    "firefox": {
+      "browser": {
+        "name": "Firefox",
+        "version": "Puppeteer Latest",
+        "engine": "Gecko"
+      },
+      "rendered": {
+        "timestamp": "2025-12-13T10:22:20.373Z",
+        "viewport": {
+          "width": 800,
+          "height": 600
+        }
+      },
+      "elements": [
+        {
+          "id": "container",
+          "path": "root",
+          "expected": {
+            "x": 0,
+            "y": 0,
+            "width": 600,
+            "height": 100
+          }
+        },
+        {
+          "id": "item1",
+          "path": "root.children[0]",
+          "expected": {
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        },
+        {
+          "id": "item2",
+          "path": "root.children[1]",
+          "expected": {
+            "x": 250,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        },
+        {
+          "id": "item3",
+          "path": "root.children[2]",
+          "expected": {
+            "x": 500,
+            "y": 0,
+            "width": 100,
+            "height": 50
+          }
+        }
+      ],
+      "tolerance": {
+        "position": 1,
+        "size": 1,
+        "numeric": 0.01
+      }
+    }
+  },
+  "notes": []
+}

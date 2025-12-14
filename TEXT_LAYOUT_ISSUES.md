@@ -142,39 +142,94 @@ if maxWidth <= 0 {
 
 **Status**: Acceptable for v1, may need refinement later.
 
-## Missing Features (Deferred)
+## Recently Implemented Features
 
 ### 8. Text Justification
 
-**Status**: Not implemented (deferred for v1)
+**Status**: ✅ **IMPLEMENTED**
+
+Fully implemented with support for:
+- `text-align: justify` with multiple justification algorithms
+- `text-justify: auto | none | inter-word | inter-character | distribute`
+- `text-align-last` for controlling last line alignment
 
 **Reference**: [CSS Text Module Level 3 §7.1.1](https://www.w3.org/TR/css-text-3/#justify)
 
 ### 9. Text Align Last
 
-**Status**: Not implemented (deferred for v1)
+**Status**: ✅ **IMPLEMENTED**
 
 **Reference**: [CSS Text Module Level 3 §7.2.2](https://www.w3.org/TR/css-text-3/#text-align-last-property)
 
 ### 10. Pre-Wrap and Pre-Line
 
-**Status**: Not implemented (deferred for v1)
+**Status**: ✅ **IMPLEMENTED**
 
 **Reference**: [CSS Text Module Level 3 §3.1](https://www.w3.org/TR/css-text-3/#white-space-property)
 
-### 11. RTL and Vertical Writing Modes
+### 11. RTL (Right-to-Left) Direction
 
-**Status**: Not implemented (deferred for v1)
+**Status**: ✅ **IMPLEMENTED**
+
+Basic RTL support with `direction: ltr | rtl` property. Does not yet include:
+- Bidi algorithm (Unicode UAX #9)
+- Vertical writing modes
 
 **Reference**: [CSS Writing Modes Level 3](https://www.w3.org/TR/css-writing-modes-3/)
 
-### 12. Hyphenation
+### 12. Text Decoration
 
-**Status**: Not implemented (deferred for v1)
+**Status**: ✅ **IMPLEMENTED**
+
+Fully implemented with support for:
+- `text-decoration-line: none | underline | overline | line-through` (can combine)
+- `text-decoration-style: solid | double | dotted | dashed | wavy`
+- `text-decoration-color` for decoration line color
+
+**Reference**: [CSS Text Decoration Module Level 3](https://www.w3.org/TR/css-text-decor-3/)
+
+### 13. Font Style
+
+**Status**: ✅ **IMPLEMENTED**
+
+Support for `font-style: normal | italic | oblique`
+
+**Reference**: [CSS Fonts Module Level 4](https://www.w3.org/TR/css-fonts-4/#font-style-prop)
+
+### 14. Vertical Align
+
+**Status**: ✅ **IMPLEMENTED**
+
+Full support for inline element vertical alignment:
+- `vertical-align: baseline | sub | super | text-top | text-bottom | middle | top | bottom`
+
+**Reference**: [CSS Inline Layout Module Level 3](https://www.w3.org/TR/css-inline-3/#propdef-vertical-align)
+
+## Missing Features (Deferred)
+
+### 15. Hyphenation Implementation
+
+**Status**: Property exists, algorithm not fully implemented
+
+Basic hyphenation support with `hyphens: none | manual | auto` property. Soft hyphens (U+00AD) are recognized. Full hyphenation algorithm not yet implemented.
 
 **Reference**: [CSS Text Module Level 3 §4.3](https://www.w3.org/TR/css-text-3/#hyphenation)
 
-### 13. Mixed Inline and Block Content
+### 16. Vertical Writing Modes
+
+**Status**: Not implemented
+
+**Reference**: [CSS Writing Modes Level 3](https://www.w3.org/TR/css-writing-modes-3/)
+
+### 17. Bidi Algorithm
+
+**Status**: Not implemented
+
+Basic RTL support exists, but full Unicode Bidirectional Algorithm (UAX #9) not implemented.
+
+**Reference**: [Unicode Standard Annex #9](https://www.unicode.org/reports/tr9/)
+
+### 18. Mixed Inline and Block Content
 
 **Status**: Not implemented (deferred for v1)
 

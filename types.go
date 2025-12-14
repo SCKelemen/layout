@@ -467,6 +467,60 @@ const (
 	FontWeightBold   FontWeight = 700
 )
 
+// FontStyle represents the font-style CSS property.
+// Based on CSS Fonts Module Level 4: https://www.w3.org/TR/css-fonts-4/#font-style-prop
+type FontStyle int
+
+const (
+	FontStyleNormal  FontStyle = iota // Normal (upright) font face
+	FontStyleItalic                   // Italic font face (cursive)
+	FontStyleOblique                  // Oblique font face (slanted)
+)
+
+// TextDecoration represents which text decoration lines are present.
+// Based on CSS Text Decoration Module Level 3: https://www.w3.org/TR/css-text-decor-3/#text-decoration-line-property
+// Multiple decorations can be combined using bitwise OR.
+type TextDecoration int
+
+const (
+	TextDecorationNone        TextDecoration = 0      // No decoration
+	TextDecorationUnderline   TextDecoration = 1 << 0 // Underline
+	TextDecorationOverline    TextDecoration = 1 << 1 // Overline (line above)
+	TextDecorationLineThrough TextDecoration = 1 << 2 // Line through middle (strikethrough)
+)
+
+// Has checks if a specific decoration is present.
+func (td TextDecoration) Has(decoration TextDecoration) bool {
+	return td&decoration != 0
+}
+
+// TextDecorationStyle represents the style of text decoration lines.
+// Based on CSS Text Decoration Module Level 3: https://www.w3.org/TR/css-text-decor-3/#text-decoration-style-property
+type TextDecorationStyle int
+
+const (
+	TextDecorationStyleSolid  TextDecorationStyle = iota // Solid line (default)
+	TextDecorationStyleDouble                             // Double line
+	TextDecorationStyleDotted                             // Dotted line
+	TextDecorationStyleDashed                             // Dashed line
+	TextDecorationStyleWavy                               // Wavy line
+)
+
+// VerticalAlign represents the vertical-align CSS property for inline elements.
+// Based on CSS Inline Layout Module Level 3: https://www.w3.org/TR/css-inline-3/#propdef-vertical-align
+type VerticalAlign int
+
+const (
+	VerticalAlignBaseline   VerticalAlign = iota // Align baseline with parent baseline (default)
+	VerticalAlignSub                             // Lower baseline (subscript)
+	VerticalAlignSuper                           // Raise baseline (superscript)
+	VerticalAlignTextTop                         // Align top with parent's text top
+	VerticalAlignTextBottom                      // Align bottom with parent's text bottom
+	VerticalAlignMiddle                          // Align middle with parent's middle
+	VerticalAlignTop                             // Align top with line box top
+	VerticalAlignBottom                          // Align bottom with line box bottom
+)
+
 // TextStyle contains text-specific style properties.
 // Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
 type TextStyle struct {
@@ -506,6 +560,15 @@ type TextStyle struct {
 	FontSize   float64
 	FontFamily string
 	FontWeight FontWeight
+	FontStyle  FontStyle
+
+	// Text Decoration (CSS Text Decoration Module Level 3)
+	TextDecoration      TextDecoration      // Which decoration lines to show
+	TextDecorationStyle TextDecorationStyle // Style of decoration lines
+	TextDecorationColor string              // Color of decoration (CSS color string, "" = currentColor)
+
+	// Vertical Alignment (CSS Inline Layout Module Level 3)
+	VerticalAlign VerticalAlign
 
 	// Direction (§2)
 	Direction Direction

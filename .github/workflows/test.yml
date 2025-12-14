@@ -33,6 +33,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Checkout wpt-test-gen dependency
+      uses: actions/checkout@v4
+      with:
+        repository: SCKelemen/wpt-test-gen
+        path: ../wpt-test-gen
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -58,6 +64,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Checkout wpt-test-gen dependency
+      uses: actions/checkout@v4
+      with:
+        repository: SCKelemen/wpt-test-gen
+        path: ../wpt-test-gen
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -106,6 +118,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Checkout wpt-test-gen dependency
+      uses: actions/checkout@v4
+      with:
+        repository: SCKelemen/wpt-test-gen
+        path: ../wpt-test-gen
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -127,6 +145,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Checkout wpt-test-gen dependency
+      uses: actions/checkout@v4
+      with:
+        repository: SCKelemen/wpt-test-gen
+        path: ../wpt-test-gen
 
     - name: Set up Go
       uses: actions/setup-go@v5

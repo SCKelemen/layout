@@ -14,16 +14,16 @@ func main() {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateColumns: []layout.GridTrack{
-				layout.FixedTrack(150),
-				layout.FixedTrack(150),
-				layout.FixedTrack(150),
+				layout.FixedTrack(layout.Px(150)),
+				layout.FixedTrack(layout.Px(150)),
+				layout.FixedTrack(layout.Px(150)),
 			},
 			GridTemplateRows: []layout.GridTrack{
-				layout.FixedTrack(100),
-				layout.FixedTrack(100),
+				layout.FixedTrack(layout.Px(100)),
+				layout.FixedTrack(layout.Px(100)),
 			},
-			GridGap: 20,
-			Padding: layout.Uniform(20),
+			GridGap: layout.Px(20),
+			Padding: layout.Uniform(layout.Px(20)),
 		},
 		Children: []*layout.Node{
 			// Card 1: Normal
@@ -31,8 +31,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 				},
 			},
 			// Card 2: Slightly rotated
@@ -40,8 +40,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    0,
 					GridColumnStart: 1,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 					Transform:       layout.RotateDegrees(5),
 				},
 			},
@@ -50,8 +50,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    0,
 					GridColumnStart: 2,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 				},
 			},
 			// Card 4: Slightly rotated opposite direction
@@ -59,8 +59,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 					Transform:       layout.RotateDegrees(-3),
 				},
 			},
@@ -69,8 +69,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    1,
 					GridColumnStart: 1,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 				},
 			},
 			// Card 6: Slightly scaled and rotated
@@ -78,8 +78,8 @@ func main() {
 				Style: layout.Style{
 					GridRowStart:    1,
 					GridColumnStart: 2,
-					Width:           150,
-					Height:          100,
+					Width:           layout.Px(150),
+					Height:          layout.Px(100),
 					Transform:       layout.Scale(1.05, 1.05).Multiply(layout.RotateDegrees(2)),
 				},
 			},
@@ -88,7 +88,8 @@ func main() {
 
 	// Perform layout
 	constraints := layout.Loose(600, 300)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Grid layout size: %.2f x %.2f\n\n", size.Width, size.Height)
 	fmt.Println("Card positions for SVG rendering:")

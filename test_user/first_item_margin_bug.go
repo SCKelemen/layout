@@ -16,25 +16,25 @@ func main() {
 	items := []*layout.Node{
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
@@ -115,4 +115,5 @@ func main() {
 		}
 	}
 }
+
 

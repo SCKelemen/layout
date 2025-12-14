@@ -14,16 +14,16 @@ func main() {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateRows: []layout.GridTrack{
-				layout.FixedTrack(100),
-				layout.FixedTrack(100),
+				layout.FixedTrack(layout.Px(100)),
+				layout.FixedTrack(layout.Px(100)),
 			},
 			GridTemplateColumns: []layout.GridTrack{
-				layout.FixedTrack(150), // Column 1
-				layout.FixedTrack(150), // Column 2
-				layout.FixedTrack(150), // Column 3
+				layout.FixedTrack(layout.Px(150)), // Column 1
+				layout.FixedTrack(layout.Px(150)), // Column 2
+				layout.FixedTrack(layout.Px(150)), // Column 3
 			},
-			GridGap: 10,
-			Padding: layout.Uniform(10),
+			GridGap: layout.Px(10),
+			Padding: layout.Uniform(layout.Px(10)),
 		},
 		Children: []*layout.Node{
 			// Row 1: 3 columns
@@ -38,7 +38,8 @@ func main() {
 	}
 
 	constraints := layout.Loose(500, 250)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Multi-column grid (3 columns x 2 rows):\n")
 	fmt.Printf("Container size: %.2f x %.2f\n\n", size.Width, size.Height)

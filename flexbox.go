@@ -17,14 +17,17 @@ package layout
 //   - §10.4: Aligning with align-content
 //
 // See: https://www.w3.org/TR/css-flexbox-1/
-func LayoutFlexbox(node *Node, constraints Constraints) Size {
+func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	if node.Style.Display != DisplayFlex {
 		// If not flex, delegate to block layout
-		return LayoutBlock(node, constraints)
+		return LayoutBlock(node, constraints, ctx)
 	}
 
+	// Get current font size for Length resolution
+	fontSize := getCurrentFontSize(node, ctx)
+
 	// §9.2: Line Length Determination - Setup and initial measurement
-	setup := flexboxDetermineLineLength(node, constraints)
+	setup := flexboxDetermineLineLength(node, constraints, ctx)
 
 	// Handle empty container
 	if len(node.Children) == 0 {
@@ -42,7 +45,7 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	}
 
 	// §9.2: Line Length Determination - Measure items
-	flexItems := flexboxMeasureItems(node, setup)
+	flexItems := flexboxMeasureItems(node, setup, ctx)
 
 	// Normalize align-items: zero value is stretch (CSS Flexbox default)
 	alignItems := node.Style.AlignItems
@@ -54,14 +57,14 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 	hasWrap := node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse
 	lines := calculateFlexLines(flexItems, setup.mainSize, hasWrap)
 
-	// Get gap values
-	rowGap := node.Style.FlexRowGap
+	// Get gap values (resolve Length to pixels)
+	rowGap := ResolveLength(node.Style.FlexRowGap, ctx, fontSize)
 	if rowGap == 0 {
-		rowGap = node.Style.FlexGap
+		rowGap = ResolveLength(node.Style.FlexGap, ctx, fontSize)
 	}
-	columnGap := node.Style.FlexColumnGap
+	columnGap := ResolveLength(node.Style.FlexColumnGap, ctx, fontSize)
 	if columnGap == 0 {
-		columnGap = node.Style.FlexGap
+		columnGap = ResolveLength(node.Style.FlexGap, ctx, fontSize)
 	}
 
 	// §9.3: Main Size Determination and §9.4: Cross Size Determination
@@ -130,12 +133,12 @@ func LayoutFlexbox(node *Node, constraints Constraints) Size {
 		}
 
 		// §9.6: Cross-Axis Alignment - align items along cross axis
-		flexboxAlignmentCrossAxis(node, line, setup, alignItems, lineCrossSize, lineStartCrossOffset, alignmentCrossSize)
+		flexboxAlignmentCrossAxis(node, line, setup, alignItems, lineCrossSize, lineStartCrossOffset, alignmentCrossSize, ctx)
 
 		// §9.5: Main-Axis Alignment - position items along main axis
 		lineMainSize := flexboxAlignmentMainAxis(
 			node, line, setup, lineCrossSize, lineStartCrossOffset,
-			columnGap, setup.mainSize, isReverse)
+			columnGap, setup.mainSize, isReverse, ctx)
 
 		// Track maximum line main size (for container main dimension)
 		if lineMainSize > maxLineMainSize {

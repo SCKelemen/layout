@@ -15,23 +15,24 @@ func TestFlexboxMargin(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Uniform(10),
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Uniform(Px(10)),
 				},
 			},
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Uniform(10),
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Uniform(Px(10)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First item should be at x=10 (left margin)
 	if math.Abs(root.Children[0].Rect.X-10.0) > 0.1 {
@@ -55,23 +56,24 @@ func TestFlexboxMarginVertical(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Uniform(10),
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Uniform(Px(10)),
 				},
 			},
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Uniform(10),
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Uniform(Px(10)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First item should be at y=10 (top margin)
 	if math.Abs(root.Children[0].Rect.Y-10.0) > 0.1 {
@@ -96,16 +98,17 @@ func TestFlexboxMarginWithJustifyContent(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Uniform(10),
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Uniform(Px(10)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Item should be centered, accounting for margins
 	// Container width is 500, item width is 100, margins are 20 total
@@ -127,16 +130,17 @@ func TestFlexboxMarginWithAlignItems(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  100,
-					Height: 50,
-					Margin: Vertical(10), // Top and bottom margins
+					Width: Px(100),
+					Height: Px(50),
+					Margin: Vertical(Px(10)), // Top and bottom margins
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Item should be centered vertically, accounting for margins
 	// Container height is 200, item height is 50, margins are 10 top + 10 bottom = 20 total

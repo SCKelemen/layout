@@ -7,7 +7,7 @@ func TestCalculateAutoRepeatCount(t *testing.T) {
 	// Pattern: [100px]
 	repeat := RepeatTrack{
 		Count:  RepeatCountAutoFill,
-		Tracks: []GridTrack{FixedTrack(100)},
+		Tracks: []GridTrack{FixedTrack(Px(100))},
 	}
 
 	// Available: 350px, gap: 10px
@@ -38,8 +38,8 @@ func TestCalculateAutoRepeatCountMultipleTracks(t *testing.T) {
 	repeat := RepeatTrack{
 		Count: RepeatCountAutoFill,
 		Tracks: []GridTrack{
-			FixedTrack(100),
-			FixedTrack(50),
+			FixedTrack(Px(100)),
+			FixedTrack(Px(50)),
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestExpandAutoRepeatTracksBasic(t *testing.T) {
 	repeats := []RepeatTrack{
 		{
 			Count:  RepeatCountAutoFill,
-			Tracks: []GridTrack{FixedTrack(100)},
+			Tracks: []GridTrack{FixedTrack(Px(100))},
 		},
 	}
 
@@ -70,9 +70,9 @@ func TestExpandAutoRepeatTracksBasic(t *testing.T) {
 	}
 
 	for i, track := range result {
-		if track.MinSize != 100 || track.MaxSize != 100 {
+		if track.MinSize.Value != 100 || track.MaxSize.Value != 100 {
 			t.Errorf("Track %d: expected 100px, got min=%.0f max=%.0f",
-				i, track.MinSize, track.MaxSize)
+				i, track.MinSize.Value, track.MaxSize.Value)
 		}
 	}
 }
@@ -80,13 +80,13 @@ func TestExpandAutoRepeatTracksBasic(t *testing.T) {
 // TestExpandAutoRepeatTracksWithExplicit tests auto-repeat with explicit tracks
 func TestExpandAutoRepeatTracksWithExplicit(t *testing.T) {
 	explicit := []GridTrack{
-		FixedTrack(200), // Explicit track takes 200px
+		FixedTrack(Px(200)), // Explicit track takes 200px
 	}
 
 	repeats := []RepeatTrack{
 		{
 			Count:  RepeatCountAutoFill,
-			Tracks: []GridTrack{FixedTrack(100)},
+			Tracks: []GridTrack{FixedTrack(Px(100))},
 		},
 	}
 
@@ -102,14 +102,14 @@ func TestExpandAutoRepeatTracksWithExplicit(t *testing.T) {
 	}
 
 	// First track should be explicit (200px)
-	if result[0].MinSize != 200 {
-		t.Errorf("First track should be 200px, got %.0f", result[0].MinSize)
+	if result[0].MinSize.Value != 200 {
+		t.Errorf("First track should be 200px, got %.0f", result[0].MinSize.Value)
 	}
 
 	// Next 3 should be auto-repeated (100px each)
 	for i := 1; i < 4; i++ {
-		if result[i].MinSize != 100 {
-			t.Errorf("Track %d should be 100px, got %.0f", i, result[i].MinSize)
+		if result[i].MinSize.Value != 100 {
+			t.Errorf("Track %d should be 100px, got %.0f", i, result[i].MinSize.Value)
 		}
 	}
 }
@@ -117,10 +117,10 @@ func TestExpandAutoRepeatTracksWithExplicit(t *testing.T) {
 // TestCollapseAutoFitEmptyTracks tests collapsing empty tracks for auto-fit
 func TestCollapseAutoFitEmptyTracks(t *testing.T) {
 	tracks := []GridTrack{
-		FixedTrack(100),
-		FixedTrack(100),
-		FixedTrack(100),
-		FixedTrack(100),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
 	}
 
 	// Items only in tracks 0 and 2
@@ -137,31 +137,31 @@ func TestCollapseAutoFitEmptyTracks(t *testing.T) {
 	}
 
 	// Track 0: has content, should keep size
-	if result[0].MinSize != 100 {
-		t.Errorf("Track 0 should be 100px, got %.0f", result[0].MinSize)
+	if result[0].MinSize.Value != 100 {
+		t.Errorf("Track 0 should be 100px, got %.0f", result[0].MinSize.Value)
 	}
 
 	// Track 1: empty, should be collapsed to 0
-	if result[1].MinSize != 0 || result[1].MaxSize != 0 {
+	if result[1].MinSize.Value != 0 || result[1].MaxSize.Value != 0 {
 		t.Errorf("Track 1 should be collapsed to 0, got min=%.0f max=%.0f",
-			result[1].MinSize, result[1].MaxSize)
+			result[1].MinSize.Value, result[1].MaxSize.Value)
 	}
 
 	// Track 2: has content, should keep size
-	if result[2].MinSize != 100 {
-		t.Errorf("Track 2 should be 100px, got %.0f", result[2].MinSize)
+	if result[2].MinSize.Value != 100 {
+		t.Errorf("Track 2 should be 100px, got %.0f", result[2].MinSize.Value)
 	}
 
 	// Track 3: empty, should be collapsed to 0
-	if result[3].MinSize != 0 || result[3].MaxSize != 0 {
+	if result[3].MinSize.Value != 0 || result[3].MaxSize.Value != 0 {
 		t.Errorf("Track 3 should be collapsed to 0, got min=%.0f max=%.0f",
-			result[3].MinSize, result[3].MaxSize)
+			result[3].MinSize.Value, result[3].MaxSize.Value)
 	}
 }
 
 // TestAutoFillTracksHelper tests the AutoFillTracks API helper
 func TestAutoFillTracksHelper(t *testing.T) {
-	repeat := AutoFillTracks(FixedTrack(100))
+	repeat := AutoFillTracks(FixedTrack(Px(100)))
 
 	if repeat.Count != RepeatCountAutoFill {
 		t.Errorf("AutoFillTracks should set Count to RepeatCountAutoFill")
@@ -171,14 +171,14 @@ func TestAutoFillTracksHelper(t *testing.T) {
 		t.Errorf("Expected 1 track, got %d", len(repeat.Tracks))
 	}
 
-	if repeat.Tracks[0].MinSize != 100 {
-		t.Errorf("Expected track size 100, got %.0f", repeat.Tracks[0].MinSize)
+	if repeat.Tracks[0].MinSize.Value != 100 {
+		t.Errorf("Expected track size 100, got %.0f", repeat.Tracks[0].MinSize.Value)
 	}
 }
 
 // TestAutoFitTracksHelper tests the AutoFitTracks API helper
 func TestAutoFitTracksHelper(t *testing.T) {
-	repeat := AutoFitTracks(FixedTrack(100))
+	repeat := AutoFitTracks(FixedTrack(Px(100)))
 
 	if repeat.Count != RepeatCountAutoFit {
 		t.Errorf("AutoFitTracks should set Count to RepeatCountAutoFit")
@@ -188,8 +188,8 @@ func TestAutoFitTracksHelper(t *testing.T) {
 		t.Errorf("Expected 1 track, got %d", len(repeat.Tracks))
 	}
 
-	if repeat.Tracks[0].MinSize != 100 {
-		t.Errorf("Expected track size 100, got %.0f", repeat.Tracks[0].MinSize)
+	if repeat.Tracks[0].MinSize.Value != 100 {
+		t.Errorf("Expected track size 100, got %.0f", repeat.Tracks[0].MinSize.Value)
 	}
 }
 
@@ -198,7 +198,7 @@ func TestValidateAutoRepeatTracks(t *testing.T) {
 	// Valid: fixed-size tracks
 	validRepeat := RepeatTrack{
 		Count:  RepeatCountAutoFill,
-		Tracks: []GridTrack{FixedTrack(100)},
+		Tracks: []GridTrack{FixedTrack(Px(100))},
 	}
 	if !validateAutoRepeatTracks(validRepeat) {
 		t.Error("Fixed-size tracks should be valid for auto-repeat")
@@ -247,7 +247,7 @@ func TestAutoRepeatCountEdgeCases(t *testing.T) {
 	// Very small available space
 	repeat := RepeatTrack{
 		Count:  RepeatCountAutoFill,
-		Tracks: []GridTrack{FixedTrack(100)},
+		Tracks: []GridTrack{FixedTrack(Px(100))},
 	}
 	count = calculateAutoRepeatCount(repeat, 1, 0)
 	if count != 1 {
@@ -266,11 +266,11 @@ func TestAutoRepeatMultiplePatterns(t *testing.T) {
 	repeats := []RepeatTrack{
 		{
 			Count:  RepeatCountAutoFill,
-			Tracks: []GridTrack{FixedTrack(100)},
+			Tracks: []GridTrack{FixedTrack(Px(100))},
 		},
 		{
 			Count:  3, // Regular repeat
-			Tracks: []GridTrack{FixedTrack(50)},
+			Tracks: []GridTrack{FixedTrack(Px(50))},
 		},
 	}
 
@@ -288,10 +288,10 @@ func TestAutoRepeatMultiplePatterns(t *testing.T) {
 // TestCollapseAutoFitSpanningItems tests collapsing with spanning items
 func TestCollapseAutoFitSpanningItems(t *testing.T) {
 	tracks := []GridTrack{
-		FixedTrack(100),
-		FixedTrack(100),
-		FixedTrack(100),
-		FixedTrack(100),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
+		FixedTrack(Px(100)),
 	}
 
 	// Item spans tracks 1-3
@@ -302,17 +302,17 @@ func TestCollapseAutoFitSpanningItems(t *testing.T) {
 	result := collapseAutoFitEmptyTracks(tracks, items, true)
 
 	// Track 0: empty, should be collapsed
-	if result[0].MinSize != 0 {
-		t.Errorf("Track 0 should be collapsed, got %.0f", result[0].MinSize)
+	if result[0].MinSize.Value != 0 {
+		t.Errorf("Track 0 should be collapsed, got %.0f", result[0].MinSize.Value)
 	}
 
 	// Tracks 1-2: have content (spanned by item), should keep size
-	if result[1].MinSize != 100 || result[2].MinSize != 100 {
+	if result[1].MinSize.Value != 100 || result[2].MinSize.Value != 100 {
 		t.Errorf("Tracks 1-2 should keep size 100")
 	}
 
 	// Track 3: empty, should be collapsed
-	if result[3].MinSize != 0 {
-		t.Errorf("Track 3 should be collapsed, got %.0f", result[3].MinSize)
+	if result[3].MinSize.Value != 0 {
+		t.Errorf("Track 3 should be collapsed, got %.0f", result[3].MinSize.Value)
 	}
 }

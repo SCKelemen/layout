@@ -13,13 +13,14 @@ func TestFlexboxJustifyContentSpaceAround(t *testing.T) {
 			JustifyContent: JustifyContentSpaceAround,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// SpaceAround should distribute space around items
 	// First item should not be at X=0
@@ -36,13 +37,14 @@ func TestFlexboxJustifyContentSpaceEvenly(t *testing.T) {
 			JustifyContent: JustifyContentSpaceEvenly,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// SpaceEvenly should distribute space evenly
 	// First item should not be at X=0
@@ -58,13 +60,14 @@ func TestFlexboxRowReverse(t *testing.T) {
 			FlexDirection: FlexDirectionRowReverse,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// In row reverse, second child should be before first
 	// (visually reversed, but we check positions are different)
@@ -80,13 +83,14 @@ func TestFlexboxColumnReverse(t *testing.T) {
 			FlexDirection: FlexDirectionColumnReverse,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// In column reverse, children are laid out in reverse order
 	// The layout should position children differently than normal column
@@ -104,14 +108,15 @@ func TestFlexboxWrap(t *testing.T) {
 			FlexWrap:      FlexWrapWrap,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(150, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// With wrap, third child should be on second line
 	// First line: child 0, child 1 (or just child 0 if they don't fit)
@@ -133,14 +138,15 @@ func TestFlexboxAlignContent(t *testing.T) {
 			AlignContent:  AlignContentCenter,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(100, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// With multiple lines and AlignContentCenter, lines should be centered
 	// This is a basic check that it doesn't crash
@@ -157,12 +163,13 @@ func TestFlexboxAlignItemsFlexEnd(t *testing.T) {
 			AlignItems:    AlignItemsFlexEnd,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 30}},
+			{Style: Style{Width: Px(50), Height: Px(30)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Child should be aligned to bottom (flex-end)
 	expectedY := 100.0 - 30.0 // container height - child height

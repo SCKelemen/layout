@@ -18,7 +18,7 @@ func main() {
 		WithStyle(layout.Style{
 			Display:       layout.DisplayFlex,
 			FlexDirection: layout.FlexDirectionColumn,
-			Width:         300,
+			Width:         layout.Px(300),
 		}).
 		WithPadding(20).
 		WithMargin(10).
@@ -29,7 +29,8 @@ func main() {
 		)
 
 	// Layout the card
-	layout.Layout(card, layout.Loose(400, 600))
+	ctx := layout.NewLayoutContext(400, 600, 16)
+	layout.Layout(card, layout.Loose(400, 600), ctx)
 
 	fmt.Printf("Card rect: %.0fx%.0f at (%.0f, %.0f)\n",
 		card.Rect.Width, card.Rect.Height, card.Rect.X, card.Rect.Y)
@@ -39,17 +40,17 @@ func main() {
 	fmt.Println("\n=== Creating Variants ===")
 
 	// Original card
-	fmt.Printf("Original padding: %.0f\n", card.Style.Padding.Top)
+	fmt.Printf("Original padding: %.0f\n", card.Style.Padding.Top.Value)
 
 	// Create wider variant
 	wideCard := card.WithWidth(400)
 	fmt.Printf("Wide variant width: %.0f (original: %.0f)\n",
-		wideCard.Style.Width, card.Style.Width)
+		wideCard.Style.Width.Value, card.Style.Width.Value)
 
 	// Create variant with more padding
 	extraPadded := card.WithPadding(30)
 	fmt.Printf("Extra padded: %.0f (original: %.0f)\n",
-		extraPadded.Style.Padding.Top, card.Style.Padding.Top)
+		extraPadded.Style.Padding.Top.Value, card.Style.Padding.Top.Value)
 
 	// Create variant with additional child
 	withExtra := card.AddChild((&layout.Node{}).WithText("Extra item"))
@@ -66,11 +67,11 @@ func main() {
 		AddChild((&layout.Node{}).WithText("Another item"))
 
 	fmt.Printf("Styled card: %.0f padding, %.0f margin, %.0f width, %d children\n",
-		styledCard.Style.Padding.Top,
-		styledCard.Style.Margin.Top,
-		styledCard.Style.Width,
+		styledCard.Style.Padding.Top.Value,
+		styledCard.Style.Margin.Top.Value,
+		styledCard.Style.Width.Value,
 		len(styledCard.Children))
 
 	fmt.Printf("Original card unchanged: %.0f padding, %d children\n",
-		card.Style.Padding.Top, len(card.Children))
+		card.Style.Padding.Top.Value, len(card.Children))
 }

@@ -10,17 +10,18 @@ import (
 func TestBoxSizingContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    100,
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(100),
+			Height: Px(100),
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox, // Explicit, though this is the default
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// With content-box: width=100 means content=100, total = 100 + 10*2 + 5*2 = 130
 	expectedWidth := 100.0 + 10*2 + 5*2
@@ -39,17 +40,18 @@ func TestBoxSizingContentBox(t *testing.T) {
 func TestBoxSizingBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    100,
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(100),
+			Height: Px(100),
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// With border-box: width=100 means total=100, content = 100 - 10*2 - 5*2 = 70
 	expectedWidth := 100.0  // Total size equals specified width
@@ -80,19 +82,20 @@ func TestBoxSizingBorderBox(t *testing.T) {
 func TestBoxSizingContentBoxAuto(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     -1, // auto
-			Height:    -1, // auto
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(-1), // auto
+			Height: Px(-1), // auto
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// Auto width should be child width (100) + padding + border = 100 + 20 + 10 = 130
 	// Auto height should be child height (50) + padding + border = 50 + 20 + 10 = 80
@@ -111,19 +114,20 @@ func TestBoxSizingContentBoxAuto(t *testing.T) {
 func TestBoxSizingBorderBoxAuto(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     -1, // auto
-			Height:    -1, // auto
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(-1), // auto
+			Height: Px(-1), // auto
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// Auto width/height in border-box should size to content + padding + border
 	// Content width = child width = 100, so total = 100 + 20 + 10 = 130
@@ -143,19 +147,20 @@ func TestBoxSizingBorderBoxAuto(t *testing.T) {
 func TestBoxSizingMinMaxContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     300, // Will be clamped by MaxWidth
-			Height:    100,
-			MinWidth:  100,
-			MaxWidth:  200,
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(300), // Will be clamped by MaxWidth
+			Height: Px(100),
+			MinWidth: Px(100),
+			MaxWidth: Px(200),
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// MaxWidth=200 means content max = 200, total = 200 + 20 + 10 = 230
 	expectedWidth := 200.0 + 10*2 + 5*2
@@ -173,19 +178,20 @@ func TestBoxSizingMinMaxContentBox(t *testing.T) {
 func TestBoxSizingMinMaxBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:     300, // Will be clamped by MaxWidth
-			Height:    100,
-			MinWidth:  100,
-			MaxWidth:  200,
-			Padding:   Uniform(10),
-			Border:    Uniform(5),
+			Width: Px(300), // Will be clamped by MaxWidth
+			Height: Px(100),
+			MinWidth: Px(100),
+			MaxWidth: Px(200),
+			Padding:   Uniform(Px(10)),
+			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// MaxWidth=200 in border-box means total max = 200
 	// Content max = 200 - 20 - 10 = 170
@@ -204,18 +210,19 @@ func TestBoxSizingMinMaxBorderBox(t *testing.T) {
 func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:       200,
-			Height:      -1, // auto, will be calculated from aspect ratio
+			Width: Px(200),
+			Height: Px(-1), // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
-			Padding:     Uniform(10),
-			Border:      Uniform(5),
+			Padding:     Uniform(Px(10)),
+			Border:      Uniform(Px(5)),
 			BoxSizing:   BoxSizingContentBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// Content width = 200, content height = 200 / (16/9) = 112.5
 	// Total width = 200 + 20 + 10 = 230
@@ -236,18 +243,19 @@ func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 func TestBoxSizingAspectRatioBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width:       200,
-			Height:      -1, // auto, will be calculated from aspect ratio
+			Width: Px(200),
+			Height: Px(-1), // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
-			Padding:     Uniform(10),
-			Border:      Uniform(5),
+			Padding:     Uniform(Px(10)),
+			Border:      Uniform(Px(5)),
 			BoxSizing:   BoxSizingBorderBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// Total width = 200 (border-box), content width = 200 - 20 - 10 = 170
 	// Content height = 170 / (16/9) = 95.625
@@ -271,27 +279,28 @@ func TestBoxSizingNoPaddingBorder(t *testing.T) {
 	// Content-box
 	root1 := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    100,
+			Width: Px(100),
+			Height: Px(100),
 			BoxSizing: BoxSizingContentBox,
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(500, 500)
-	size1 := LayoutBlock(root1, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	size1 := LayoutBlock(root1, constraints, ctx)
 
 	// Border-box
 	root2 := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    100,
+			Width: Px(100),
+			Height: Px(100),
 			BoxSizing: BoxSizingBorderBox,
 		},
 		Children: []*Node{},
 	}
 
-	size2 := LayoutBlock(root2, constraints)
+	size2 := LayoutBlock(root2, constraints, ctx)
 
 	// Both should be the same when there's no padding/border
 	if math.Abs(size1.Width-size2.Width) > 0.01 {
@@ -307,29 +316,30 @@ func TestBoxSizingChildItems(t *testing.T) {
 	// Test with flexbox
 	child1 := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    50,
-			Padding:   Uniform(5),
-			Border:    Uniform(2),
+			Width: Px(100),
+			Height: Px(50),
+			Padding:   Uniform(Px(5)),
+			Border:    Uniform(Px(2)),
 			BoxSizing: BoxSizingContentBox,
 		},
 	}
 
 	child2 := &Node{
 		Style: Style{
-			Width:     100,
-			Height:    50,
-			Padding:   Uniform(5),
-			Border:    Uniform(2),
+			Width: Px(100),
+			Height: Px(50),
+			Padding:   Uniform(Px(5)),
+			Border:    Uniform(Px(2)),
 			BoxSizing: BoxSizingBorderBox,
 		},
 	}
 
 	root := HStack(child1, child2)
-	root.Style.Padding = Uniform(10)
+	root.Style.Padding = Uniform(Px(10))
 
 	constraints := Loose(500, 500)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	Layout(root, constraints, ctx)
 
 	// Child1 (content-box): content=100, total=100+10+4=114
 	// Child2 (border-box): total=100, content=100-10-4=86

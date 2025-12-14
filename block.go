@@ -12,18 +12,21 @@ package layout
 // - https://www.w3.org/TR/css-box-3/
 // - https://www.w3.org/TR/css-display-3/
 // - https://www.w3.org/TR/css-sizing-3/
-func LayoutBlock(node *Node, constraints Constraints) Size {
+func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
+	// Get current font size for em resolution
+	currentFontSize := getCurrentFontSize(node, ctx)
+
 	// §4: Box Model - Setup and determine container dimensions
-	setup := blockDetermineContainerSize(node, constraints)
+	setup := blockDetermineContainerSize(node, constraints, ctx, currentFontSize)
 
 	// §5: Aspect Ratios - Determine node size considering aspect ratio
-	nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight := blockDetermineSize(node, setup)
+	nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight := blockDetermineSize(node, setup, ctx, currentFontSize)
 
 	// §5: Intrinsic Size Determination - Apply min/max constraints
 	nodeWidth, nodeHeight = blockApplyConstraints(node, setup, nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight)
 
 	// §8.3.1: Collapsing margins - Layout children with margin collapsing
-	currentY, maxChildWidth := blockLayoutChildren(node, setup, nodeWidth)
+	currentY, maxChildWidth := blockLayoutChildren(node, setup, nodeWidth, ctx, currentFontSize)
 
 	// If height is auto, use children height (unless aspect ratio already calculated it)
 	if setup.isAutoHeight && !aspectRatioCalculatedHeight {
@@ -104,4 +107,13 @@ func max(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+// getCurrentFontSize returns the current font size for Length resolution.
+// Falls back to ctx.RootFontSize if the node's TextStyle is not set.
+func getCurrentFontSize(node *Node, ctx *LayoutContext) float64 {
+	if node.Style.TextStyle != nil && node.Style.TextStyle.FontSize > 0 {
+		return node.Style.TextStyle.FontSize
+	}
+	return ctx.RootFontSize
 }

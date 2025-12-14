@@ -16,19 +16,19 @@ func main() {
 	items := []*layout.Node{
 		{
 			Style: layout.Style{
-				Height: 20,
-				Margin: layout.Spacing{Top: 20, Right: 10, Bottom: 10, Left: 10}, // Large top margin
+				Height: Px(20),
+				Margin: layout.Spacing{Top: layout.Px(20), Right: 10, Bottom: 10, Left: 10}, // Large top margin
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(10),
 			},
 		},
@@ -101,4 +101,5 @@ func main() {
 	}
 	fmt.Printf("%.2f ──────────────────────── (Container bottom)\n", root.Rect.Height)
 }
+
 

@@ -69,7 +69,7 @@ func SetTextMetricsProvider(p TextMetricsProvider) {
 //
 // Note: This implementation uses simplified algorithms for whitespace collapsing
 // and line breaking. See TEXT_LAYOUT_ISSUES.md for details.
-func LayoutText(node *Node, constraints Constraints) Size {
+func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// Validate text node invariants
 	if len(node.Children) > 0 {
 		// Text nodes should be leaf nodes. Children are ignored during text layout.
@@ -89,12 +89,27 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	}
 	style := node.Style.TextStyle
 
+	// Get current font size for em unit resolution
+	currentFontSize := 16.0 // Default
+	if style.FontSize > 0 {
+		currentFontSize = style.FontSize
+	}
+
 	// 1. Determine available content width from constraints and Style (box sizing)
 	availableWidth := constraints.MaxWidth
-	horizontalPaddingBorder := node.Style.Padding.Left + node.Style.Padding.Right +
-		node.Style.Border.Left + node.Style.Border.Right
-	verticalPaddingBorder := node.Style.Padding.Top + node.Style.Padding.Bottom +
-		node.Style.Border.Top + node.Style.Border.Bottom
+
+	// Resolve padding and border Length values to pixels
+	paddingLeft := ResolveLength(node.Style.Padding.Left, ctx, currentFontSize)
+	paddingRight := ResolveLength(node.Style.Padding.Right, ctx, currentFontSize)
+	paddingTop := ResolveLength(node.Style.Padding.Top, ctx, currentFontSize)
+	paddingBottom := ResolveLength(node.Style.Padding.Bottom, ctx, currentFontSize)
+	borderLeft := ResolveLength(node.Style.Border.Left, ctx, currentFontSize)
+	borderRight := ResolveLength(node.Style.Border.Right, ctx, currentFontSize)
+	borderTop := ResolveLength(node.Style.Border.Top, ctx, currentFontSize)
+	borderBottom := ResolveLength(node.Style.Border.Bottom, ctx, currentFontSize)
+
+	horizontalPaddingBorder := paddingLeft + paddingRight + borderLeft + borderRight
+	verticalPaddingBorder := paddingTop + paddingBottom + borderTop + borderBottom
 	contentWidth := availableWidth - horizontalPaddingBorder
 	if contentWidth < 0 {
 		contentWidth = 0
@@ -151,12 +166,15 @@ func LayoutText(node *Node, constraints Constraints) Size {
 	}
 
 	// 6. Apply explicit width/height if set, using box-sizing conversion
-	hasExplicitWidth := node.Style.Width > 0
-	hasExplicitHeight := node.Style.Height > 0
+	// Resolve Length values to pixels first
+	widthPx := ResolveLength(node.Style.Width, ctx, currentFontSize)
+	heightPx := ResolveLength(node.Style.Height, ctx, currentFontSize)
+	hasExplicitWidth := widthPx > 0
+	hasExplicitHeight := heightPx > 0
 
 	if hasExplicitWidth {
 		// Convert from specified box-sizing to content-box
-		contentWidth = convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+		contentWidth = convertToContentSize(widthPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
 	} else {
 		// Auto width: use max line width
 		contentWidth = maxLineWidth
@@ -164,14 +182,20 @@ func LayoutText(node *Node, constraints Constraints) Size {
 
 	if hasExplicitHeight {
 		// Convert from specified box-sizing to content-box
-		contentHeight = convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+		contentHeight = convertToContentSize(heightPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
 	}
 
 	// Apply min/max constraints (convert to content-box)
-	minWidthContent := convertMinMaxToContentSize(node.Style.MinWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
-	maxWidthContent := convertMinMaxToContentSize(node.Style.MaxWidth, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
-	minHeightContent := convertMinMaxToContentSize(node.Style.MinHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
-	maxHeightContent := convertMinMaxToContentSize(node.Style.MaxHeight, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+	// Resolve min/max Length values to pixels
+	minWidthPx := ResolveLength(node.Style.MinWidth, ctx, currentFontSize)
+	maxWidthPx := ResolveLength(node.Style.MaxWidth, ctx, currentFontSize)
+	minHeightPx := ResolveLength(node.Style.MinHeight, ctx, currentFontSize)
+	maxHeightPx := ResolveLength(node.Style.MaxHeight, ctx, currentFontSize)
+
+	minWidthContent := convertMinMaxToContentSize(minWidthPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	maxWidthContent := convertMinMaxToContentSize(maxWidthPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+	minHeightContent := convertMinMaxToContentSize(minHeightPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+	maxHeightContent := convertMinMaxToContentSize(maxHeightPx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
 
 	// Clamp content dimensions to min/max
 	if minWidthContent > 0 && contentWidth < minWidthContent {
@@ -1236,8 +1260,8 @@ func resolveLineHeight(lineHeight float64, fontSize float64) float64 {
 func Text(text string, style ...Style) *Node {
 	baseStyle := Style{
 		Display: DisplayInlineText,
-		Width:   -1, // auto
-		Height:  -1, // auto
+		Width:   Px(0), // auto (Px(0) is treated as auto when resolved)
+		Height:  Px(0), // auto
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			TextAlign:  TextAlignDefault,
@@ -1256,13 +1280,6 @@ func Text(text string, style ...Style) *Node {
 	if len(style) > 0 {
 		node.Style = style[0]
 		node.Style.Display = DisplayInlineText
-		// Treat 0 as auto (Go zero value issue)
-		if node.Style.Width == 0 {
-			node.Style.Width = -1
-		}
-		if node.Style.Height == 0 {
-			node.Style.Height = -1
-		}
 		// Ensure TextStyle is set
 		if node.Style.TextStyle == nil {
 			node.Style.TextStyle = baseStyle.TextStyle

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/SCKelemen/layout"
 )
 
@@ -13,25 +14,25 @@ func main() {
 			FlexDirection:  layout.FlexDirectionColumn,
 			JustifyContent: layout.JustifyContentFlexStart,
 			AlignItems:     layout.AlignItemsStretch,
-			Padding:        layout.Uniform(20),
+			Padding:        layout.Uniform(layout.Px(20)),
 		},
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
 					FlexGrow:  1,
-					MinHeight: 50,
+					MinHeight: layout.Px(50),
 				},
 			},
 			{
 				Style: layout.Style{
 					FlexGrow:  2,
-					MinHeight: 50,
+					MinHeight: layout.Px(50),
 				},
 			},
 			{
 				Style: layout.Style{
 					FlexGrow:  1,
-					MinHeight: 50,
+					MinHeight: layout.Px(50),
 				},
 			},
 		},
@@ -39,7 +40,8 @@ func main() {
 
 	// Perform layout with tight constraints
 	constraints := layout.Tight(400, 600)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Flex container size: %.2f x %.2f\n", size.Width, size.Height)
 	fmt.Printf("Available height for flex items: %.2f\n", size.Height-40) // minus padding

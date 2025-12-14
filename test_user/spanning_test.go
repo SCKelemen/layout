@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+
 	"github.com/SCKelemen/layout"
 )
 
@@ -40,7 +41,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 0, GridRowEnd: 3, // Spans 3 rows
 			GridColumnStart: 0, GridColumnEnd: 1,
-			MinHeight: 300.0, // Should be distributed across 3 rows
+			MinHeight: Px(300.0), // Should be distributed across 3 rows
 		},
 	})
 
@@ -49,7 +50,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 0, GridRowEnd: 1,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			MinHeight: 100.0,
+			MinHeight: Px(100.0),
 		},
 	})
 
@@ -58,7 +59,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			MinHeight: 100.0,
+			MinHeight: Px(100.0),
 		},
 	})
 
@@ -67,7 +68,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 2, GridRowEnd: 3,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			MinHeight: 100.0,
+			MinHeight: Px(100.0),
 		},
 	})
 
@@ -76,12 +77,13 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 3, GridRowEnd: 4,
 			GridColumnStart: 0, GridColumnEnd: 3,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 
 	constraints := layout.Loose(width, layout.Unbounded)
-	layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("=== Test: Item spanning multiple auto rows ===\n")
 	fmt.Printf("Root: %.2f x %.2f\n", root.Rect.Width, root.Rect.Height)
@@ -111,4 +113,3 @@ func main() {
 			row3Item.Rect.Y, spanningEnd)
 	}
 }
-

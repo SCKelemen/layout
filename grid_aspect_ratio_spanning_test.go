@@ -17,8 +17,8 @@ func TestGridAspectRatioSpanningColumns(t *testing.T) {
 				FractionTrack(1),
 				FractionTrack(1),
 			},
-			GridColumnGap: 8,
-			Width:         1000,
+			GridColumnGap: Px(8),
+			Width:         Px(1000),
 		},
 		Children: []*Node{
 			// Item spanning 2 columns with aspect ratio 2:1
@@ -33,7 +33,8 @@ func TestGridAspectRatioSpanningColumns(t *testing.T) {
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item := root.Children[0]
 
@@ -69,8 +70,8 @@ func TestGridAspectRatioSpanningRows(t *testing.T) {
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 			},
-			GridRowGap: 8,
-			Width:      1000,
+			GridRowGap: Px(8),
+			Width:      Px(1000),
 		},
 		Children: []*Node{
 			// Item spanning 2 rows with aspect ratio 2:1
@@ -85,7 +86,8 @@ func TestGridAspectRatioSpanningRows(t *testing.T) {
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item := root.Children[0]
 
@@ -127,9 +129,9 @@ func TestGridAspectRatioSpanningBoth(t *testing.T) {
 				FractionTrack(1),
 				FractionTrack(1),
 			},
-			GridRowGap:    8,
-			GridColumnGap: 8,
-			Width:         1000,
+			GridRowGap:    Px(8),
+			GridColumnGap: Px(8),
+			Width:         Px(1000),
 		},
 		Children: []*Node{
 			// Item spanning 2 rows and 2 columns with aspect ratio 2:1
@@ -146,7 +148,8 @@ func TestGridAspectRatioSpanningBoth(t *testing.T) {
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item := root.Children[0]
 

@@ -31,9 +31,10 @@ func calculateAutoRepeatCount(repeat RepeatTrack, availableSize, gap float64) in
 	for _, track := range repeat.Tracks {
 		// For auto-repeat, only fixed-size tracks are allowed
 		// Use MinSize as the track size (MaxSize should equal MinSize for fixed tracks)
-		trackSize := track.MinSize
-		if track.MaxSize < trackSize && track.MaxSize > 0 {
-			trackSize = track.MaxSize
+		// Assuming tracks are in pixels at this point
+		trackSize := track.MinSize.Value
+		if track.MaxSize.Value < trackSize && track.MaxSize.Value > 0 {
+			trackSize = track.MaxSize.Value
 		}
 		repetitionSize += trackSize
 	}
@@ -78,9 +79,9 @@ func expandAutoRepeatTracks(repeats []RepeatTrack, explicitTracks []GridTrack, a
 	// Calculate space used by explicit tracks
 	usedSpace := 0.0
 	for _, track := range explicitTracks {
-		trackSize := track.MinSize
-		if track.MaxSize < trackSize && track.MaxSize > 0 {
-			trackSize = track.MaxSize
+		trackSize := track.MinSize.Value
+		if track.MaxSize.Value < trackSize && track.MaxSize.Value > 0 {
+			trackSize = track.MaxSize.Value
 		}
 		usedSpace += trackSize
 	}
@@ -109,9 +110,9 @@ func expandAutoRepeatTracks(repeats []RepeatTrack, explicitTracks []GridTrack, a
 
 			// Update remaining space
 			for _, track := range repeat.Tracks {
-				trackSize := track.MinSize
-				if track.MaxSize < trackSize && track.MaxSize > 0 {
-					trackSize = track.MaxSize
+				trackSize := track.MinSize.Value
+				if track.MaxSize.Value < trackSize && track.MaxSize.Value > 0 {
+					trackSize = track.MaxSize.Value
 				}
 				remainingSpace -= trackSize
 			}
@@ -182,8 +183,8 @@ func collapseAutoFitEmptyTracks(tracks []GridTrack, items []*gridItem, isColumn 
 		} else {
 			// Collapse to zero (empty auto-fit track)
 			result[i] = GridTrack{
-				MinSize:  0,
-				MaxSize:  0,
+				MinSize:  Px(0),
+				MaxSize:  Px(0),
 				Fraction: track.Fraction, // Preserve fraction in case it matters
 			}
 		}
@@ -214,7 +215,7 @@ func validateAutoRepeatTracks(repeat RepeatTrack) bool {
 		}
 
 		// Check for intrinsic sizing keywords (not allowed in auto-repeat)
-		if track.MaxSize == SizeMinContent || track.MaxSize == SizeMaxContent {
+		if track.MaxSize.Value == SizeMinContent || track.MaxSize.Value == SizeMaxContent {
 			return false
 		}
 

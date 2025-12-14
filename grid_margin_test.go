@@ -11,12 +11,12 @@ func TestGridMargin(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -24,21 +24,22 @@ func TestGridMargin(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Margin:          Uniform(10),
+					Margin:          Uniform(Px(10)),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 1,
-					Margin:          Uniform(10),
+					Margin:          Uniform(Px(10)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(300, 300)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should have margin applied
 	if math.Abs(root.Children[0].Rect.X-10.0) > 0.1 {
@@ -59,3 +60,4 @@ func TestGridMargin(t *testing.T) {
 		t.Errorf("First item height should be %.2f (cell - margins), got %.2f", expectedHeight, root.Children[0].Rect.Height)
 	}
 }
+

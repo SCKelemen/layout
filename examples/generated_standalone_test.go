@@ -14,10 +14,10 @@ func TestTestCelAssertions(t *testing.T) {
 	// This is a standalone test that uses the layout library directly
 	root := buildLayoutTestTestCelAssertions()
 	layout.Layout(root, layout.Constraints{
-		MinWidth:  0,
-		MaxWidth:  800,
-		MinHeight: 0,
-		MaxHeight: 600,
+		MinWidth: Px(0),
+		MaxWidth: Px(800),
+		MinHeight: Px(0),
+		MaxHeight: Px(600),
 	})
 
 	// Create CEL environment
@@ -85,26 +85,26 @@ func buildLayoutTestTestCelAssertions() *layout.Node {
 			Display: layout.DisplayFlex,
 			JustifyContent: layout.JustifyContentSpaceBetween,
 			AlignItems: layout.AlignItemsCenter,
-			Width: 600.0,
-			Height: 100.0,
+			Width: Px(600.0),
+			Height: Px(100.0),
 		},
 		Children: []*layout.Node{
 			&layout.Node{
 				Style: layout.Style{
-					Width: 100.0,
-					Height: 50.0,
+					Width: Px(100.0),
+					Height: Px(50.0),
 				},
 			},
 			&layout.Node{
 				Style: layout.Style{
-					Width: 100.0,
-					Height: 50.0,
+					Width: Px(100.0),
+					Height: Px(50.0),
 				},
 			},
 			&layout.Node{
 				Style: layout.Style{
-					Width: 100.0,
-					Height: 50.0,
+					Width: Px(100.0),
+					Height: Px(50.0),
 				},
 			},
 		},

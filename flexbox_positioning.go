@@ -16,6 +16,7 @@ func flexboxAlignmentMainAxis(
 	columnGap float64,
 	mainSize float64,
 	isReverse bool,
+	ctx *LayoutContext,
 ) float64 {
 	// Handle flex-direction reverse - reverse items in line
 	// For reverse, we reverse the items and then position from the end
@@ -26,7 +27,13 @@ func flexboxAlignmentMainAxis(
 		}
 	}
 
+	// Get parent font size for Length resolution
+	parentFontSize := getCurrentFontSize(node, ctx)
+
 	for _, item := range line {
+		// Get child font size for Length resolution
+		childFontSize := getCurrentFontSize(item.node, ctx)
+
 		// Get rect dimensions - cross-axis was already set by flexboxAlignmentCrossAxis
 		// We just need to set/update main-axis dimensions
 		var rectWidth, rectHeight float64
@@ -40,15 +47,15 @@ func flexboxAlignmentMainAxis(
 
 		// Update main-axis size if needed
 		if setup.isRow {
-			if rectWidth == 0 && item.node.Style.Width >= 0 {
-				rectWidth = item.node.Style.Width
+			if rectWidth == 0 && item.node.Style.Width.Value >= 0 {
+				rectWidth = ResolveLength(item.node.Style.Width, ctx, childFontSize)
 				// Update mainSize so justify-content calculations use correct size
-				item.mainSize = item.node.Style.Width
+				item.mainSize = rectWidth
 			}
 		} else {
-			if rectHeight == 0 && item.node.Style.Height >= 0 {
-				rectHeight = item.node.Style.Height
-				item.mainSize = item.node.Style.Height
+			if rectHeight == 0 && item.node.Style.Height.Value >= 0 {
+				rectHeight = ResolveLength(item.node.Style.Height, ctx, childFontSize)
+				item.mainSize = rectHeight
 			}
 		}
 
@@ -65,13 +72,14 @@ func flexboxAlignmentMainAxis(
 	// Ensure item.mainSize is set correctly before justify-content calculation
 	// This is needed because justifyContentWithGap uses item.mainSize
 	for _, item := range line {
+		childFontSize := getCurrentFontSize(item.node, ctx)
 		if setup.isRow {
-			if item.mainSize == 0 && item.node.Style.Width >= 0 {
-				item.mainSize = item.node.Style.Width
+			if item.mainSize == 0 && item.node.Style.Width.Value >= 0 {
+				item.mainSize = ResolveLength(item.node.Style.Width, ctx, childFontSize)
 			}
 		} else {
-			if item.mainSize == 0 && item.node.Style.Height >= 0 {
-				item.mainSize = item.node.Style.Height
+			if item.mainSize == 0 && item.node.Style.Height.Value >= 0 {
+				item.mainSize = ResolveLength(item.node.Style.Height, ctx, childFontSize)
 			}
 		}
 	}
@@ -79,9 +87,9 @@ func flexboxAlignmentMainAxis(
 	// Calculate content area start offset (accounting for padding and border)
 	contentAreaStart := 0.0
 	if setup.isRow {
-		contentAreaStart = node.Style.Padding.Left + node.Style.Border.Left
+		contentAreaStart = ResolveLength(node.Style.Padding.Left, ctx, parentFontSize) + ResolveLength(node.Style.Border.Left, ctx, parentFontSize)
 	} else {
-		contentAreaStart = node.Style.Padding.Top + node.Style.Border.Top
+		contentAreaStart = ResolveLength(node.Style.Padding.Top, ctx, parentFontSize) + ResolveLength(node.Style.Border.Top, ctx, parentFontSize)
 	}
 
 	// Apply justify-content with gap support
@@ -149,6 +157,7 @@ func flexboxAlignmentCrossAxis(
 	lineCrossSize float64,
 	lineStartCrossOffset float64,
 	alignmentCrossSize float64,
+	ctx *LayoutContext,
 ) {
 	// For baseline alignment, first find the maximum baseline
 	// Check if any items use baseline (either via container or align-self)
@@ -252,13 +261,17 @@ func flexboxAlignmentCrossAxis(
 			crossOffset = item.crossMarginStart
 		}
 
+		// Get parent font size for Length resolution
+		parentFontSize := getCurrentFontSize(node, ctx)
+
 		// Update rect with cross-axis position
 		if setup.isRow {
-			item.node.Rect.Y = node.Style.Padding.Top + node.Style.Border.Top + lineStartCrossOffset + crossOffset
+			item.node.Rect.Y = ResolveLength(node.Style.Padding.Top, ctx, parentFontSize) + ResolveLength(node.Style.Border.Top, ctx, parentFontSize) + lineStartCrossOffset + crossOffset
 			item.node.Rect.Height = rectHeight
 		} else {
-			item.node.Rect.X = node.Style.Padding.Left + node.Style.Border.Left + lineStartCrossOffset + crossOffset
+			item.node.Rect.X = ResolveLength(node.Style.Padding.Left, ctx, parentFontSize) + ResolveLength(node.Style.Border.Left, ctx, parentFontSize) + lineStartCrossOffset + crossOffset
 			item.node.Rect.Width = rectWidth
 		}
 	}
 }
+

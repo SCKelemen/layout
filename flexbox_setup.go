@@ -25,8 +25,11 @@ type flexboxSetup struct {
 // - §9.2: Line Length Determination
 //
 // See: https://www.w3.org/TR/css-flexbox-1/#line-sizing
-func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetup {
+func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *LayoutContext) flexboxSetup {
 	setup := flexboxSetup{}
+
+	// Get current font size for Length resolution
+	fontSize := getCurrentFontSize(node, ctx)
 
 	// Calculate available space
 	// For tight constraints, both Min and Max are set to the same value
@@ -40,11 +43,11 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 		availableHeight = constraints.MinHeight
 	}
 
-	// Account for padding and border
-	setup.horizontalPadding = node.Style.Padding.Left + node.Style.Padding.Right
-	setup.verticalPadding = node.Style.Padding.Top + node.Style.Padding.Bottom
-	setup.horizontalBorder = node.Style.Border.Left + node.Style.Border.Right
-	setup.verticalBorder = node.Style.Border.Top + node.Style.Border.Bottom
+	// Account for padding and border (resolve Length to pixels)
+	setup.horizontalPadding = ResolveLength(node.Style.Padding.Left, ctx, fontSize) + ResolveLength(node.Style.Padding.Right, ctx, fontSize)
+	setup.verticalPadding = ResolveLength(node.Style.Padding.Top, ctx, fontSize) + ResolveLength(node.Style.Padding.Bottom, ctx, fontSize)
+	setup.horizontalBorder = ResolveLength(node.Style.Border.Left, ctx, fontSize) + ResolveLength(node.Style.Border.Right, ctx, fontSize)
+	setup.verticalBorder = ResolveLength(node.Style.Border.Top, ctx, fontSize) + ResolveLength(node.Style.Border.Bottom, ctx, fontSize)
 
 	// Check for intrinsic sizing (min-content, max-content, fit-content)
 	// These override auto sizing and explicit dimensions
@@ -52,22 +55,22 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 
 	// Handle width intrinsic sizing
 	intrinsicWidth := -1.0
-	if node.Style.Width == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
-		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMinContent)
-	} else if node.Style.Width == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
-		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMaxContent)
-	} else if node.Style.Width == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
-		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeFitContent)
+	if node.Style.Width.Value == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMinContent, ctx)
+	} else if node.Style.Width.Value == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeMaxContent, ctx)
+	} else if node.Style.Width.Value == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraintsForIntrinsic, IntrinsicSizeFitContent, ctx)
 	}
 
 	// Handle height intrinsic sizing
 	intrinsicHeight := -1.0
-	if node.Style.Height == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
-		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMinContent)
-	} else if node.Style.Height == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
-		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMaxContent)
-	} else if node.Style.Height == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
-		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeFitContent)
+	if node.Style.Height.Value == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMinContent, ctx)
+	} else if node.Style.Height.Value == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeMaxContent, ctx)
+	} else if node.Style.Height.Value == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraintsForIntrinsic, IntrinsicSizeFitContent, ctx)
 	}
 
 	// Apply intrinsic width if calculated
@@ -78,12 +81,13 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 		} else if totalIntrinsicWidth <= availableWidth {
 			availableWidth = totalIntrinsicWidth
 		}
-	} else if node.Style.Width > 0 {
+	} else if node.Style.Width.Value > 0 {
 		// If container has explicit width/height, use it to constrain available space
 		// Similar to grid layout
 		// If constraints are zero/unbounded and we have explicit dimensions, use the explicit dimensions
 		// Only use explicit width if it's > 0 (not auto/unspecified)
-		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, true)
+		resolvedWidth := ResolveLength(node.Style.Width, ctx, fontSize)
+		specifiedWidthContent := convertToContentSize(resolvedWidth, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, true)
 		totalSpecifiedWidth := specifiedWidthContent + setup.horizontalPadding + setup.horizontalBorder
 		if availableWidth >= Unbounded || availableWidth == 0 {
 			// No meaningful constraint -> use style width
@@ -101,9 +105,10 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 		} else if totalIntrinsicHeight <= availableHeight {
 			availableHeight = totalIntrinsicHeight
 		}
-	} else if node.Style.Height > 0 {
+	} else if node.Style.Height.Value > 0 {
 		// Only use explicit height if it's > 0 (not auto/unspecified)
-		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, false)
+		resolvedHeight := ResolveLength(node.Style.Height, ctx, fontSize)
+		specifiedHeightContent := convertToContentSize(resolvedHeight, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, false)
 		totalSpecifiedHeight := specifiedHeightContent + setup.verticalPadding + setup.verticalBorder
 		if availableHeight >= Unbounded || availableHeight == 0 {
 			// No meaningful constraint -> use style height
@@ -135,12 +140,12 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 	// This determines whether align-items: stretch should use crossSize or content-driven lineCrossSize
 	if setup.isRow {
 		// Cross axis is height
-		if node.Style.Height > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
+		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
 	} else {
 		// Cross axis is width
-		if node.Style.Width > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
+		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
 	}
@@ -149,15 +154,16 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints) flexboxSetu
 	// If not, free-space distribution in the main axis should be skipped (CSS flexbox §9.2 / §9.3).
 	if setup.isRow {
 		// Main axis is width
-		if node.Style.Width > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
+		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}
 	} else {
 		// Main axis is height
-		if node.Style.Height > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
+		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}
 	}
 
 	return setup
 }
+

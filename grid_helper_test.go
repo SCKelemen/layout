@@ -11,16 +11,17 @@ func TestGridHelperRowPositioning(t *testing.T) {
 
 	// Add children without explicit positioning (should auto-place)
 	grid.Children = []*Node{
-		{Style: Style{Width: 100, Height: 100}},
-		{Style: Style{Width: 100, Height: 100}},
-		{Style: Style{Width: 100, Height: 100}},
-		{Style: Style{Width: 100, Height: 100}},
-		{Style: Style{Width: 100, Height: 100}},
-		{Style: Style{Width: 100, Height: 100}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
+		{Style: Style{Width: Px(100), Height: Px(100)}},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(grid, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(grid, constraints, ctx)
 
 	// Verify items are positioned in different rows
 	// First row: items 0, 1
@@ -56,26 +57,27 @@ func TestGridHelperWithExplicitPositions(t *testing.T) {
 	// Test Grid helper with explicitly positioned items
 	grid := Grid(2, 2, 150, 150)
 
-	item1 := &Node{Style: Style{Width: 150, Height: 150}}
+	item1 := &Node{Style: Style{Width: Px(150), Height: Px(150)}}
 	item1.Style.GridRowStart = 0
 	item1.Style.GridColumnStart = 0
 
-	item2 := &Node{Style: Style{Width: 150, Height: 150}}
+	item2 := &Node{Style: Style{Width: Px(150), Height: Px(150)}}
 	item2.Style.GridRowStart = 0
 	item2.Style.GridColumnStart = 1
 
-	item3 := &Node{Style: Style{Width: 150, Height: 150}}
+	item3 := &Node{Style: Style{Width: Px(150), Height: Px(150)}}
 	item3.Style.GridRowStart = 1
 	item3.Style.GridColumnStart = 0
 
-	item4 := &Node{Style: Style{Width: 150, Height: 150}}
+	item4 := &Node{Style: Style{Width: Px(150), Height: Px(150)}}
 	item4.Style.GridRowStart = 1
 	item4.Style.GridColumnStart = 1
 
 	grid.Children = []*Node{item1, item2, item3, item4}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(grid, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(grid, constraints, ctx)
 
 	// First row items should have same Y
 	if math.Abs(grid.Children[0].Rect.Y-grid.Children[1].Rect.Y) > 0.1 {
@@ -101,18 +103,19 @@ func TestGridAutoRowPositioning(t *testing.T) {
 	// Test GridAuto helper
 	grid := GridAuto(2, 2)
 
-	item1 := &Node{Style: Style{Width: 100, Height: 80}}
+	item1 := &Node{Style: Style{Width: Px(100), Height: Px(80)}}
 	item1.Style.GridRowStart = 0
 	item1.Style.GridColumnStart = 0
 
-	item2 := &Node{Style: Style{Width: 100, Height: 120}}
+	item2 := &Node{Style: Style{Width: Px(100), Height: Px(120)}}
 	item2.Style.GridRowStart = 1
 	item2.Style.GridColumnStart = 0
 
 	grid.Children = []*Node{item1, item2}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(grid, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(grid, constraints, ctx)
 
 	// Second item should be below first
 	if grid.Children[1].Rect.Y <= grid.Children[0].Rect.Y {
@@ -127,3 +130,4 @@ func TestGridAutoRowPositioning(t *testing.T) {
 			minY2, grid.Children[1].Rect.Y)
 	}
 }
+

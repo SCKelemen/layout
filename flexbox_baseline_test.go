@@ -12,28 +12,28 @@ func TestFlexboxBaselineAlignment(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width:         300,
-			Height:        100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  50,
-					Height: 30,
+					Width: Px(50),
+					Height: Px(30),
 				},
 				Baseline: 20, // Baseline at 20px from top
 			},
 			{
 				Style: Style{
-					Width:  50,
-					Height: 40,
+					Width: Px(50),
+					Height: Px(40),
 				},
 				Baseline: 30, // Baseline at 30px from top
 			},
 			{
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 				Baseline: 25, // Baseline at 25px from top
 			},
@@ -41,7 +41,8 @@ func TestFlexboxBaselineAlignment(t *testing.T) {
 	}
 
 	constraints := Loose(300, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// All items should align their baselines to the maximum baseline (30px)
 	// First item: baseline at 20, needs to be offset by (30-20) = 10
@@ -70,23 +71,23 @@ func TestFlexboxBaselineAlignmentWithMargins(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width:         300,
-			Height:        100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  50,
-					Height: 30,
-					Margin: Spacing{Top: 10},
+					Width: Px(50),
+					Height: Px(30),
+					Margin: Spacing{Top: Px(10)},
 				},
 				Baseline: 20, // Baseline at 20px from content top
 			},
 			{
 				Style: Style{
-					Width:  50,
-					Height: 40,
-					Margin: Spacing{Top: 5},
+					Width: Px(50),
+					Height: Px(40),
+					Margin: Spacing{Top: Px(5)},
 				},
 				Baseline: 30,
 			},
@@ -94,7 +95,8 @@ func TestFlexboxBaselineAlignmentWithMargins(t *testing.T) {
 	}
 
 	constraints := Loose(300, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Baseline calculation includes top margin
 	// First item: baseline with margin = 10 + 20 = 30
@@ -115,21 +117,21 @@ func TestFlexboxBaselineAlignmentNoBaseline(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width:         300,
-			Height:        100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  50,
-					Height: 30,
+					Width: Px(50),
+					Height: Px(30),
 				},
 				// No baseline set, defaults to 30 (bottom of box)
 			},
 			{
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 				Baseline: 25,
 			},
@@ -137,7 +139,8 @@ func TestFlexboxBaselineAlignmentNoBaseline(t *testing.T) {
 	}
 
 	constraints := Loose(300, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First item: default baseline at 30 (height)
 	// Second item: baseline at 25
@@ -157,21 +160,21 @@ func TestFlexboxBaselineAlignmentColumn(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionColumn,
 			AlignItems:    AlignItemsBaseline,
-			Width:         100,
-			Height:        300,
+			Width: Px(100),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  30,
-					Height: 50,
+					Width: Px(30),
+					Height: Px(50),
 				},
 				Baseline: 10, // For column, baseline is in horizontal direction
 			},
 			{
 				Style: Style{
-					Width:  40,
-					Height: 50,
+					Width: Px(40),
+					Height: Px(50),
 				},
 				Baseline: 15,
 			},
@@ -179,7 +182,8 @@ func TestFlexboxBaselineAlignmentColumn(t *testing.T) {
 	}
 
 	constraints := Loose(100, 300)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// In column direction, baseline affects X positioning (cross axis)
 	// Max baseline = 15
@@ -204,28 +208,28 @@ func TestFlexboxBaselineAlignmentMultiLine(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrap,
 			AlignItems:    AlignItemsBaseline,
-			Width:         100,
-			Height:        200,
+			Width: Px(100),
+			Height: Px(200),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  50,
-					Height: 30,
+					Width: Px(50),
+					Height: Px(30),
 				},
 				Baseline: 20,
 			},
 			{
 				Style: Style{
-					Width:  50,
-					Height: 40,
+					Width: Px(50),
+					Height: Px(40),
 				},
 				Baseline: 30,
 			},
 			{
 				Style: Style{
-					Width:  50, // This wraps to second line
-					Height: 25,
+					Width: Px(50), // This wraps to second line
+					Height: Px(25),
 				},
 				Baseline: 15,
 			},
@@ -233,7 +237,8 @@ func TestFlexboxBaselineAlignmentMultiLine(t *testing.T) {
 	}
 
 	constraints := Loose(100, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First two items should be baseline aligned in first line
 	// Third item should be in its own line with its own baseline

@@ -15,14 +15,14 @@ func main() {
 	// Create text nodes with margins
 	text1 := &layout.Node{
 		Style: layout.Style{
-			Height: 20,
+			Height: Px(20),
 			Margin: layout.Uniform(10),
 		},
 	}
 
 	text2 := &layout.Node{
 		Style: layout.Style{
-			Height: 20,
+			Height: Px(20),
 			Margin: layout.Uniform(10),
 		},
 	}
@@ -79,4 +79,5 @@ func main() {
 	}
 	fmt.Printf("%.2f ──────────────────────── (Root bottom)\n", root.Rect.Height)
 }
+
 

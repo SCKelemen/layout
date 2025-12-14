@@ -8,21 +8,22 @@ func TestGridJustifySelfBasic(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               300,
-			Height:              100,
+			Width:               Px(300),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, JustifySelf: 0}},                  // Use parent's justify-items (start)
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd}},    // Override: end
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsCenter}}, // Override: center
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: 0}},                  // Use parent's justify-items (start)
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsEnd}},    // Override: end
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsCenter}}, // Override: center
 		},
 	}
 
-	LayoutGrid(container, Loose(300, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(300, 100), ctx)
 
 	// First item: start (X=0)
 	if container.Children[0].Rect.X != 0 {
@@ -45,21 +46,22 @@ func TestGridAlignSelfBasic(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100), FixedTrack(100), FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100)), FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               100,
-			Height:              300,
+			Width:               Px(100),
+			Height:              Px(300),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, AlignSelf: 0}},                 // Use parent's align-items (start)
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexEnd}}, // Override: end
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsCenter}},  // Override: center
+			{Style: Style{Width: Px(50), Height: Px(50), AlignSelf: 0}},                 // Use parent's align-items (start)
+			{Style: Style{Width: Px(50), Height: Px(50), AlignSelf: AlignItemsFlexEnd}}, // Override: end
+			{Style: Style{Width: Px(50), Height: Px(50), AlignSelf: AlignItemsCenter}},  // Override: center
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 300))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 300), ctx)
 
 	// First item: start (Y=0)
 	if container.Children[0].Rect.Y != 0 {
@@ -82,19 +84,20 @@ func TestGridSelfAlignmentStretch(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               100,
-			Height:              100,
+			Width:               Px(100),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsStretch, AlignSelf: AlignItemsStretch}},
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsStretch, AlignSelf: AlignItemsStretch}},
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 100), ctx)
 
 	// Items with explicit size don't stretch (per CSS spec)
 	// Stretch only applies when no explicit size is set
@@ -111,25 +114,26 @@ func TestGridSelfAlignmentWithMargins(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               100,
-			Height:              100,
+			Width:               Px(100),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{
-				Width:       50,
-				Height:      50,
+				Width:       Px(50),
+				Height:      Px(50),
 				JustifySelf: JustifyItemsEnd,
 				AlignSelf:   AlignItemsFlexEnd,
-				Margin:      Uniform(10),
+				Margin:      Uniform(Px(10)),
 			}},
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 100), ctx)
 
 	// Cell is 100x100
 	// Item is 50x50 with 10px margins
@@ -148,17 +152,17 @@ func TestGridSelfAlignmentSpanning(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100), FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               200,
-			Height:              200,
+			Width:               Px(200),
+			Height:              Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{
-				Width:           80,
-				Height:          80,
+				Width:           Px(80),
+				Height:          Px(80),
 				GridColumnStart: 0,
 				GridColumnEnd:   2, // Span 2 columns
 				GridRowStart:    0,
@@ -169,7 +173,8 @@ func TestGridSelfAlignmentSpanning(t *testing.T) {
 		},
 	}
 
-	LayoutGrid(container, Loose(200, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(200, 200), ctx)
 
 	// Spanning cell is 200x200 (entire grid)
 	// Item is 80x80
@@ -188,21 +193,22 @@ func TestGridSelfAlignmentWithGaps(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
-			GridColumnGap:       20,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
+			GridColumnGap:       Px(20),
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               220, // 100 + 20 + 100
-			Height:              100,
+			Width:               Px(220), // 100 + 20 + 100
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsCenter}},
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd}},
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsCenter}},
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsEnd}},
 		},
 	}
 
-	LayoutGrid(container, Loose(220, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(220, 100), ctx)
 
 	// First item: center in first cell (0-100), X = 25
 	if container.Children[0].Rect.X != 25 {
@@ -220,20 +226,21 @@ func TestGridSelfAlignmentBaseline(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsStart,
 			AlignItems:          AlignItemsFlexStart,
-			Width:               100,
-			Height:              100,
+			Width:               Px(100),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsBaseline}},
+			{Style: Style{Width: Px(50), Height: Px(50), AlignSelf: AlignItemsBaseline}},
 		},
 	}
 	container.Children[0].Baseline = 30
 
-	LayoutGrid(container, Loose(100, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 100), ctx)
 
 	// With baseline alignment, item should be positioned to align its baseline
 	// For grid, baseline alignment positions item at start by default
@@ -248,22 +255,23 @@ func TestGridSelfAlignmentMixed(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100), FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
 			JustifyItems:        JustifyItemsCenter,
 			AlignItems:          AlignItemsCenter,
-			Width:               200,
-			Height:              200,
+			Width:               Px(200),
+			Height:              Px(200),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},                                                             // Use container alignment (center, center)
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsStart}},                             // Override justify only
-			{Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsFlexStart}},                             // Override align only
-			{Style: Style{Width: 50, Height: 50, JustifySelf: JustifyItemsEnd, AlignSelf: AlignItemsFlexEnd}}, // Override both
+			{Style: Style{Width: Px(50), Height: Px(50)}},                                                             // Use container alignment (center, center)
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsStart}},                             // Override justify only
+			{Style: Style{Width: Px(50), Height: Px(50), AlignSelf: AlignItemsFlexStart}},                             // Override align only
+			{Style: Style{Width: Px(50), Height: Px(50), JustifySelf: JustifyItemsEnd, AlignSelf: AlignItemsFlexEnd}}, // Override both
 		},
 	}
 
-	LayoutGrid(container, Loose(200, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(200, 200), ctx)
 
 	// First item: center/center (25, 25)
 	if container.Children[0].Rect.X != 25 || container.Children[0].Rect.Y != 25 {

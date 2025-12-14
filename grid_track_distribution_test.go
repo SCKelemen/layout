@@ -8,19 +8,20 @@ func TestGridAlignContentStart(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentFlexStart,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// First item: should be at Y=0
 	if container.Children[0].Rect.Y != 0 {
@@ -39,19 +40,20 @@ func TestGridAlignContentEnd(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentFlexEnd,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// First item: should be at Y=100 (200 - 50 - 50)
 	if container.Children[0].Rect.Y != 100 {
@@ -70,19 +72,20 @@ func TestGridAlignContentCenter(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentCenter,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// First item: should be at Y=50 (100px free space / 2 = 50)
 	if container.Children[0].Rect.Y != 50 {
@@ -101,19 +104,20 @@ func TestGridAlignContentSpaceBetween(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentSpaceBetween,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// First item: should be at Y=0
 	if container.Children[0].Rect.Y != 0 {
@@ -132,19 +136,20 @@ func TestGridAlignContentSpaceAround(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentSpaceAround,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// With 100px free space and 2 tracks: 100/2 = 50px per track
 	// Half at start (25), full between (50), half at end (25)
@@ -165,19 +170,20 @@ func TestGridAlignContentStretch(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentStretch,
-			Width:               100,
-			Height:              200, // Extra 100px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 100px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// First item: should be at Y=0
 	if container.Children[0].Rect.Y != 0 {
@@ -207,20 +213,21 @@ func TestGridAlignContentWithGaps(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
-			GridRowGap:          10,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridRowGap:          Px(10),
 			AlignContent:        AlignContentCenter,
-			Width:               100,
-			Height:              200, // 200 - 50 - 10 - 50 = 90px free space
+			Width:               Px(100),
+			Height:              Px(200), // 200 - 50 - 10 - 50 = 90px free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// Total track size: 50 + 10 + 50 = 110
 	// Free space: 200 - 110 = 90
@@ -241,24 +248,25 @@ func TestGridAlignContentWithSpanning(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentCenter,
-			Width:               100,
-			Height:              300, // 300 - 150 = 150px free space
+			Width:               Px(100),
+			Height:              Px(300), // 300 - 150 = 150px free space
 		},
 		Children: []*Node{
 			{Style: Style{
-				Width:        50,
-				Height:       110, // Spans rows 0-1 (50+50)
+				Width:        Px(50),
+				Height:       Px(110), // Spans rows 0-1 (50+50)
 				GridRowStart: 0,
 				GridRowEnd:   2,
 			}},
-			{Style: Style{Width: 50, Height: 50}}, // Row 2
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 2
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 300))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 300), ctx)
 
 	// Fixed tracks remain at 50px each despite spanning item
 	// Total: 50 + 50 + 50 = 150px
@@ -284,18 +292,19 @@ func TestGridAlignContentSingleTrack(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50))},
 			AlignContent:        AlignContentSpaceBetween,
-			Width:               100,
-			Height:              200, // Extra 150px of free space
+			Width:               Px(100),
+			Height:              Px(200), // Extra 150px of free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 200), ctx)
 
 	// With single track, space-between behaves like flex-start
 	// Item should be at Y=0
@@ -310,19 +319,20 @@ func TestGridAlignContentNoFreeSpace(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			AlignContent:        AlignContentCenter,
-			Width:               100,
-			Height:              100, // Exact fit, no free space
+			Width:               Px(100),
+			Height:              Px(100), // Exact fit, no free space
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Row 0
-			{Style: Style{Width: 50, Height: 50}}, // Row 1
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 0
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Row 1
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 100), ctx)
 
 	// First item: should be at Y=0
 	if container.Children[0].Rect.Y != 0 {

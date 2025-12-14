@@ -24,7 +24,7 @@ func CreateMetricCard(title, value string, trend float64, width float64) *layout
 		WithStyle(layout.Style{
 			Display:       layout.DisplayFlex,
 			FlexDirection: layout.FlexDirectionColumn,
-			Width:         width,
+			Width:         layout.Px(width),
 		}).
 		WithPadding(16).
 		WithMargin(8).
@@ -95,7 +95,8 @@ func main() {
 
 	// Layout the dashboard
 	constraints := layout.Loose(1200, 800)
-	layout.Layout(dashboard, constraints)
+	ctx := layout.NewLayoutContext(1200, 800, 16)
+	layout.Layout(dashboard, constraints, ctx)
 
 	// Print results
 	fmt.Printf("Dashboard size: %.0fx%.0f\n",
@@ -110,7 +111,7 @@ func main() {
 		return len(n.Children) == 3 &&
 			n.Style.Display == layout.DisplayFlex &&
 			n.Style.FlexDirection == layout.FlexDirectionColumn &&
-			n.Style.Width == 200
+			n.Style.Width.Value == 200 && n.Style.Width.Unit == layout.Pixels
 	})
 	fmt.Printf("Metric cards found: %d\n", len(metricCards))
 
@@ -134,20 +135,20 @@ func main() {
 		},
 		func(n *layout.Node) *layout.Node {
 			// Increase padding for dark theme
-			return n.WithPadding(n.Style.Padding.Top + 4)
+			return n.WithPadding(n.Style.Padding.Top.Value + 4)
 		},
 	)
 
-	layout.Layout(darkTheme, constraints)
+	layout.Layout(darkTheme, constraints, ctx)
 	fmt.Printf("Dark theme created (same structure, different styling)\n")
-	fmt.Printf("Original first metric padding: %.0f\n", metricCards[0].Style.Padding.Top)
+	fmt.Printf("Original first metric padding: %.0f\n", metricCards[0].Style.Padding.Top.Value)
 
 	darkMetrics := darkTheme.FindAll(func(n *layout.Node) bool {
 		return len(n.Children) == 3 &&
 			n.Style.Display == layout.DisplayFlex &&
-			n.Style.Width == 200
+			n.Style.Width.Value == 200 && n.Style.Width.Unit == layout.Pixels
 	})
 	if len(darkMetrics) > 0 {
-		fmt.Printf("Dark theme first metric padding: %.0f\n", darkMetrics[0].Style.Padding.Top)
+		fmt.Printf("Dark theme first metric padding: %.0f\n", darkMetrics[0].Style.Padding.Top.Value)
 	}
 }

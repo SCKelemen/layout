@@ -164,30 +164,30 @@ func jsonToNode(nj *NodeJSON) *layout.Node {
 // styleToJSON converts layout.Style to StyleJSON
 func styleToJSON(s *layout.Style) StyleJSON {
 	sj := StyleJSON{
-		Width:           s.Width,
-		Height:          s.Height,
-		MinWidth:        s.MinWidth,
-		MinHeight:       s.MinHeight,
-		MaxWidth:        s.MaxWidth,
-		MaxHeight:       s.MaxHeight,
+		Width:           s.Width.Value,
+		Height:          s.Height.Value,
+		MinWidth:        s.MinWidth.Value,
+		MinHeight:       s.MinHeight.Value,
+		MaxWidth:        s.MaxWidth.Value,
+		MaxHeight:       s.MaxHeight.Value,
 		AspectRatio:     s.AspectRatio,
 		FlexGrow:        s.FlexGrow,
 		FlexShrink:      s.FlexShrink,
-		FlexBasis:       s.FlexBasis,
-		FlexGap:         s.FlexGap,
-		FlexRowGap:      s.FlexRowGap,
-		FlexColumnGap:   s.FlexColumnGap,
-		GridGap:         s.GridGap,
-		GridRowGap:      s.GridRowGap,
-		GridColumnGap:   s.GridColumnGap,
+		FlexBasis:       s.FlexBasis.Value,
+		FlexGap:         s.FlexGap.Value,
+		FlexRowGap:      s.FlexRowGap.Value,
+		FlexColumnGap:   s.FlexColumnGap.Value,
+		GridGap:         s.GridGap.Value,
+		GridRowGap:      s.GridRowGap.Value,
+		GridColumnGap:   s.GridColumnGap.Value,
 		GridRowStart:    s.GridRowStart,
 		GridRowEnd:      s.GridRowEnd,
 		GridColumnStart: s.GridColumnStart,
 		GridColumnEnd:   s.GridColumnEnd,
-		Top:             s.Top,
-		Right:           s.Right,
-		Bottom:          s.Bottom,
-		Left:            s.Left,
+		Top:             s.Top.Value,
+		Right:           s.Right.Value,
+		Bottom:          s.Bottom.Value,
+		Left:            s.Left.Value,
 		ZIndex:          s.ZIndex,
 		Padding:         spacingToJSON(&s.Padding),
 		Margin:          spacingToJSON(&s.Margin),
@@ -235,10 +235,10 @@ func styleToJSON(s *layout.Style) StyleJSON {
 			sj.GridTemplateColumns[i] = trackToJSON(&s.GridTemplateColumns[i])
 		}
 	}
-	if s.GridAutoRows.MinSize != 0 || s.GridAutoRows.MaxSize != layout.Unbounded || s.GridAutoRows.Fraction != 0 {
+	if s.GridAutoRows.MinSize.Value != 0 || s.GridAutoRows.MaxSize.Value != layout.Unbounded || s.GridAutoRows.Fraction != 0 {
 		sj.GridAutoRows = trackToJSON(&s.GridAutoRows)
 	}
-	if s.GridAutoColumns.MinSize != 0 || s.GridAutoColumns.MaxSize != layout.Unbounded || s.GridAutoColumns.Fraction != 0 {
+	if s.GridAutoColumns.MinSize.Value != 0 || s.GridAutoColumns.MaxSize.Value != layout.Unbounded || s.GridAutoColumns.Fraction != 0 {
 		sj.GridAutoColumns = trackToJSON(&s.GridAutoColumns)
 	}
 
@@ -248,30 +248,30 @@ func styleToJSON(s *layout.Style) StyleJSON {
 // jsonToStyle converts StyleJSON to layout.Style
 func jsonToStyle(sj *StyleJSON) layout.Style {
 	s := layout.Style{
-		Width:           sj.Width,
-		Height:          sj.Height,
-		MinWidth:        sj.MinWidth,
-		MinHeight:       sj.MinHeight,
-		MaxWidth:        sj.MaxWidth,
-		MaxHeight:       sj.MaxHeight,
+		Width:           layout.Px(sj.Width),
+		Height:          layout.Px(sj.Height),
+		MinWidth:        layout.Px(sj.MinWidth),
+		MinHeight:       layout.Px(sj.MinHeight),
+		MaxWidth:        layout.Px(sj.MaxWidth),
+		MaxHeight:       layout.Px(sj.MaxHeight),
 		AspectRatio:     sj.AspectRatio,
 		FlexGrow:        sj.FlexGrow,
 		FlexShrink:      sj.FlexShrink,
-		FlexBasis:       sj.FlexBasis,
-		FlexGap:         sj.FlexGap,
-		FlexRowGap:      sj.FlexRowGap,
-		FlexColumnGap:   sj.FlexColumnGap,
-		GridGap:         sj.GridGap,
-		GridRowGap:      sj.GridRowGap,
-		GridColumnGap:   sj.GridColumnGap,
+		FlexBasis:       layout.Px(sj.FlexBasis),
+		FlexGap:         layout.Px(sj.FlexGap),
+		FlexRowGap:      layout.Px(sj.FlexRowGap),
+		FlexColumnGap:   layout.Px(sj.FlexColumnGap),
+		GridGap:         layout.Px(sj.GridGap),
+		GridRowGap:      layout.Px(sj.GridRowGap),
+		GridColumnGap:   layout.Px(sj.GridColumnGap),
 		GridRowStart:    sj.GridRowStart,
 		GridRowEnd:      sj.GridRowEnd,
 		GridColumnStart: sj.GridColumnStart,
 		GridColumnEnd:   sj.GridColumnEnd,
-		Top:             sj.Top,
-		Right:           sj.Right,
-		Bottom:          sj.Bottom,
-		Left:            sj.Left,
+		Top:             layout.Px(sj.Top),
+		Right:           layout.Px(sj.Right),
+		Bottom:          layout.Px(sj.Bottom),
+		Left:            layout.Px(sj.Left),
 		ZIndex:          sj.ZIndex,
 		Padding:         jsonToSpacing(&sj.Padding),
 		Margin:          jsonToSpacing(&sj.Margin),
@@ -616,35 +616,35 @@ func stringToPosition(s string) layout.Position {
 
 func trackToJSON(t *layout.GridTrack) TrackJSON {
 	return TrackJSON{
-		MinSize:  t.MinSize,
-		MaxSize:  t.MaxSize,
+		MinSize:  t.MinSize.Value,
+		MaxSize:  t.MaxSize.Value,
 		Fraction: t.Fraction,
 	}
 }
 
 func jsonToTrack(tj *TrackJSON) layout.GridTrack {
 	return layout.GridTrack{
-		MinSize:  tj.MinSize,
-		MaxSize:  tj.MaxSize,
+		MinSize:  layout.Px(tj.MinSize),
+		MaxSize:  layout.Px(tj.MaxSize),
 		Fraction: tj.Fraction,
 	}
 }
 
 func spacingToJSON(s *layout.Spacing) SpacingJSON {
 	return SpacingJSON{
-		Top:    s.Top,
-		Right:  s.Right,
-		Bottom: s.Bottom,
-		Left:   s.Left,
+		Top:    s.Top.Value,
+		Right:  s.Right.Value,
+		Bottom: s.Bottom.Value,
+		Left:   s.Left.Value,
 	}
 }
 
 func jsonToSpacing(sj *SpacingJSON) layout.Spacing {
 	return layout.Spacing{
-		Top:    sj.Top,
-		Right:  sj.Right,
-		Bottom: sj.Bottom,
-		Left:   sj.Left,
+		Top:    layout.Px(sj.Top),
+		Right:  layout.Px(sj.Right),
+		Bottom: layout.Px(sj.Bottom),
+		Left:   layout.Px(sj.Left),
 	}
 }
 

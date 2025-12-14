@@ -14,17 +14,18 @@ func main() {
 	fmt.Println("Example 1: Image with 16:9 aspect ratio")
 	image := &layout.Node{
 		Style: layout.Style{
-			Width:  800,
-			Height: -1, // Explicitly set to auto
+			Width:  layout.Px(800),
+			Height: layout.Px(-1), // Explicitly set to auto
 		},
 	}
 	image = layout.AspectRatio(image, 16.0/9.0)
 
 	root1 := layout.VStack(image)
-	root1.Style.Width = 1000
+	root1.Style.Width = layout.Px(1000)
 
 	constraints := layout.Loose(1000, layout.Unbounded)
-	layout.Layout(root1, constraints)
+	ctx := layout.NewLayoutContext(1000, 600, 16)
+	layout.Layout(root1, constraints, ctx)
 
 	fmt.Printf("Image: %.2f x %.2f (aspect ratio: %.2f)\n",
 		image.Rect.Width, image.Rect.Height, image.Rect.Width/image.Rect.Height)
@@ -35,16 +36,16 @@ func main() {
 	fmt.Println("Example 2: Video that fills container width")
 	video := &layout.Node{
 		Style: layout.Style{
-			Width:  -1, // Auto - will use container width
-			Height: -1, // Auto - will be calculated from aspect ratio
+			Width:  layout.Px(-1), // Auto - will use container width
+			Height: layout.Px(-1), // Auto - will be calculated from aspect ratio
 		},
 	}
 	video = layout.AspectRatio(video, 16.0/9.0)
 
 	root2 := layout.VStack(video)
-	root2.Style.Width = 1200
+	root2.Style.Width = layout.Px(1200)
 
-	layout.Layout(root2, constraints)
+	layout.Layout(root2, constraints, ctx)
 
 	fmt.Printf("Video: %.2f x %.2f (aspect ratio: %.2f)\n",
 		video.Rect.Width, video.Rect.Height, video.Rect.Width/video.Rect.Height)
@@ -54,15 +55,15 @@ func main() {
 	// Example 3: Square cards in a grid
 	fmt.Println("Example 3: Square cards in a grid")
 	cards := []*layout.Node{
-		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: 200, Height: -1}}, 1.0),
-		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: 200, Height: -1}}, 1.0),
-		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: 200, Height: -1}}, 1.0),
+		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: layout.Px(200), Height: layout.Px(-1)}}, 1.0),
+		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: layout.Px(200), Height: layout.Px(-1)}}, 1.0),
+		layout.AspectRatio(&layout.Node{Style: layout.Style{Width: layout.Px(200), Height: layout.Px(-1)}}, 1.0),
 	}
 
 	root3 := layout.HStack(cards...)
-	root3.Style.Width = 700
+	root3.Style.Width = layout.Px(700)
 
-	layout.Layout(root3, constraints)
+	layout.Layout(root3, constraints, ctx)
 
 	for i, card := range cards {
 		fmt.Printf("Card %d: %.2f x %.2f (aspect ratio: %.2f)\n",
@@ -74,16 +75,16 @@ func main() {
 	fmt.Println("Example 4: Element with height set, aspect ratio calculates width")
 	element := &layout.Node{
 		Style: layout.Style{
-			Width:  -1, // Auto - will be calculated from aspect ratio
-			Height: 300,
+			Width:  layout.Px(-1), // Auto - will be calculated from aspect ratio
+			Height: layout.Px(300),
 		},
 	}
 	element = layout.AspectRatio(element, 4.0/3.0)
 
 	root4 := layout.VStack(element)
-	root4.Style.Width = 1000
+	root4.Style.Width = layout.Px(1000)
 
-	layout.Layout(root4, constraints)
+	layout.Layout(root4, constraints, ctx)
 
 	fmt.Printf("Element: %.2f x %.2f (aspect ratio: %.2f)\n",
 		element.Rect.Width, element.Rect.Height, element.Rect.Width/element.Rect.Height)

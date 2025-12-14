@@ -8,21 +8,22 @@ func TestGridAutoFlowRow(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowRow, // Explicit row-major
-			Width:               200,
-			Height:              100,
+			Width:               Px(200),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // (0,0)
-			{Style: Style{Width: 50, Height: 50}}, // (0,1)
-			{Style: Style{Width: 50, Height: 50}}, // (1,0)
-			{Style: Style{Width: 50, Height: 50}}, // (1,1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,1)
 		},
 	}
 
-	LayoutGrid(container, Loose(200, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(200, 100), ctx)
 
 	// Row-major order: items fill row 0, then row 1
 	// Item 0: (0,0)
@@ -49,21 +50,22 @@ func TestGridAutoFlowColumn(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowColumn, // Column-major
-			Width:               200,
-			Height:              100,
+			Width:               Px(200),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // (0,0)
-			{Style: Style{Width: 50, Height: 50}}, // (1,0)
-			{Style: Style{Width: 50, Height: 50}}, // (0,1)
-			{Style: Style{Width: 50, Height: 50}}, // (1,1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,1)
 		},
 	}
 
-	LayoutGrid(container, Loose(200, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(200, 100), ctx)
 
 	// Column-major order: items fill column 0, then column 1
 	// Item 0: (0,0) - first column, first row
@@ -90,21 +92,22 @@ func TestGridAutoFlowRowDense(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowRowDense, // Row-major with dense packing
-			Width:               150,
-			Height:              100,
+			Width:               Px(150),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
 		},
 	}
 
-	LayoutGrid(container, Loose(150, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(150, 100), ctx)
 
 	// With row dense, items fill row 0 completely, then row 1
 	// Item 0: (0,0)
@@ -131,21 +134,22 @@ func TestGridAutoFlowColumnDense(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowColumnDense, // Column-major with dense packing
-			Width:               100,
-			Height:              150,
+			Width:               Px(100),
+			Height:              Px(150),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
 		},
 	}
 
-	LayoutGrid(container, Loose(100, 150))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(100, 150), ctx)
 
 	// With column dense, items fill column 0 completely, then column 1
 	// Item 0: (0,0)
@@ -171,19 +175,20 @@ func TestGridAutoFlowDefault(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50))},
 			// GridAutoFlow not set - should default to row-major
-			Width:  200,
-			Height: 50,
+			Width:  Px(200),
+			Height: Px(50),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // (0,0)
-			{Style: Style{Width: 50, Height: 50}}, // (0,1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,1)
 		},
 	}
 
-	LayoutGrid(container, Loose(200, 50))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(200, 50), ctx)
 
 	// Default should be row-major: items in same row
 	if container.Children[0].Rect.Y != container.Children[1].Rect.Y {
@@ -201,25 +206,26 @@ func TestGridAutoFlowWithExplicitPlacement(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowRow,
-			Width:               150,
-			Height:              100,
+			Width:               Px(150),
+			Height:              Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
 			{Style: Style{ // Explicitly placed at (1,1)
-				Width:           50,
-				Height:          50,
+				Width:           Px(50),
+				Height:          Px(50),
 				GridRowStart:    1,
 				GridColumnStart: 1,
 			}},
-			{Style: Style{Width: 50, Height: 50}}, // Auto-placed
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // Auto-placed
 		},
 	}
 
-	LayoutGrid(container, Loose(150, 100))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(150, 100), ctx)
 
 	// Item 0: auto-placed at (0,0)
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {
@@ -245,23 +251,24 @@ func TestGridAutoFlowColumnWithGaps(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridAutoFlow:        GridAutoFlowColumn,
-			GridColumnGap:       10,
-			GridRowGap:          10,
-			Width:               110, // 50 + 10 + 50
-			Height:              110, // 50 + 10 + 50
+			GridColumnGap:       Px(10),
+			GridRowGap:          Px(10),
+			Width:               Px(110), // 50 + 10 + 50
+			Height:              Px(110), // 50 + 10 + 50
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // (0,0)
-			{Style: Style{Width: 50, Height: 50}}, // (0,1) with gap
-			{Style: Style{Width: 50, Height: 50}}, // (1,0) with gap
-			{Style: Style{Width: 50, Height: 50}}, // (1,1) with gaps
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0,1) with gap
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,0) with gap
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1,1) with gaps
 		},
 	}
 
-	LayoutGrid(container, Loose(110, 110))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(container, Loose(110, 110), ctx)
 
 	// Item 0: (0,0)
 	if container.Children[0].Rect.X != 0 || container.Children[0].Rect.Y != 0 {

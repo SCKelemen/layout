@@ -34,7 +34,8 @@ func main() {
 	).WithPadding(20)
 
 	// Layout the tree
-	layout.Layout(tree, layout.Loose(600, 400))
+	layoutCtx := layout.NewLayoutContext(600, 400, 16)
+	layout.Layout(tree, layout.Loose(600, 400), layoutCtx)
 
 	fmt.Println("=== Creating Context ===")
 
@@ -67,7 +68,7 @@ func main() {
 	parentCtx := targetCtx.Parent()
 	if parentCtx != nil {
 		fmt.Printf("Parent is a VStack with %d children\n", len(parentCtx.Node.Children))
-		fmt.Printf("Parent has padding: %.0f\n", parentCtx.Node.Style.Padding.Top)
+		fmt.Printf("Parent has padding: %.0f\n", parentCtx.Node.Style.Padding.Top.Value)
 	}
 
 	// Get grandparent
@@ -183,7 +184,7 @@ func main() {
 		},
 		func(n *layout.Node) *layout.Node {
 			// Add some distinction
-			return n.WithPadding(n.Style.Padding.Top + 2)
+			return n.WithPadding(n.Style.Padding.Top.Value + 2)
 		},
 	)
 

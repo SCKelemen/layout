@@ -9,24 +9,25 @@ func TestPositionAbsolute(t *testing.T) {
 	// Test absolute positioning
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionAbsolute,
-					Left:     50,
-					Top:      50,
-					Width:    100,
-					Height:   100,
+					Left:     Px(50),
+					Top:      Px(50),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, root.Rect)
 
 	child := root.Children[0]
@@ -42,24 +43,25 @@ func TestPositionRelative(t *testing.T) {
 	// Test relative positioning (offsets from normal flow)
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionRelative,
-					Left:     20,
-					Top:      10,
-					Width:    100,
-					Height:   100,
+					Left:     Px(20),
+					Top:      Px(10),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, root.Rect)
 
 	child := root.Children[0]
@@ -76,24 +78,25 @@ func TestPositionAbsoluteWithRightBottom(t *testing.T) {
 	// Test absolute positioning with right and bottom
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionAbsolute,
-					Right:    50,
-					Bottom:   50,
-					Width:    100,
-					Height:   100,
+					Right:    Px(50),
+					Bottom:   Px(50),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, root.Rect)
 
 	child := root.Children[0]
@@ -114,24 +117,25 @@ func TestPositionFixed(t *testing.T) {
 	viewport := Rect{X: 0, Y: 0, Width: 800, Height: 600}
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionFixed,
-					Right:    10,
-					Top:      10,
-					Width:    100,
-					Height:   100,
+					Right:    Px(10),
+					Top:      Px(10),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, viewport)
 
 	child := root.Children[0]
@@ -151,25 +155,26 @@ func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
 	// Test absolute positioning with both left and right (constrains width)
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionAbsolute,
-					Left:     50,
-					Right:    50,
-					Top:      50,
-					Width:    500, // This should be constrained
-					Height:   100,
+					Left:     Px(50),
+					Right:    Px(50),
+					Top:      Px(50),
+					Width:    Px(500), // This should be constrained
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, root.Rect)
 
 	child := root.Children[0]

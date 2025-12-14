@@ -13,14 +13,14 @@ func TestGridSpanningMargin(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(50),
-				FixedTrack(50),
-				FixedTrack(50),
+				FixedTrack(Px(50)),
+				FixedTrack(Px(50)),
+				FixedTrack(Px(50)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
-			GridRowGap: 10,
+			GridRowGap: Px(10),
 		},
 		Children: []*Node{
 			// Item spanning rows 0-1 with margin
@@ -30,8 +30,8 @@ func TestGridSpanningMargin(t *testing.T) {
 					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
-					Height:          110, // 2 * 50 + 1 * 10 gap
-					Margin:          Uniform(5),
+					Height:          Px(110), // 2 * 50 + 1 * 10 gap
+					Margin:          Uniform(Px(5)),
 				},
 			},
 			// Item in row 2 with margin
@@ -41,15 +41,16 @@ func TestGridSpanningMargin(t *testing.T) {
 					GridRowEnd:      3,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
-					Height:          50,
-					Margin:          Uniform(5),
+					Height:          Px(50),
+					Margin:          Uniform(Px(5)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(100, Unbounded)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 
 	item1 := root.Children[0]
 	item2 := root.Children[1]
@@ -68,8 +69,8 @@ func TestGridSpanningMargin(t *testing.T) {
 
 	// Gap between item 1 bottom (with margin) and item 2 top (with margin)
 	// Should be exactly the row gap (10)
-	item1BottomWithMargin := item1.Rect.Y + item1.Rect.Height + item1.Style.Margin.Bottom
-	item2TopWithMargin := item2.Rect.Y - item2.Style.Margin.Top
+	item1BottomWithMargin := item1.Rect.Y + item1.Rect.Height + item1.Style.Margin.Bottom.Value
+	item2TopWithMargin := item2.Rect.Y - item2.Style.Margin.Top.Value
 	gap := item2TopWithMargin - item1BottomWithMargin
 
 	expectedGap := 10.0 // GridRowGap

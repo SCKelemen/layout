@@ -10,7 +10,7 @@ import "sort"
 //
 // See: https://www.w3.org/TR/css-flexbox-1/#line-sizing
 // See: https://www.w3.org/TR/css-flexbox-1/#order-property
-func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
+func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*flexItem {
 	children := node.Children
 
 	// Sort children by order property (CSS Flexbox §5.4.1)
@@ -32,18 +32,21 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 			node: child,
 		}
 
-		// Get child margins
+		// Get current font size for child's Length resolution
+		childFontSize := getCurrentFontSize(child, ctx)
+
+		// Get child margins (resolve Length to pixels)
 		var childMainMarginStart, childMainMarginEnd, childCrossMarginStart, childCrossMarginEnd float64
 		if setup.isRow {
-			childMainMarginStart = child.Style.Margin.Left
-			childMainMarginEnd = child.Style.Margin.Right
-			childCrossMarginStart = child.Style.Margin.Top
-			childCrossMarginEnd = child.Style.Margin.Bottom
+			childMainMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
+			childMainMarginEnd = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
+			childCrossMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
+			childCrossMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 		} else {
-			childMainMarginStart = child.Style.Margin.Top
-			childMainMarginEnd = child.Style.Margin.Bottom
-			childCrossMarginStart = child.Style.Margin.Left
-			childCrossMarginEnd = child.Style.Margin.Right
+			childMainMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
+			childMainMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
+			childCrossMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
+			childCrossMarginEnd = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
 		}
 		item.mainMarginStart = childMainMarginStart
 		item.mainMarginEnd = childMainMarginEnd
@@ -71,11 +74,11 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 		// Measure child
 		var childSize Size
 		if child.Style.Display == DisplayFlex {
-			childSize = LayoutFlexbox(child, childConstraints)
+			childSize = LayoutFlexbox(child, childConstraints, ctx)
 		} else if child.Style.Display == DisplayGrid {
-			childSize = LayoutGrid(child, childConstraints)
+			childSize = LayoutGrid(child, childConstraints, ctx)
 		} else {
-			childSize = LayoutBlock(child, childConstraints)
+			childSize = LayoutBlock(child, childConstraints, ctx)
 		}
 
 		if setup.isRow {
@@ -83,21 +86,21 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 			item.crossSize = childSize.Height
 			// Use explicit dimensions if measured size is 0 or Unbounded
 			// This handles cases where LayoutBlock returns 0 or Unbounded for items with explicit dimensions
-			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Width >= 0 {
-				item.mainSize = child.Style.Width
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Width.Value >= 0 {
+				item.mainSize = ResolveLength(child.Style.Width, ctx, childFontSize)
 			}
-			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Height >= 0 {
-				item.crossSize = child.Style.Height
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Height.Value >= 0 {
+				item.crossSize = ResolveLength(child.Style.Height, ctx, childFontSize)
 			}
 		} else {
 			item.mainSize = childSize.Height
 			item.crossSize = childSize.Width
 			// Use explicit dimensions if measured size is 0 or Unbounded
-			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Height >= 0 {
-				item.mainSize = child.Style.Height
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Height.Value >= 0 {
+				item.mainSize = ResolveLength(child.Style.Height, ctx, childFontSize)
 			}
-			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Width >= 0 {
-				item.crossSize = child.Style.Width
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Width.Value >= 0 {
+				item.crossSize = ResolveLength(child.Style.Width, ctx, childFontSize)
 			}
 		}
 
@@ -113,7 +116,7 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 		if item.flexShrink == 0 {
 			item.flexShrink = 1 // Default shrink factor
 		}
-		item.flexBasis = child.Style.FlexBasis
+		item.flexBasis = ResolveLength(child.Style.FlexBasis, ctx, childFontSize)
 		if item.flexBasis < 0 {
 			item.flexBasis = item.mainSize // auto means use main size
 		}
@@ -125,14 +128,16 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 			if measuredMainSize > 0 {
 				item.baseSize = measuredMainSize
 				item.flexBasis = measuredMainSize
-			} else if setup.isRow && child.Style.Width >= 0 {
+			} else if setup.isRow && child.Style.Width.Value >= 0 {
 				// Use explicit width for baseSize
-				item.baseSize = child.Style.Width
-				item.flexBasis = child.Style.Width
-			} else if !setup.isRow && child.Style.Height >= 0 {
+				resolvedWidth := ResolveLength(child.Style.Width, ctx, childFontSize)
+				item.baseSize = resolvedWidth
+				item.flexBasis = resolvedWidth
+			} else if !setup.isRow && child.Style.Height.Value >= 0 {
 				// Use explicit height for baseSize
-				item.baseSize = child.Style.Height
-				item.flexBasis = child.Style.Height
+				resolvedHeight := ResolveLength(child.Style.Height, ctx, childFontSize)
+				item.baseSize = resolvedHeight
+				item.flexBasis = resolvedHeight
 			}
 		}
 		flexItems = append(flexItems, item)
@@ -140,3 +145,4 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup) []*flexItem {
 
 	return flexItems
 }
+

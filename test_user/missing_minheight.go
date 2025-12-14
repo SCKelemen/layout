@@ -38,7 +38,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 0, GridRowEnd: 1,
 			GridColumnStart: 0, GridColumnEnd: 3,
-			MinHeight: 60.0,
+			MinHeight: Px(60.0),
 		},
 	})
 
@@ -46,7 +46,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 0, GridColumnEnd: 1,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 	root.Children = append(root.Children, &layout.Node{
@@ -71,7 +71,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 3, GridRowEnd: 4,
 			GridColumnStart: 0, GridColumnEnd: 3,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 
@@ -87,3 +87,4 @@ func main() {
 		log.Printf("ERROR: Root height too small! Demonstrates the bug.\n")
 	}
 }
+

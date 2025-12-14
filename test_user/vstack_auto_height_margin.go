@@ -16,21 +16,21 @@ func main() {
 	text1 := &layout.Node{
 		Style: layout.Style{
 			// Height is auto (-1 or 0)
-			MinHeight: 20, // Text has some minimum height
+			MinHeight: Px(20), // Text has some minimum height
 			Margin:    layout.Uniform(10),
 		},
 	}
 
 	text2 := &layout.Node{
 		Style: layout.Style{
-			MinHeight: 20,
+			MinHeight: Px(20),
 			Margin:    layout.Uniform(10),
 		},
 	}
 
 	text3 := &layout.Node{
 		Style: layout.Style{
-			MinHeight: 20,
+			MinHeight: Px(20),
 			Margin:    layout.Uniform(10),
 		},
 	}
@@ -68,20 +68,20 @@ func main() {
 	fmt.Println("=== Mixed Explicit and Auto Heights ===")
 	mixed1 := &layout.Node{
 		Style: layout.Style{
-			Height: 30, // Explicit
+			Height: Px(30), // Explicit
 			Margin: layout.Uniform(10),
 		},
 	}
 	mixed2 := &layout.Node{
 		Style: layout.Style{
 			// Auto height
-			MinHeight: 20,
+			MinHeight: Px(20),
 			Margin: layout.Uniform(10),
 		},
 	}
 	mixed3 := &layout.Node{
 		Style: layout.Style{
-			Height: 25, // Explicit
+			Height: Px(25), // Explicit
 			Margin: layout.Uniform(10),
 		},
 	}
@@ -104,4 +104,5 @@ func main() {
 		}
 	}
 }
+
 

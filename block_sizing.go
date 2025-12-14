@@ -6,18 +6,20 @@ package layout
 // - §5: Aspect Ratios
 //
 // See: https://www.w3.org/TR/css-sizing-4/#aspect-ratio
-func blockDetermineSize(node *Node, setup blockSetup) (nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) {
+func blockDetermineSize(node *Node, setup blockSetup, ctx *LayoutContext, currentFontSize float64) (nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) {
 	// Check for intrinsic sizing (min-content, max-content, fit-content)
 	// These override auto sizing
 	constraints := Loose(setup.contentWidth, setup.contentHeight)
 
 	// Handle width intrinsic sizing
-	if node.Style.Width == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMinContent)
-	} else if node.Style.Width == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMaxContent)
-	} else if node.Style.Width == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeFitContent)
+	// Check both sentinel values in Width and WidthSizing enum
+	widthValue := ResolveLength(node.Style.Width, ctx, currentFontSize)
+	if widthValue == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMinContent, ctx)
+	} else if widthValue == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMaxContent, ctx)
+	} else if widthValue == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
+		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeFitContent, ctx)
 	} else {
 		// Normal width handling
 		nodeWidth = setup.specifiedWidth
@@ -27,12 +29,13 @@ func blockDetermineSize(node *Node, setup blockSetup) (nodeWidth, nodeHeight flo
 	}
 
 	// Handle height intrinsic sizing
-	if node.Style.Height == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMinContent)
-	} else if node.Style.Height == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMaxContent)
-	} else if node.Style.Height == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeFitContent)
+	heightValue := ResolveLength(node.Style.Height, ctx, currentFontSize)
+	if heightValue == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMinContent, ctx)
+	} else if heightValue == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMaxContent, ctx)
+	} else if heightValue == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
+		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeFitContent, ctx)
 	} else {
 		// Normal height handling
 		nodeHeight = setup.specifiedHeight

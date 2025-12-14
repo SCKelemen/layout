@@ -6,52 +6,52 @@ import (
 
 func TestSpacingHelpers(t *testing.T) {
 	// Test Uniform spacing
-	uniform := Uniform(10)
-	if uniform.Top != 10 || uniform.Right != 10 || uniform.Bottom != 10 || uniform.Left != 10 {
+	uniform := Uniform(Px(10))
+	if uniform.Top.Value != 10 || uniform.Right.Value != 10 || uniform.Bottom.Value != 10 || uniform.Left.Value != 10 {
 		t.Error("Uniform spacing should set all sides to same value")
 	}
 
 	// Test Horizontal spacing
-	horizontal := Horizontal(20)
-	if horizontal.Top != 0 || horizontal.Bottom != 0 {
+	horizontal := Horizontal(Px(20))
+	if horizontal.Top.Value != 0 || horizontal.Bottom.Value != 0 {
 		t.Error("Horizontal spacing should have 0 top/bottom")
 	}
-	if horizontal.Left != 20 || horizontal.Right != 20 {
+	if horizontal.Left.Value != 20 || horizontal.Right.Value != 20 {
 		t.Error("Horizontal spacing should set left/right")
 	}
 
 	// Test Vertical spacing
-	vertical := Vertical(30)
-	if vertical.Left != 0 || vertical.Right != 0 {
+	vertical := Vertical(Px(30))
+	if vertical.Left.Value != 0 || vertical.Right.Value != 0 {
 		t.Error("Vertical spacing should have 0 left/right")
 	}
-	if vertical.Top != 30 || vertical.Bottom != 30 {
+	if vertical.Top.Value != 30 || vertical.Bottom.Value != 30 {
 		t.Error("Vertical spacing should set top/bottom")
 	}
 }
 
 func TestGridTrackHelpers(t *testing.T) {
 	// Test FixedTrack
-	fixed := FixedTrack(100)
-	if fixed.MinSize != 100 || fixed.MaxSize != 100 || fixed.Fraction != 0 {
+	fixed := FixedTrack(Px(100))
+	if fixed.MinSize.Value != 100 || fixed.MaxSize.Value != 100 || fixed.Fraction != 0 {
 		t.Error("FixedTrack should have min=max=size, fraction=0")
 	}
 
 	// Test MinMaxTrack
-	minmax := MinMaxTrack(50, 150)
-	if minmax.MinSize != 50 || minmax.MaxSize != 150 || minmax.Fraction != 0 {
+	minmax := MinMaxTrack(Px(50), Px(150))
+	if minmax.MinSize.Value != 50 || minmax.MaxSize.Value != 150 || minmax.Fraction != 0 {
 		t.Error("MinMaxTrack should have correct min/max, fraction=0")
 	}
 
 	// Test FractionTrack
 	fraction := FractionTrack(2)
-	if fraction.MinSize != 0 || fraction.MaxSize == 0 || fraction.Fraction != 2 {
+	if fraction.MinSize.Value != 0 || fraction.MaxSize.Value == 0 || fraction.Fraction != 2 {
 		t.Error("FractionTrack should have fraction set, unbounded max")
 	}
 
 	// Test AutoTrack
 	auto := AutoTrack()
-	if auto.MinSize != 0 || auto.MaxSize == 0 || auto.Fraction != 0 {
+	if auto.MinSize.Value != 0 || auto.MaxSize.Value == 0 || auto.Fraction != 0 {
 		t.Error("AutoTrack should have unbounded max, fraction=0")
 	}
 }

@@ -10,17 +10,18 @@ func TestFlexboxOrderBasic(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, Order: 2}}, // Should be last
-			{Style: Style{Width: 50, Height: 50, Order: 0}}, // Should be first (default)
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // Should be middle
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 0}}, // Should be first (default)
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // Should be middle
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// Check that items are positioned in order: Order 0, Order 1, Order 2
 	if container.Children[0].Rect.X != 100 {
@@ -42,17 +43,18 @@ func TestFlexboxOrderNegative(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, Order: 0}},  // Should be middle (default)
-			{Style: Style{Width: 50, Height: 50, Order: -1}}, // Should be first
-			{Style: Style{Width: 50, Height: 50, Order: 1}},  // Should be last
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 0}},  // Should be middle (default)
+			{Style: Style{Width: Px(50), Height: Px(50), Order: -1}}, // Should be first
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}},  // Should be last
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// Check that items are positioned in order: Order -1, Order 0, Order 1
 	if container.Children[0].Rect.X != 50 {
@@ -74,17 +76,18 @@ func TestFlexboxOrderSameValue(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // First with order=1
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // Second with order=1
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // Third with order=1
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // First with order=1
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // Second with order=1
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // Third with order=1
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// All items have the same order, so they should maintain source order
 	if container.Children[0].Rect.X != 0 {
@@ -105,17 +108,18 @@ func TestFlexboxOrderColumn(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionColumn,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          100,
-			Height:         300,
+			Width: Px(100),
+			Height: Px(300),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, Order: 2}}, // Should be last
-			{Style: Style{Width: 50, Height: 50, Order: 0}}, // Should be first (default)
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // Should be middle
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 0}}, // Should be first (default)
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // Should be middle
 		},
 	}
 
-	LayoutFlexbox(container, Loose(100, 300))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(100, 300), ctx)
 
 	// Check that items are positioned in order: Order 0, Order 1, Order 2
 	if container.Children[0].Rect.Y != 100 {
@@ -137,18 +141,19 @@ func TestFlexboxOrderWithWrap(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			FlexWrap:       FlexWrapWrap,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          150,
-			Height:         200,
+			Width: Px(150),
+			Height: Px(200),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 60, Height: 50, Order: 3}}, // Should be last (second line)
-			{Style: Style{Width: 60, Height: 50, Order: 0}}, // Should be first (first line)
-			{Style: Style{Width: 60, Height: 50, Order: 1}}, // Should be second (first line)
-			{Style: Style{Width: 60, Height: 50, Order: 2}}, // Should be third (second line)
+			{Style: Style{Width: Px(60), Height: Px(50), Order: 3}}, // Should be last (second line)
+			{Style: Style{Width: Px(60), Height: Px(50), Order: 0}}, // Should be first (first line)
+			{Style: Style{Width: Px(60), Height: Px(50), Order: 1}}, // Should be second (first line)
+			{Style: Style{Width: Px(60), Height: Px(50), Order: 2}}, // Should be third (second line)
 		},
 	}
 
-	LayoutFlexbox(container, Loose(150, 200))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(150, 200), ctx)
 
 	// First line: Order 0, Order 1
 	// Second line: Order 2, Order 3
@@ -175,18 +180,19 @@ func TestFlexboxOrderWithGaps(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			FlexColumnGap:  10,
-			Width:          300,
-			Height:         100,
+			FlexColumnGap: Px(10),
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, Order: 2}}, // Should be last
-			{Style: Style{Width: 50, Height: 50, Order: 0}}, // Should be first
-			{Style: Style{Width: 50, Height: 50, Order: 1}}, // Should be middle
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 0}}, // Should be first
+			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // Should be middle
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// Check that items are positioned with gaps in order: Order 0, Order 1, Order 2
 	// Expected positions: 0, 60 (50+10), 120 (50+10+50+10)

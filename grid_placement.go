@@ -90,7 +90,7 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 			// Extend rows with auto tracks
 			for rowEnd > len(*rows) {
 				*rows = append(*rows, node.Style.GridAutoRows)
-				if (*rows)[len(*rows)-1].MinSize == 0 && (*rows)[len(*rows)-1].MaxSize == Unbounded && (*rows)[len(*rows)-1].Fraction == 0 {
+				if (*rows)[len(*rows)-1].MinSize.Value == 0 && (*rows)[len(*rows)-1].MaxSize.Value == Unbounded && (*rows)[len(*rows)-1].Fraction == 0 {
 					(*rows)[len(*rows)-1] = AutoTrack()
 				}
 			}
@@ -99,7 +99,7 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 			// Extend columns with auto tracks
 			for colEnd > len(*columns) {
 				*columns = append(*columns, node.Style.GridAutoColumns)
-				if (*columns)[len(*columns)-1].MinSize == 0 && (*columns)[len(*columns)-1].MaxSize == Unbounded && (*columns)[len(*columns)-1].Fraction == 0 {
+				if (*columns)[len(*columns)-1].MinSize.Value == 0 && (*columns)[len(*columns)-1].MaxSize.Value == Unbounded && (*columns)[len(*columns)-1].Fraction == 0 {
 					(*columns)[len(*columns)-1] = AutoTrack()
 				}
 			}

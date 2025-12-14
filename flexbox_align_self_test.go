@@ -11,19 +11,20 @@ func TestFlexboxAlignSelfBasic(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 30, AlignSelf: 0}},                   // Use parent's align-items (flex-start)
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexEnd}},   // Override: flex-end
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsCenter}},    // Override: center
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsStretch}},   // Override: stretch
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsFlexStart}}, // Override: flex-start
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: 0}},                   // Use parent's align-items (flex-start)
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsFlexEnd}},   // Override: flex-end
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsCenter}},    // Override: center
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsStretch}},   // Override: stretch
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsFlexStart}}, // Override: flex-start
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// First item: flex-start (Y=0)
 	if container.Children[0].Rect.Y != 0 {
@@ -63,17 +64,18 @@ func TestFlexboxAlignSelfColumn(t *testing.T) {
 			FlexDirection:  FlexDirectionColumn,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          100,
-			Height:         300,
+			Width: Px(100),
+			Height: Px(300),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 30, Height: 50, AlignSelf: 0}},                 // Use parent's align-items (flex-start)
-			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsFlexEnd}}, // Override: flex-end
-			{Style: Style{Width: 30, Height: 50, AlignSelf: AlignItemsCenter}},  // Override: center
+			{Style: Style{Width: Px(30), Height: Px(50), AlignSelf: 0}},                 // Use parent's align-items (flex-start)
+			{Style: Style{Width: Px(30), Height: Px(50), AlignSelf: AlignItemsFlexEnd}}, // Override: flex-end
+			{Style: Style{Width: Px(30), Height: Px(50), AlignSelf: AlignItemsCenter}},  // Override: center
 		},
 	}
 
-	LayoutFlexbox(container, Loose(100, 300))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(100, 300), ctx)
 
 	// First item: flex-start (X=0)
 	if container.Children[0].Rect.X != 0 {
@@ -99,20 +101,21 @@ func TestFlexboxAlignSelfWithMargins(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{
-				Width:     50,
-				Height:    30,
+				Width: Px(50),
+				Height: Px(30),
 				AlignSelf: AlignItemsFlexEnd,
-				Margin:    Uniform(10),
+				Margin:    Uniform(Px(10)),
 			}},
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// With flex-end and 10px top/bottom margins:
 	// Content area: 100px
@@ -133,16 +136,17 @@ func TestFlexboxAlignSelfStretch(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsStretch}}, // Should stretch to 100
-			{Style: Style{Width: 50, AlignSelf: AlignItemsStretch}},             // Should stretch to 100 (no explicit height)
+			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsStretch}}, // Should stretch to 100
+			{Style: Style{Width: Px(50), AlignSelf: AlignItemsStretch}},             // Should stretch to 100 (no explicit height)
 		},
 	}
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// First item has explicit height, so it won't stretch (per CSS spec)
 	if container.Children[0].Rect.Height != 30 {
@@ -164,15 +168,15 @@ func TestFlexboxAlignSelfBaseline(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          300,
-			Height:         100,
+			Width: Px(300),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
-				Style: Style{Width: 50, Height: 50, AlignSelf: AlignItemsBaseline},
+				Style: Style{Width: Px(50), Height: Px(50), AlignSelf: AlignItemsBaseline},
 			},
 			{
-				Style: Style{Width: 50, Height: 30, AlignSelf: AlignItemsBaseline},
+				Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsBaseline},
 			},
 		},
 	}
@@ -180,7 +184,8 @@ func TestFlexboxAlignSelfBaseline(t *testing.T) {
 	container.Children[0].Baseline = 40
 	container.Children[1].Baseline = 20
 
-	LayoutFlexbox(container, Loose(300, 100))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(300, 100), ctx)
 
 	// Both items should align their baselines
 	// Max baseline is 40, so second item should be offset by 40-20=20
@@ -202,18 +207,19 @@ func TestFlexboxAlignSelfMultiLine(t *testing.T) {
 			AlignItems:     AlignItemsFlexStart,
 			AlignContent:   AlignContentFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width:          150,
-			Height:         200,
+			Width: Px(150),
+			Height: Px(200),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 60, Height: 30, AlignSelf: AlignItemsFlexStart}},
-			{Style: Style{Width: 60, Height: 30, AlignSelf: AlignItemsFlexEnd}},
-			{Style: Style{Width: 60, Height: 30, AlignSelf: AlignItemsCenter}},
-			{Style: Style{Width: 60, Height: 30, AlignSelf: AlignItemsStretch}},
+			{Style: Style{Width: Px(60), Height: Px(30), AlignSelf: AlignItemsFlexStart}},
+			{Style: Style{Width: Px(60), Height: Px(30), AlignSelf: AlignItemsFlexEnd}},
+			{Style: Style{Width: Px(60), Height: Px(30), AlignSelf: AlignItemsCenter}},
+			{Style: Style{Width: Px(60), Height: Px(30), AlignSelf: AlignItemsStretch}},
 		},
 	}
 
-	LayoutFlexbox(container, Loose(150, 200))
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutFlexbox(container, Loose(150, 200), ctx)
 
 	// First line: items 0 and 1
 	// Line height determined by tallest item (30px for explicit heights, or stretched)

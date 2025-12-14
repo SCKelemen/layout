@@ -44,7 +44,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 0, GridRowEnd: 1,
 			GridColumnStart: 0, GridColumnEnd: 3,
-			MinHeight: 60.0,
+			MinHeight: Px(60.0),
 		},
 	})
 
@@ -53,21 +53,21 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 0, GridColumnEnd: 1,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 	root.Children = append(root.Children, &layout.Node{
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 	root.Children = append(root.Children, &layout.Node{
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 2, GridColumnEnd: 3,
-			MinHeight: 50.0,
+			MinHeight: Px(50.0),
 		},
 	})
 
@@ -76,21 +76,21 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 2, GridRowEnd: 4, // Spans rows 2 and 3
 			GridColumnStart: 0, GridColumnEnd: 2,
-			MinHeight: 200.0, // Should be 100px per row
+			MinHeight: Px(200.0), // Should be 100px per row
 		},
 	})
 	root.Children = append(root.Children, &layout.Node{
 		Style: layout.Style{
 			GridRowStart: 2, GridRowEnd: 3,
 			GridColumnStart: 2, GridColumnEnd: 3,
-			MinHeight: 100.0,
+			MinHeight: Px(100.0),
 		},
 	})
 	root.Children = append(root.Children, &layout.Node{
 		Style: layout.Style{
 			GridRowStart: 3, GridRowEnd: 4,
 			GridColumnStart: 2, GridColumnEnd: 3,
-			MinHeight: 100.0,
+			MinHeight: Px(100.0),
 		},
 	})
 
@@ -99,7 +99,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 4, GridRowEnd: 6, // Spans rows 4 and 5
 			GridColumnStart: 0, GridColumnEnd: 3,
-			MinHeight: 120.0, // Should be 60px per row
+			MinHeight: Px(120.0), // Should be 60px per row
 		},
 	})
 
@@ -156,3 +156,4 @@ func main() {
 		log.Printf("ERROR: Root height (%.2f) is too small! Expected ~470px\n", root.Rect.Height)
 	}
 }
+

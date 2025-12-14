@@ -20,10 +20,16 @@ import (
 //   - §10.2: Aligning with align-items
 //
 // See: https://www.w3.org/TR/css-grid-1/
-func LayoutGrid(node *Node, constraints Constraints) Size {
+func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	if node.Style.Display != DisplayGrid {
 		// If not grid, delegate to block layout
-		return LayoutBlock(node, constraints)
+		return LayoutBlock(node, constraints, ctx)
+	}
+
+	// Get current font size for em unit resolution
+	currentFontSize := 16.0 // Default
+	if node.Style.TextStyle != nil && node.Style.TextStyle.FontSize > 0 {
+		currentFontSize = node.Style.TextStyle.FontSize
 	}
 
 	// Calculate available space
@@ -32,20 +38,30 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	availableWidth := constraints.MaxWidth
 	availableHeight := constraints.MaxHeight
 
-	// Account for padding and border
-	horizontalPadding := node.Style.Padding.Left + node.Style.Padding.Right
-	verticalPadding := node.Style.Padding.Top + node.Style.Padding.Bottom
-	horizontalBorder := node.Style.Border.Left + node.Style.Border.Right
-	verticalBorder := node.Style.Border.Top + node.Style.Border.Bottom
+	// Account for padding and border - resolve Length values
+	paddingLeft := ResolveLength(node.Style.Padding.Left, ctx, currentFontSize)
+	paddingRight := ResolveLength(node.Style.Padding.Right, ctx, currentFontSize)
+	paddingTop := ResolveLength(node.Style.Padding.Top, ctx, currentFontSize)
+	paddingBottom := ResolveLength(node.Style.Padding.Bottom, ctx, currentFontSize)
+	borderLeft := ResolveLength(node.Style.Border.Left, ctx, currentFontSize)
+	borderRight := ResolveLength(node.Style.Border.Right, ctx, currentFontSize)
+	borderTop := ResolveLength(node.Style.Border.Top, ctx, currentFontSize)
+	borderBottom := ResolveLength(node.Style.Border.Bottom, ctx, currentFontSize)
+
+	horizontalPadding := paddingLeft + paddingRight
+	verticalPadding := paddingTop + paddingBottom
+	horizontalBorder := borderLeft + borderRight
+	verticalBorder := borderTop + borderBottom
 	horizontalPaddingBorder := horizontalPadding + horizontalBorder
 	verticalPaddingBorder := verticalPadding + verticalBorder
 
 	// If container has explicit width, use it to constrain available width
 	// In CSS, an explicit width on a grid container determines the container's size
 	// Convert from box-sizing to total size for comparison with constraints
-	if node.Style.Width >= 0 {
+	widthValue := ResolveLength(node.Style.Width, ctx, currentFontSize)
+	if widthValue >= 0 {
 		// Convert to content size first
-		specifiedWidthContent := convertToContentSize(node.Style.Width, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
+		specifiedWidthContent := convertToContentSize(widthValue, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, true)
 		// Add padding+border to get total size for comparison
 		totalSpecifiedWidth := specifiedWidthContent + horizontalPaddingBorder
 		// Use explicit width when set, respecting constraints
@@ -62,9 +78,10 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	}
 
 	// If container has explicit height, use it to constrain available height
-	if node.Style.Height >= 0 {
+	heightValue := ResolveLength(node.Style.Height, ctx, currentFontSize)
+	if heightValue >= 0 {
 		// Convert to content size first
-		specifiedHeightContent := convertToContentSize(node.Style.Height, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
+		specifiedHeightContent := convertToContentSize(heightValue, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, false)
 		// Add padding+border to get total size for comparison
 		totalSpecifiedHeight := specifiedHeightContent + verticalPaddingBorder
 		// Use explicit height when set, but don't exceed constraints
@@ -92,31 +109,32 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	// Use auto tracks if templates not specified
 	if len(rows) == 0 {
 		rows = []GridTrack{node.Style.GridAutoRows}
-		if len(rows) == 0 || (rows[0].MinSize == 0 && rows[0].MaxSize == Unbounded && rows[0].Fraction == 0) {
+		if len(rows) == 0 || (rows[0].MinSize.Value == 0 && rows[0].MaxSize.Value == Unbounded && rows[0].Fraction == 0) {
 			rows = []GridTrack{AutoTrack()}
 		}
 	}
 	if len(columns) == 0 {
 		columns = []GridTrack{node.Style.GridAutoColumns}
-		if len(columns) == 0 || (columns[0].MinSize == 0 && columns[0].MaxSize == Unbounded && columns[0].Fraction == 0) {
+		if len(columns) == 0 || (columns[0].MinSize.Value == 0 && columns[0].MaxSize.Value == Unbounded && columns[0].Fraction == 0) {
 			columns = []GridTrack{AutoTrack()}
 		}
 	}
 
-	// Calculate gap
-	rowGap := node.Style.GridRowGap
+	// Calculate gap - resolve Length values
+	gridGap := ResolveLength(node.Style.GridGap, ctx, currentFontSize)
+	rowGap := ResolveLength(node.Style.GridRowGap, ctx, currentFontSize)
 	if rowGap == 0 {
-		rowGap = node.Style.GridGap
+		rowGap = gridGap
 	}
-	columnGap := node.Style.GridColumnGap
+	columnGap := ResolveLength(node.Style.GridColumnGap, ctx, currentFontSize)
 	if columnGap == 0 {
-		columnGap = node.Style.GridGap
+		columnGap = gridGap
 	}
 
 	// Step 1: Calculate column sizes
 	// CRITICAL: contentWidth must be correct here - it's used to size all columns
 	// For row-spanning items with aspect ratio, contentWidth must be correct for proper sizing
-	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true)
+	columnSizes := calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true, ctx, currentFontSize)
 
 	// Step 2: Calculate row sizes (need to measure children first for auto rows)
 	// For now, we'll do a two-pass layout
@@ -124,7 +142,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	if len(children) == 0 {
 		// Empty grid
 		totalWidth := sumSizes(columnSizes) + columnGap*float64(len(columnSizes)-1)
-		totalHeight := sumSizes(calculateGridTrackSizes(rows, contentHeight, rowGap, len(rows), node, false))
+		totalHeight := sumSizes(calculateGridTrackSizes(rows, contentHeight, rowGap, len(rows), node, false, ctx, currentFontSize))
 		resultSize := Size{
 			Width:  totalWidth + horizontalPadding + horizontalBorder,
 			Height: totalHeight + verticalPadding + verticalBorder,
@@ -148,7 +166,7 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 	gridItems := gridPlaceItems(node, &rows, &columns, autoFlow)
 
 	// Recalculate column sizes if columns were extended during placement
-	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true)
+	columnSizes = calculateGridTrackSizes(columns, contentWidth, columnGap, len(columns), node, true, ctx, currentFontSize)
 
 	// Step 4: Measure children to determine row sizes
 	// Ensure rowSizes and rowHeights are properly sized for all rows
@@ -175,13 +193,13 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		var childSize Size
 		if item.node.Style.Display == DisplayFlex {
-			childSize = LayoutFlexbox(item.node, childConstraints)
+			childSize = LayoutFlexbox(item.node, childConstraints, ctx)
 		} else if item.node.Style.Display == DisplayGrid {
-			childSize = LayoutGrid(item.node, childConstraints)
+			childSize = LayoutGrid(item.node, childConstraints, ctx)
 		} else if item.node.Style.Display == DisplayInlineText {
-			childSize = LayoutText(item.node, childConstraints)
+			childSize = LayoutText(item.node, childConstraints, ctx)
 		} else {
-			childSize = LayoutBlock(item.node, childConstraints)
+			childSize = LayoutBlock(item.node, childConstraints, ctx)
 		}
 
 		// Store measured size for use in positioning phase
@@ -229,18 +247,22 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		if track.Fraction > 0 {
 			totalFraction += track.Fraction
 		} else {
+			// Resolve track sizes
+			minSize := ResolveLength(track.MinSize, ctx, currentFontSize)
+			maxSize := ResolveLength(track.MaxSize, ctx, currentFontSize)
+
 			// For fixed tracks (MinSize == MaxSize and both > 0), use the track size directly
 			// For auto tracks, use measured height
 			var trackHeight float64
-			if track.MinSize > 0 && track.MinSize == track.MaxSize {
+			if minSize > 0 && minSize == maxSize {
 				// Fixed track - use the fixed size
-				trackHeight = track.MinSize
+				trackHeight = minSize
 			} else {
 				// Auto or minmax track - use measured height or track size
 				// The measured height comes from children, which respects MinHeight if set
-				trackHeight = math.Max(track.MinSize, rowHeights[i])
-				if track.MaxSize < Unbounded {
-					trackHeight = math.Min(trackHeight, track.MaxSize)
+				trackHeight = math.Max(minSize, rowHeights[i])
+				if maxSize < Unbounded {
+					trackHeight = math.Min(trackHeight, maxSize)
 				}
 			}
 			rowSizes[i] = trackHeight
@@ -264,15 +286,18 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			if rowSizes[i] == 0 {
 				// Only set if not already set (for auto tracks)
 				track := rows[i]
-				if track.MinSize == track.MaxSize && track.MaxSize < Unbounded {
+				minSize := ResolveLength(track.MinSize, ctx, currentFontSize)
+				maxSize := ResolveLength(track.MaxSize, ctx, currentFontSize)
+
+				if minSize == maxSize && maxSize < Unbounded {
 					// Fixed track that wasn't set - use fixed size
-					rowSizes[i] = track.MinSize
+					rowSizes[i] = minSize
 				} else {
 					// Auto track - use measured height or min size
 					// The measured height comes from children, which respects MinHeight if set
-					rowSizes[i] = math.Max(track.MinSize, rowHeights[i])
-					if track.MaxSize < Unbounded {
-						rowSizes[i] = math.Min(rowSizes[i], track.MaxSize)
+					rowSizes[i] = math.Max(minSize, rowHeights[i])
+					if maxSize < Unbounded {
+						rowSizes[i] = math.Min(rowSizes[i], maxSize)
 					}
 				}
 			}
@@ -340,8 +365,18 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// Position item within grid cell, accounting for margins
 		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
 		// However, if an item has an aspect ratio, it should maintain that ratio while fitting within the cell
-		maxItemWidth := cellWidth - item.node.Style.Margin.Left - item.node.Style.Margin.Right
-		maxItemHeight := cellHeight - item.node.Style.Margin.Top - item.node.Style.Margin.Bottom
+		// Get item's font size for margin resolution
+		itemFontSize := 16.0 // Default
+		if item.node.Style.TextStyle != nil && item.node.Style.TextStyle.FontSize > 0 {
+			itemFontSize = item.node.Style.TextStyle.FontSize
+		}
+		marginLeft := ResolveLength(item.node.Style.Margin.Left, ctx, itemFontSize)
+		marginRight := ResolveLength(item.node.Style.Margin.Right, ctx, itemFontSize)
+		marginTop := ResolveLength(item.node.Style.Margin.Top, ctx, itemFontSize)
+		marginBottom := ResolveLength(item.node.Style.Margin.Bottom, ctx, itemFontSize)
+
+		maxItemWidth := cellWidth - marginLeft - marginRight
+		maxItemHeight := cellHeight - marginTop - marginBottom
 
 		// Clamp to >= 0 to prevent negative sizes
 		if maxItemWidth < 0 {
@@ -447,16 +482,21 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			case JustifyItemsStart, JustifyItemsEnd, JustifyItemsCenter:
 				// For non-stretch, always prefer explicit width if set (accounting for box-sizing)
 				// Explicit dimensions take precedence over measured size for alignment
-				if item.node.Style.Width >= 0 {
+				itemWidthValue := ResolveLength(item.node.Style.Width, ctx, itemFontSize)
+				if itemWidthValue >= 0 {
 					// Item has explicit width - convert to total size accounting for box-sizing
-					itemPaddingBorder := item.node.Style.Padding.Left + item.node.Style.Padding.Right +
-						item.node.Style.Border.Left + item.node.Style.Border.Right
+					itemPaddingLeft := ResolveLength(item.node.Style.Padding.Left, ctx, itemFontSize)
+					itemPaddingRight := ResolveLength(item.node.Style.Padding.Right, ctx, itemFontSize)
+					itemBorderLeft := ResolveLength(item.node.Style.Border.Left, ctx, itemFontSize)
+					itemBorderRight := ResolveLength(item.node.Style.Border.Right, ctx, itemFontSize)
+					itemPaddingBorder := itemPaddingLeft + itemPaddingRight + itemBorderLeft + itemBorderRight
+
 					if item.node.Style.BoxSizing == BoxSizingBorderBox {
 						// Width already includes padding+border, use as-is
-						itemWidth = math.Min(item.node.Style.Width, maxItemWidth)
+						itemWidth = math.Min(itemWidthValue, maxItemWidth)
 					} else {
 						// Width is content-only, add padding+border
-						itemWidth = math.Min(item.node.Style.Width+itemPaddingBorder, maxItemWidth)
+						itemWidth = math.Min(itemWidthValue+itemPaddingBorder, maxItemWidth)
 					}
 				} else if item.measuredSize.Width > 0 {
 					// Use measured size (clamped to cell)
@@ -475,16 +515,21 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			case AlignItemsFlexStart, AlignItemsFlexEnd, AlignItemsCenter, AlignItemsBaseline:
 				// For non-stretch, always prefer explicit height if set (accounting for box-sizing)
 				// Explicit dimensions take precedence over measured size for alignment
-				if item.node.Style.Height >= 0 {
+				itemHeightValue := ResolveLength(item.node.Style.Height, ctx, itemFontSize)
+				if itemHeightValue >= 0 {
 					// Item has explicit height - convert to total size accounting for box-sizing
-					itemPaddingBorder := item.node.Style.Padding.Top + item.node.Style.Padding.Bottom +
-						item.node.Style.Border.Top + item.node.Style.Border.Bottom
+					itemPaddingTop := ResolveLength(item.node.Style.Padding.Top, ctx, itemFontSize)
+					itemPaddingBottom := ResolveLength(item.node.Style.Padding.Bottom, ctx, itemFontSize)
+					itemBorderTop := ResolveLength(item.node.Style.Border.Top, ctx, itemFontSize)
+					itemBorderBottom := ResolveLength(item.node.Style.Border.Bottom, ctx, itemFontSize)
+					itemPaddingBorder := itemPaddingTop + itemPaddingBottom + itemBorderTop + itemBorderBottom
+
 					if item.node.Style.BoxSizing == BoxSizingBorderBox {
 						// Height already includes padding+border, use as-is
-						itemHeight = math.Min(item.node.Style.Height, maxItemHeight)
+						itemHeight = math.Min(itemHeightValue, maxItemHeight)
 					} else {
 						// Height is content-only, add padding+border
-						itemHeight = math.Min(item.node.Style.Height+itemPaddingBorder, maxItemHeight)
+						itemHeight = math.Min(itemHeightValue+itemPaddingBorder, maxItemHeight)
 					}
 				} else if item.measuredSize.Height > 0 {
 					// Use measured size (clamped to cell)
@@ -523,20 +568,20 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		}
 
 		// Calculate total item size including margins for alignment
-		totalItemWidth := itemWidth + item.node.Style.Margin.Left + item.node.Style.Margin.Right
-		totalItemHeight := itemHeight + item.node.Style.Margin.Top + item.node.Style.Margin.Bottom
+		totalItemWidth := itemWidth + marginLeft + marginRight
+		totalItemHeight := itemHeight + marginTop + marginBottom
 
 		switch justifyItems {
 		case JustifyItemsStart:
-			itemX = cellX + item.node.Style.Margin.Left
+			itemX = cellX + marginLeft
 		case JustifyItemsEnd:
 			// Align item+margin box to end, then item starts at margin.Left from that
-			itemX = cellX + cellWidth - totalItemWidth + item.node.Style.Margin.Left
+			itemX = cellX + cellWidth - totalItemWidth + marginLeft
 		case JustifyItemsCenter:
 			// Center the item+margin box, then item starts at margin.Left from that
-			itemX = cellX + (cellWidth-totalItemWidth)/2 + item.node.Style.Margin.Left
+			itemX = cellX + (cellWidth-totalItemWidth)/2 + marginLeft
 		case JustifyItemsStretch:
-			itemX = cellX + item.node.Style.Margin.Left
+			itemX = cellX + marginLeft
 		}
 
 		// Handle align-items positioning (block/column axis)
@@ -558,13 +603,13 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 
 		switch alignItems {
 		case AlignItemsFlexStart: // Start
-			itemY = cellY + item.node.Style.Margin.Top
+			itemY = cellY + marginTop
 		case AlignItemsFlexEnd: // End
 			// Align item+margin box to end, then item starts at margin.Top from that
-			itemY = cellY + cellHeight - totalItemHeight + item.node.Style.Margin.Top
+			itemY = cellY + cellHeight - totalItemHeight + marginTop
 		case AlignItemsCenter:
 			// Center the item+margin box, then item starts at margin.Top from that
-			itemY = cellY + (cellHeight-totalItemHeight)/2 + item.node.Style.Margin.Top
+			itemY = cellY + (cellHeight-totalItemHeight)/2 + marginTop
 		case AlignItemsBaseline:
 			// For grid baseline alignment, align item's baseline to a reference
 			// In CSS Grid, baseline alignment aligns items within their row
@@ -579,11 +624,11 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 			// This means items with different baselines will align their baselines together
 			// NOTE: For proper CSS Grid baseline alignment, we'd need to calculate the max baseline
 			// across all items in the same row, similar to flexbox. For now, we use a simpler approach.
-			itemY = cellY + item.node.Style.Margin.Top
+			itemY = cellY + marginTop
 		case AlignItemsStretch:
-			itemY = cellY + item.node.Style.Margin.Top
+			itemY = cellY + marginTop
 		default:
-			itemY = cellY + item.node.Style.Margin.Top
+			itemY = cellY + marginTop
 		}
 
 		// Position item within grid cell, accounting for margins, padding, and border
@@ -591,8 +636,8 @@ func LayoutGrid(node *Node, constraints Constraints) Size {
 		// For spanning items, margins are still contained within the spanned cell area
 		// Add padding and border offsets to position items within the container's content area
 		item.node.Rect = Rect{
-			X:      node.Style.Padding.Left + node.Style.Border.Left + itemX,
-			Y:      node.Style.Padding.Top + node.Style.Border.Top + itemY,
+			X:      paddingLeft + borderLeft + itemX,
+			Y:      paddingTop + borderTop + itemY,
 			Width:  itemWidth,
 			Height: itemHeight,
 		}
@@ -643,7 +688,7 @@ type gridItem struct {
 	measuredSize Size // Store measured size from first pass
 }
 
-func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int, container *Node, isColumn bool) []float64 {
+func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int, container *Node, isColumn bool, ctx *LayoutContext, currentFontSize float64) []float64 {
 	if len(tracks) == 0 {
 		return []float64{}
 	}
@@ -668,14 +713,18 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 	fractionIndices := []int{}
 
 	for i, track := range tracks {
+		// Resolve track sizes
+		minSize := ResolveLength(track.MinSize, ctx, currentFontSize)
+		maxSize := ResolveLength(track.MaxSize, ctx, currentFontSize)
+
 		// Check for fit-content (Fraction == -1)
 		if track.Fraction == -1 {
 			// fit-content: clamp max-content to MaxSize
 			// CSS Grid Layout §11.5: fit-content(size)
 			// See: https://www.w3.org/TR/css-grid-1/#valdef-grid-template-columns-fit-content
 			fixedIndices = append(fixedIndices, i)
-			maxContent := resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent)
-			size := track.MaxSize
+			maxContent := resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent, ctx, currentFontSize)
+			size := maxSize
 			if size >= Unbounded {
 				size = maxContent // Use max-content if no limit specified
 			} else {
@@ -695,17 +744,17 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 			// Check for intrinsic sizing sentinel values
 			// CSS Grid Layout §11.5: Intrinsic Track Sizing
 			// See: https://www.w3.org/TR/css-grid-1/#intrinsic-sizes
-			if track.MaxSize == SizeMinContent {
+			if maxSize == SizeMinContent {
 				// min-content track: size based on minimum content size
-				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMinContent)
-			} else if track.MaxSize == SizeMaxContent {
+				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMinContent, ctx, currentFontSize)
+			} else if maxSize == SizeMaxContent {
 				// max-content track: size based on maximum content size
-				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent)
+				sizes[i] = resolveIntrinsicTrackSize(track, container, i, isColumn, IntrinsicSizeMaxContent, ctx, currentFontSize)
 			} else {
 				// Normal fixed track
-				size := track.MinSize
-				if track.MaxSize < Unbounded {
-					size = math.Min(size, track.MaxSize)
+				size := minSize
+				if maxSize < Unbounded {
+					size = math.Min(size, maxSize)
 				}
 				sizes[i] = size
 			}
@@ -724,7 +773,7 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		} else {
 			// Not enough space, use min sizes
 			for _, i := range fractionIndices {
-				sizes[i] = tracks[i].MinSize
+				sizes[i] = ResolveLength(tracks[i].MinSize, ctx, currentFontSize)
 			}
 		}
 	} else if totalFraction > 0 && isUnbounded {
@@ -733,7 +782,7 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		// For now, use MinSize as a fallback (content-based sizing would require
 		// measuring children first, which happens later in the grid algorithm)
 		for _, i := range fractionIndices {
-			sizes[i] = tracks[i].MinSize
+			sizes[i] = ResolveLength(tracks[i].MinSize, ctx, currentFontSize)
 		}
 	} else {
 		// All fixed, may need to shrink if total exceeds available
@@ -749,7 +798,8 @@ func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap floa
 		} else if availableForTracks <= 0 {
 			// No available space, set all to min size (or 0)
 			for _, i := range fixedIndices {
-				sizes[i] = math.Max(0, tracks[i].MinSize)
+				minSize := ResolveLength(tracks[i].MinSize, ctx, currentFontSize)
+				sizes[i] = math.Max(0, minSize)
 			}
 		}
 	}

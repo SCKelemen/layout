@@ -53,25 +53,26 @@ func TestGridJustifyItems(t *testing.T) {
 						AutoTrack(),
 					},
 					GridTemplateColumns: []GridTrack{
-						FixedTrack(tt.cellWidth),
+						FixedTrack(Px(tt.cellWidth)),
 					},
 					JustifyItems: tt.justifyItems,
-					Width:        tt.cellWidth,
+					Width:        Px(tt.cellWidth),
 				},
 				Children: []*Node{
 					{
 						Style: Style{
-							Width: tt.itemWidth,
+							Width: Px(tt.itemWidth),
 						},
 					},
 				},
 			}
 
 			constraints := Loose(tt.cellWidth, Unbounded)
-			LayoutGrid(root, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			LayoutGrid(root, constraints, ctx)
 
 			item := root.Children[0]
-			actualX := item.Rect.X - root.Style.Padding.Left - root.Style.Border.Left
+			actualX := item.Rect.X - root.Style.Padding.Left.Value - root.Style.Border.Left.Value
 
 			if math.Abs(actualX-tt.expectedX) > 1.0 {
 				t.Errorf("Expected X position %.2f, got %.2f", tt.expectedX, actualX)
@@ -138,28 +139,29 @@ func TestGridAlignItems(t *testing.T) {
 				Style: Style{
 					Display: DisplayGrid,
 					GridTemplateRows: []GridTrack{
-						FixedTrack(tt.cellHeight),
+						FixedTrack(Px(tt.cellHeight)),
 					},
 					GridTemplateColumns: []GridTrack{
 						AutoTrack(),
 					},
 					AlignItems: tt.alignItems,
-					Height:     tt.cellHeight,
+					Height:     Px(tt.cellHeight),
 				},
 				Children: []*Node{
 					{
 						Style: Style{
-							Height: tt.itemHeight,
+							Height: Px(tt.itemHeight),
 						},
 					},
 				},
 			}
 
 			constraints := Loose(Unbounded, tt.cellHeight)
-			LayoutGrid(root, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			LayoutGrid(root, constraints, ctx)
 
 			item := root.Children[0]
-			actualY := item.Rect.Y - root.Style.Padding.Top - root.Style.Border.Top
+			actualY := item.Rect.Y - root.Style.Padding.Top.Value - root.Style.Border.Top.Value
 
 			if math.Abs(actualY-tt.expectedY) > 1.0 {
 				t.Errorf("Expected Y position %.2f, got %.2f", tt.expectedY, actualY)
@@ -188,15 +190,15 @@ func TestGridAspectRatioDefaultsToStart(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(300),
+				FixedTrack(Px(300)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(300),
+				FixedTrack(Px(300)),
 			},
 			// Not setting JustifyItems/AlignItems - should default to stretch
 			// But aspect-ratio items should default to start
-			Width:  300,
-			Height: 300,
+			Width:  Px(300),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
@@ -209,7 +211,8 @@ func TestGridAspectRatioDefaultsToStart(t *testing.T) {
 	}
 
 	constraints := Loose(300, 300)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item := root.Children[0]
 
@@ -227,8 +230,8 @@ func TestGridAspectRatioDefaultsToStart(t *testing.T) {
 	// Item should be aligned to start (top-left)
 	expectedX := 0.0
 	expectedY := 0.0
-	actualX := item.Rect.X - root.Style.Padding.Left - root.Style.Border.Left
-	actualY := item.Rect.Y - root.Style.Padding.Top - root.Style.Border.Top
+	actualX := item.Rect.X - root.Style.Padding.Left.Value - root.Style.Border.Left.Value
+	actualY := item.Rect.Y - root.Style.Padding.Top.Value - root.Style.Border.Top.Value
 
 	if math.Abs(actualX-expectedX) > 1.0 {
 		t.Errorf("Expected X position %.2f (start), got %.2f", expectedX, actualX)
@@ -244,29 +247,30 @@ func TestGridAlignmentWithMargins(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(300),
+				FixedTrack(Px(300)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(300),
+				FixedTrack(Px(300)),
 			},
 			JustifyItems: JustifyItemsCenter,
 			AlignItems:   AlignItemsCenter,
-			Width:        300,
-			Height:       300,
+			Width:        Px(300),
+			Height:       Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  100,
-					Height: 100,
-					Margin: Uniform(20),
+					Width:  Px(100),
+					Height: Px(100),
+					Margin: Uniform(Px(20)),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(300, 300)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item := root.Children[0]
 
@@ -276,8 +280,8 @@ func TestGridAlignmentWithMargins(t *testing.T) {
 	// The item itself starts at 80 + 20 (left margin) = 100 from cell start
 	expectedX := 100.0 // 80 (centered box start) + 20 (left margin)
 	expectedY := 100.0 // 80 (centered box start) + 20 (top margin)
-	actualX := item.Rect.X - root.Style.Padding.Left - root.Style.Border.Left
-	actualY := item.Rect.Y - root.Style.Padding.Top - root.Style.Border.Top
+	actualX := item.Rect.X - root.Style.Padding.Left.Value - root.Style.Border.Left.Value
+	actualY := item.Rect.Y - root.Style.Padding.Top.Value - root.Style.Border.Top.Value
 
 	if math.Abs(actualX-expectedX) > 1.0 {
 		t.Errorf("Expected X position %.2f, got %.2f", expectedX, actualX)

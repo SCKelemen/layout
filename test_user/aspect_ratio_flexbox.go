@@ -14,7 +14,7 @@ func main() {
 	
 	image := &layout.Node{
 		Style: layout.Style{
-			Width: 800,
+			Width: Px(800),
 			// Height is auto - will be calculated from aspect ratio
 		},
 	}
@@ -34,7 +34,7 @@ func main() {
 	fmt.Println("\n=== Direct Block Layout ===")
 	image2 := &layout.Node{
 		Style: layout.Style{
-			Width: 800,
+			Width: Px(800),
 		},
 	}
 	image2 = layout.AspectRatio(image2, 16.0/9.0)
@@ -44,4 +44,5 @@ func main() {
 	
 	fmt.Printf("Image2 Rect: %.2f x %.2f\n", image2.Rect.Width, image2.Rect.Height)
 }
+
 

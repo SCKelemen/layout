@@ -40,7 +40,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 0, GridRowEnd: 1,
 			GridColumnStart: 0, GridColumnEnd: 3,
-			Height: 60.0, // Explicit height
+			Height: Px(60.0), // Explicit height
 		},
 	})
 
@@ -49,7 +49,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 0, GridColumnEnd: 1,
-			MinHeight: 50.0, // MinHeight
+			MinHeight: Px(50.0), // MinHeight
 		},
 	})
 
@@ -58,8 +58,8 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			Height: 50.0,    // Explicit height
-			MinHeight: 40.0, // Also has MinHeight
+			Height: Px(50.0),    // Explicit height
+			MinHeight: Px(40.0), // Also has MinHeight
 		},
 	})
 
@@ -68,7 +68,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 2, GridRowEnd: 4, // Spans 2 rows
 			GridColumnStart: 0, GridColumnEnd: 3,
-			Height: 200.0, // Explicit height - should be distributed
+			Height: Px(200.0), // Explicit height - should be distributed
 		},
 	})
 

@@ -12,24 +12,24 @@ import (
 // createTestTree creates a multi-level tree for testing:
 //
 //	root (Display: Block)
-//	├── child1 (Display: Flex, Width: 100)
-//	│   ├── grandchild1 (Display: Block, Width: 50, Text: "text1")
-//	│   └── grandchild2 (Display: Grid, Width: 60)
-//	├── child2 (Display: Grid, Width: 200)
-//	└── child3 (Display: Flex, Width: 150, Text: "text2")
+//	├── child1 (Display: Flex, Width: Px(100))
+//	│   ├── grandchild1 (Display: Block, Width: Px(50), Text: "text1")
+//	│   └── grandchild2 (Display: Grid, Width: Px(60))
+//	├── child2 (Display: Grid, Width: Px(200))
+//	└── child3 (Display: Flex, Width: Px(150), Text: "text2")
 func createTestTree() *Node {
 	return &Node{
 		Style: Style{Display: DisplayBlock},
 		Children: []*Node{
 			{
-				Style: Style{Display: DisplayFlex, Width: 100},
+				Style: Style{Display: DisplayFlex, Width: Px(100)},
 				Children: []*Node{
-					{Style: Style{Display: DisplayBlock, Width: 50}, Text: "text1"},
-					{Style: Style{Display: DisplayGrid, Width: 60}},
+					{Style: Style{Display: DisplayBlock, Width: Px(50)}, Text: "text1"},
+					{Style: Style{Display: DisplayGrid, Width: Px(60)}},
 				},
 			},
-			{Style: Style{Display: DisplayGrid, Width: 200}},
-			{Style: Style{Display: DisplayFlex, Width: 150}, Text: "text2"},
+			{Style: Style{Display: DisplayGrid, Width: Px(200)}},
+			{Style: Style{Display: DisplayFlex, Width: Px(150)}, Text: "text2"},
 		},
 	}
 }
@@ -86,9 +86,9 @@ func TestDescendants(t *testing.T) {
 	t.Run("single level", func(t *testing.T) {
 		root := &Node{
 			Children: []*Node{
-				{Style: Style{Width: 1}},
-				{Style: Style{Width: 2}},
-				{Style: Style{Width: 3}},
+				{Style: Style{Width: Px(1)}},
+				{Style: Style{Width: Px(2)}},
+				{Style: Style{Width: Px(3)}},
 			},
 		}
 		descendants := root.Descendants()
@@ -96,8 +96,8 @@ func TestDescendants(t *testing.T) {
 			t.Errorf("Expected 3 descendants, got %d", len(descendants))
 		}
 		// Verify order (depth-first)
-		if descendants[0].Style.Width != 1 {
-			t.Errorf("First descendant should have width 1, got %.2f", descendants[0].Style.Width)
+		if descendants[0].Style.Width.Value != 1 {
+			t.Errorf("First descendant should have width 1, got %.2f", descendants[0].Style.Width.Value)
 		}
 	})
 
@@ -111,8 +111,8 @@ func TestDescendants(t *testing.T) {
 		}
 
 		// Verify depth-first order: child1 should come before child2
-		if descendants[0].Style.Width != 100 {
-			t.Errorf("First descendant (child1) should have width 100, got %.2f", descendants[0].Style.Width)
+		if descendants[0].Style.Width.Value != 100 {
+			t.Errorf("First descendant (child1) should have width 100, got %.2f", descendants[0].Style.Width.Value)
 		}
 	})
 
@@ -171,8 +171,8 @@ func TestFirstChild(t *testing.T) {
 		if first == nil {
 			t.Fatal("Expected first child, got nil")
 		}
-		if first.Style.Width != 100 {
-			t.Errorf("First child should have width 100, got %.2f", first.Style.Width)
+		if first.Style.Width.Value != 100 {
+			t.Errorf("First child should have width 100, got %.2f", first.Style.Width.Value)
 		}
 	})
 }
@@ -198,8 +198,8 @@ func TestLastChild(t *testing.T) {
 		if last == nil {
 			t.Fatal("Expected last child, got nil")
 		}
-		if last.Style.Width != 150 {
-			t.Errorf("Last child should have width 150, got %.2f", last.Style.Width)
+		if last.Style.Width.Value != 150 {
+			t.Errorf("Last child should have width 150, got %.2f", last.Style.Width.Value)
 		}
 	})
 }
@@ -228,12 +228,12 @@ func TestChildAt(t *testing.T) {
 
 	t.Run("valid indices", func(t *testing.T) {
 		child0 := root.ChildAt(0)
-		if child0 == nil || child0.Style.Width != 100 {
+		if child0 == nil || child0.Style.Width.Value != 100 {
 			t.Errorf("Child at index 0 should have width 100")
 		}
 
 		child2 := root.ChildAt(2)
-		if child2 == nil || child2.Style.Width != 150 {
+		if child2 == nil || child2.Style.Width.Value != 150 {
 			t.Errorf("Child at index 2 should have width 150")
 		}
 	})
@@ -292,8 +292,8 @@ func TestFind(t *testing.T) {
 			t.Fatal("Expected to find grid node")
 		}
 		// Should find the first grid (grandchild2, width 60)
-		if grid.Style.Width != 60 {
-			t.Errorf("Expected first grid to have width 60, got %.2f", grid.Style.Width)
+		if grid.Style.Width.Value != 60 {
+			t.Errorf("Expected first grid to have width 60, got %.2f", grid.Style.Width.Value)
 		}
 	})
 
@@ -311,7 +311,7 @@ func TestFind(t *testing.T) {
 
 	t.Run("no match", func(t *testing.T) {
 		result := root.Find(func(n *Node) bool {
-			return n.Style.Width == 999
+			return n.Style.Width.Value == 999
 		})
 		if result != nil {
 			t.Errorf("Expected nil when no match found")
@@ -366,7 +366,7 @@ func TestFindAll(t *testing.T) {
 
 	t.Run("no matches", func(t *testing.T) {
 		result := root.FindAll(func(n *Node) bool {
-			return n.Style.Width == 999
+			return n.Style.Width.Value == 999
 		})
 		if len(result) != 0 {
 			t.Errorf("Expected 0 results, got %d", len(result))
@@ -401,7 +401,7 @@ func TestWhere(t *testing.T) {
 
 	t.Run("wide nodes", func(t *testing.T) {
 		wideNodes := root.Where(func(n *Node) bool {
-			return n.Style.Width > 100
+			return n.Style.Width.Value > 100
 		})
 		if len(wideNodes) != 2 {
 			t.Errorf("Expected 2 wide nodes (150, 200), got %d", len(wideNodes))
@@ -445,7 +445,7 @@ func TestAny(t *testing.T) {
 
 	t.Run("no matches", func(t *testing.T) {
 		result := root.Any(func(n *Node) bool {
-			return n.Style.Width == 999
+			return n.Style.Width.Value == 999
 		})
 		if result {
 			t.Errorf("Expected false when no matches found")
@@ -481,7 +481,7 @@ func TestAll(t *testing.T) {
 
 	t.Run("all have width less than 300", func(t *testing.T) {
 		allNarrow := root.All(func(n *Node) bool {
-			return n.Style.Width < 300
+			return n.Style.Width.Value < 300
 		})
 		if !allNarrow {
 			t.Errorf("Expected all nodes to have width < 300")
@@ -555,10 +555,10 @@ func TestClone(t *testing.T) {
 
 	t.Run("shallow copy", func(t *testing.T) {
 		original := &Node{
-			Style: Style{Width: 100, Height: 50},
+			Style: Style{Width: Px(100), Height: Px(50)},
 			Text:  "original",
 			Children: []*Node{
-				{Style: Style{Width: 25}},
+				{Style: Style{Width: Px(25)}},
 			},
 		}
 
@@ -570,7 +570,7 @@ func TestClone(t *testing.T) {
 		}
 
 		// Verify fields are copied
-		if clone.Style.Width != 100 || clone.Text != "original" {
+		if clone.Style.Width.Value != 100 || clone.Text != "original" {
 			t.Errorf("Fields not copied correctly")
 		}
 
@@ -580,8 +580,8 @@ func TestClone(t *testing.T) {
 		}
 
 		// Modifying clone doesn't affect original
-		clone.Style.Width = 200
-		if original.Style.Width != 100 {
+		clone.Style.Width = Px(200)
+		if original.Style.Width.Value != 100 {
 			t.Errorf("Original was modified by clone change")
 		}
 	})
@@ -617,8 +617,8 @@ func TestCloneDeep(t *testing.T) {
 
 		// Modifying deep clone doesn't affect original
 		if len(clone.Children) > 0 {
-			clone.Children[0].Style.Width = 999
-			if original.Children[0].Style.Width == 999 {
+			clone.Children[0].Style.Width = Px(999)
+			if original.Children[0].Style.Width.Value == 999 {
 				t.Errorf("Original child was modified")
 			}
 		}
@@ -647,26 +647,26 @@ func TestCloneDeep(t *testing.T) {
 }
 
 func TestWithStyle(t *testing.T) {
-	original := &Node{Style: Style{Width: 100, Display: DisplayBlock}}
+	original := &Node{Style: Style{Width: Px(100), Display: DisplayBlock}}
 
-	newStyle := Style{Width: 200, Display: DisplayFlex}
+	newStyle := Style{Width: Px(200), Display: DisplayFlex}
 	modified := original.WithStyle(newStyle)
 
 	if modified == original {
 		t.Errorf("WithStyle should return new node")
 	}
 
-	if original.Style.Width != 100 || original.Style.Display != DisplayBlock {
+	if original.Style.Width.Value != 100 || original.Style.Display != DisplayBlock {
 		t.Errorf("Original was modified")
 	}
 
-	if modified.Style.Width != 200 || modified.Style.Display != DisplayFlex {
+	if modified.Style.Width.Value != 200 || modified.Style.Display != DisplayFlex {
 		t.Errorf("New style not applied")
 	}
 }
 
 func TestWithPadding(t *testing.T) {
-	original := &Node{Style: Style{Width: 100}}
+	original := &Node{Style: Style{Width: Px(100)}}
 
 	padded := original.WithPadding(16)
 
@@ -674,68 +674,68 @@ func TestWithPadding(t *testing.T) {
 		t.Errorf("WithPadding should return new node")
 	}
 
-	if original.Style.Padding.Top != 0 {
+	if original.Style.Padding.Top.Value != 0 {
 		t.Errorf("Original was modified")
 	}
 
-	if padded.Style.Padding.Top != 16 || padded.Style.Padding.Right != 16 {
+	if padded.Style.Padding.Top.Value != 16 || padded.Style.Padding.Right.Value != 16 {
 		t.Errorf("Padding not applied correctly")
 	}
 }
 
 func TestWithPaddingCustom(t *testing.T) {
-	original := &Node{Style: Style{Width: 100}}
+	original := &Node{Style: Style{Width: Px(100)}}
 
 	padded := original.WithPaddingCustom(10, 20, 30, 40)
 
-	if original.Style.Padding.Top != 0 {
+	if original.Style.Padding.Top.Value != 0 {
 		t.Errorf("Original was modified")
 	}
 
-	if padded.Style.Padding.Top != 10 || padded.Style.Padding.Right != 20 ||
-		padded.Style.Padding.Bottom != 30 || padded.Style.Padding.Left != 40 {
+	if padded.Style.Padding.Top.Value != 10 || padded.Style.Padding.Right.Value != 20 ||
+		padded.Style.Padding.Bottom.Value != 30 || padded.Style.Padding.Left.Value != 40 {
 		t.Errorf("Custom padding not applied correctly")
 	}
 }
 
 func TestWithMargin(t *testing.T) {
-	original := &Node{Style: Style{Width: 100}}
+	original := &Node{Style: Style{Width: Px(100)}}
 
 	margined := original.WithMargin(8)
 
-	if original.Style.Margin.Top != 0 {
+	if original.Style.Margin.Top.Value != 0 {
 		t.Errorf("Original was modified")
 	}
 
-	if margined.Style.Margin.Top != 8 || margined.Style.Margin.Bottom != 8 {
+	if margined.Style.Margin.Top.Value != 8 || margined.Style.Margin.Bottom.Value != 8 {
 		t.Errorf("Margin not applied correctly")
 	}
 }
 
 func TestWithWidth(t *testing.T) {
-	original := &Node{Style: Style{Width: 100}}
+	original := &Node{Style: Style{Width: Px(100)}}
 
 	wider := original.WithWidth(300)
 
-	if original.Style.Width != 100 {
+	if original.Style.Width.Value != 100 {
 		t.Errorf("Original was modified")
 	}
 
-	if wider.Style.Width != 300 {
+	if wider.Style.Width.Value != 300 {
 		t.Errorf("Width not applied")
 	}
 }
 
 func TestWithHeight(t *testing.T) {
-	original := &Node{Style: Style{Height: 50}}
+	original := &Node{Style: Style{Height: Px(50)}}
 
 	taller := original.WithHeight(200)
 
-	if original.Style.Height != 50 {
+	if original.Style.Height.Value != 50 {
 		t.Errorf("Original was modified")
 	}
 
-	if taller.Style.Height != 200 {
+	if taller.Style.Height.Value != 200 {
 		t.Errorf("Height not applied")
 	}
 }
@@ -808,21 +808,21 @@ func TestMethodChaining(t *testing.T) {
 		WithDisplay(DisplayFlex)
 
 	// Verify original unchanged
-	if original.Style.Width != 0 || original.Style.Display != DisplayBlock {
+	if original.Style.Width.Value != 0 || original.Style.Display != DisplayBlock {
 		t.Errorf("Original was modified by chaining")
 	}
 
 	// Verify all modifications applied
-	if modified.Style.Width != 200 {
+	if modified.Style.Width.Value != 200 {
 		t.Errorf("Width not applied in chain")
 	}
-	if modified.Style.Height != 100 {
+	if modified.Style.Height.Value != 100 {
 		t.Errorf("Height not applied in chain")
 	}
-	if modified.Style.Padding.Top != 16 {
+	if modified.Style.Padding.Top.Value != 16 {
 		t.Errorf("Padding not applied in chain")
 	}
-	if modified.Style.Margin.Top != 8 {
+	if modified.Style.Margin.Top.Value != 8 {
 		t.Errorf("Margin not applied in chain")
 	}
 	if modified.Style.Display != DisplayFlex {
@@ -831,9 +831,9 @@ func TestMethodChaining(t *testing.T) {
 }
 
 func TestWithChildren(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
-	child3 := &Node{Style: Style{Width: 300}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
+	child3 := &Node{Style: Style{Width: Px(300)}}
 
 	original := &Node{
 		Children: []*Node{child1, child2},
@@ -859,8 +859,8 @@ func TestWithChildren(t *testing.T) {
 }
 
 func TestAddChild(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
 
 	original := &Node{
 		Children: []*Node{child1},
@@ -883,9 +883,9 @@ func TestAddChild(t *testing.T) {
 }
 
 func TestAddChildren(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
-	child3 := &Node{Style: Style{Width: 300}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
+	child3 := &Node{Style: Style{Width: Px(300)}}
 
 	original := &Node{
 		Children: []*Node{child1},
@@ -908,9 +908,9 @@ func TestAddChildren(t *testing.T) {
 }
 
 func TestRemoveChildAt(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
-	child3 := &Node{Style: Style{Width: 300}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
+	child3 := &Node{Style: Style{Width: Px(300)}}
 
 	original := &Node{
 		Children: []*Node{child1, child2, child3},
@@ -940,9 +940,9 @@ func TestRemoveChildAt(t *testing.T) {
 }
 
 func TestReplaceChildAt(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
-	newChild := &Node{Style: Style{Width: 999}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
+	newChild := &Node{Style: Style{Width: Px(999)}}
 
 	original := &Node{
 		Children: []*Node{child1, child2},
@@ -965,9 +965,9 @@ func TestReplaceChildAt(t *testing.T) {
 }
 
 func TestInsertChildAt(t *testing.T) {
-	child1 := &Node{Style: Style{Width: 100}}
-	child2 := &Node{Style: Style{Width: 200}}
-	newChild := &Node{Style: Style{Width: 150}}
+	child1 := &Node{Style: Style{Width: Px(100)}}
+	child2 := &Node{Style: Style{Width: Px(200)}}
+	newChild := &Node{Style: Style{Width: Px(150)}}
 
 	original := &Node{
 		Children: []*Node{child1, child2},
@@ -1020,7 +1020,7 @@ func TestCompositionPattern(t *testing.T) {
 	if len(container.Children) != 2 {
 		t.Errorf("Container should have 2 children")
 	}
-	if container.Children[0].Style.Width != 100 {
+	if container.Children[0].Style.Width.Value != 100 {
 		t.Errorf("Child properties not preserved")
 	}
 }
@@ -1035,18 +1035,18 @@ func TestSafeComposition(t *testing.T) {
 	variant2 := base.WithPadding(20)
 
 	// All should be independent
-	if base.Style.Padding.Top != 0 {
+	if base.Style.Padding.Top.Value != 0 {
 		t.Errorf("Base was modified")
 	}
-	if variant1.Style.Padding.Top != 10 {
+	if variant1.Style.Padding.Top.Value != 10 {
 		t.Errorf("Variant1 incorrect")
 	}
-	if variant2.Style.Padding.Top != 20 {
+	if variant2.Style.Padding.Top.Value != 20 {
 		t.Errorf("Variant2 incorrect")
 	}
 
 	// They should all have the same width from base
-	if variant1.Style.Width != 200 || variant2.Style.Width != 200 {
+	if variant1.Style.Width.Value != 200 || variant2.Style.Width.Value != 200 {
 		t.Errorf("Base properties not inherited")
 	}
 }
@@ -1112,33 +1112,33 @@ func TestTransform(t *testing.T) {
 	t.Run("transform flex containers", func(t *testing.T) {
 		doubled := root.Transform(
 			func(n *Node) bool {
-				return n.Style.Display == DisplayFlex && n.Style.Width > 0
+				return n.Style.Display == DisplayFlex && n.Style.Width.Value > 0
 			},
 			func(n *Node) *Node {
-				return n.WithWidth(n.Style.Width * 2)
+				return n.WithWidth(n.Style.Width.Value * 2)
 			},
 		)
 
 		// child1 is flex with width 100 -> should be 200
-		if doubled.Children[0].Style.Width != 200 {
-			t.Errorf("Expected child1 width 200, got %.2f", doubled.Children[0].Style.Width)
+		if doubled.Children[0].Style.Width.Value != 200 {
+			t.Errorf("Expected child1 width 200, got %.2f", doubled.Children[0].Style.Width.Value)
 		}
 
 		// child3 is flex with width 150 -> should be 300
-		if doubled.Children[2].Style.Width != 300 {
-			t.Errorf("Expected child3 width 300, got %.2f", doubled.Children[2].Style.Width)
+		if doubled.Children[2].Style.Width.Value != 300 {
+			t.Errorf("Expected child3 width 300, got %.2f", doubled.Children[2].Style.Width.Value)
 		}
 
 		// child2 is grid, not flex -> should be unchanged
-		if doubled.Children[1].Style.Width != 200 {
-			t.Errorf("Expected child2 (grid) unchanged at 200, got %.2f", doubled.Children[1].Style.Width)
+		if doubled.Children[1].Style.Width.Value != 200 {
+			t.Errorf("Expected child2 (grid) unchanged at 200, got %.2f", doubled.Children[1].Style.Width.Value)
 		}
 	})
 
 	t.Run("transform with no matches", func(t *testing.T) {
 		transformed := root.Transform(
 			func(n *Node) bool {
-				return n.Style.Width > 1000 // No nodes match
+				return n.Style.Width.Value > 1000 // No nodes match
 			},
 			func(n *Node) *Node {
 				return n.WithWidth(999)
@@ -1146,7 +1146,7 @@ func TestTransform(t *testing.T) {
 		)
 
 		// All widths should be unchanged
-		if transformed.Children[0].Style.Width != 100 {
+		if transformed.Children[0].Style.Width.Value != 100 {
 			t.Errorf("Should be unchanged")
 		}
 	})
@@ -1179,7 +1179,7 @@ func TestTransformOriginalUnchanged(t *testing.T) {
 			return n.Style.Display == DisplayFlex
 		},
 		func(n *Node) *Node {
-			return n.WithWidth(n.Style.Width * 10)
+			return n.WithWidth(n.Style.Width.Value * 10)
 		},
 	)
 
@@ -1195,23 +1195,23 @@ func TestMap(t *testing.T) {
 	t.Run("scale all nodes", func(t *testing.T) {
 		scaled := root.Map(func(n *Node) *Node {
 			return n.
-				WithWidth(n.Style.Width * 1.5).
-				WithHeight(n.Style.Height * 1.5)
+				WithWidth(n.Style.Width.Value * 1.5).
+				WithHeight(n.Style.Height.Value * 1.5)
 		})
 
 		// child1 width 100 -> 150
-		if scaled.Children[0].Style.Width != 150 {
-			t.Errorf("Expected child1 width 150, got %.2f", scaled.Children[0].Style.Width)
+		if scaled.Children[0].Style.Width.Value != 150 {
+			t.Errorf("Expected child1 width 150, got %.2f", scaled.Children[0].Style.Width.Value)
 		}
 
 		// child2 width 200 -> 300
-		if scaled.Children[1].Style.Width != 300 {
-			t.Errorf("Expected child2 width 300, got %.2f", scaled.Children[1].Style.Width)
+		if scaled.Children[1].Style.Width.Value != 300 {
+			t.Errorf("Expected child2 width 300, got %.2f", scaled.Children[1].Style.Width.Value)
 		}
 
 		// child3 width 150 -> 225
-		if scaled.Children[2].Style.Width != 225 {
-			t.Errorf("Expected child3 width 225, got %.2f", scaled.Children[2].Style.Width)
+		if scaled.Children[2].Style.Width.Value != 225 {
+			t.Errorf("Expected child3 width 225, got %.2f", scaled.Children[2].Style.Width.Value)
 		}
 	})
 
@@ -1221,10 +1221,10 @@ func TestMap(t *testing.T) {
 		})
 
 		// All nodes should have padding
-		if padded.Style.Padding.Top != 10 {
+		if padded.Style.Padding.Top.Value != 10 {
 			t.Errorf("Root should have padding")
 		}
-		if padded.Children[0].Style.Padding.Top != 10 {
+		if padded.Children[0].Style.Padding.Top.Value != 10 {
 			t.Errorf("Child should have padding")
 		}
 	})
@@ -1261,7 +1261,7 @@ func TestMapOriginalUnchanged(t *testing.T) {
 	originalWidth := original.Children[0].Style.Width
 
 	_ = original.Map(func(n *Node) *Node {
-		return n.WithWidth(n.Style.Width * 100)
+		return n.WithWidth(n.Style.Width.Value * 100)
 	})
 
 	// Original should be unchanged
@@ -1299,7 +1299,7 @@ func TestFilter(t *testing.T) {
 
 	t.Run("filter all nodes", func(t *testing.T) {
 		none := root.Filter(func(n *Node) bool {
-			return n.Style.Width > 1000 // No children match
+			return n.Style.Width.Value > 1000 // No children match
 		})
 
 		// Should have no children
@@ -1402,7 +1402,7 @@ func TestFold(t *testing.T) {
 
 	t.Run("sum all widths", func(t *testing.T) {
 		totalWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
-			return acc.(float64) + n.Style.Width
+			return acc.(float64) + n.Style.Width.Value
 		}).(float64)
 
 		// root(0) + child1(100) + grandchild1(50) + grandchild2(60) + child2(200) + child3(150)
@@ -1438,7 +1438,7 @@ func TestFold(t *testing.T) {
 	t.Run("find max width", func(t *testing.T) {
 		maxWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
 			current := acc.(float64)
-			if n.Style.Width > current {
+			if n.Style.Width.Value > current {
 				return n.Style.Width
 			}
 			return current
@@ -1491,7 +1491,7 @@ func TestFoldWithContext(t *testing.T) {
 			make(map[int]float64),
 			func(acc interface{}, n *Node, depth int) interface{} {
 				m := acc.(map[int]float64)
-				m[depth] += n.Style.Width
+				m[depth] += n.Style.Width.Value
 				return m
 			},
 		).(map[int]float64)
@@ -1550,7 +1550,7 @@ func TestPerformanceTransform(t *testing.T) {
 			return n.Style.Display == DisplayBlock
 		},
 		func(n *Node) *Node {
-			return n.WithWidth(n.Style.Width * 2)
+			return n.WithWidth(n.Style.Width.Value * 2)
 		},
 	)
 	elapsed := time.Since(start)
@@ -1570,7 +1570,7 @@ func BenchmarkTransform(b *testing.B) {
 				return n.Style.Display == DisplayBlock
 			},
 			func(n *Node) *Node {
-				return n.WithWidth(n.Style.Width * 2)
+				return n.WithWidth(n.Style.Width.Value * 2)
 			},
 		)
 	}
@@ -1582,7 +1582,7 @@ func BenchmarkMap(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = root.Map(func(n *Node) *Node {
-			return n.WithWidth(n.Style.Width * 1.5)
+			return n.WithWidth(n.Style.Width.Value * 1.5)
 		})
 	}
 }
@@ -1604,7 +1604,7 @@ func BenchmarkFold(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
-			return acc.(float64) + n.Style.Width
+			return acc.(float64) + n.Style.Width.Value
 		})
 	}
 }

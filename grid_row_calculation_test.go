@@ -26,8 +26,8 @@ func TestGridRowHeightWithOverlappingSpans(t *testing.T) {
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 			},
-			GridRowGap: 8,
-			Width:      1000,
+			GridRowGap: Px(8),
+			Width:      Px(1000),
 		},
 		Children: []*Node{
 			// Child 1: spans rows 1-3, height 416.44 (like in the debug case)
@@ -35,7 +35,7 @@ func TestGridRowHeightWithOverlappingSpans(t *testing.T) {
 				Style: Style{
 					GridRowStart: 1,
 					GridRowEnd:   3,
-					MinHeight:    416.44,
+					MinHeight:    Px(416.44),
 				},
 			},
 			// Child 6: spans rows 2-3, height 200
@@ -43,7 +43,7 @@ func TestGridRowHeightWithOverlappingSpans(t *testing.T) {
 				Style: Style{
 					GridRowStart: 2,
 					GridRowEnd:   3,
-					MinHeight:    200,
+					MinHeight:    Px(200),
 				},
 			},
 			// Child 7: spans rows 3-6, height 257.07
@@ -51,14 +51,15 @@ func TestGridRowHeightWithOverlappingSpans(t *testing.T) {
 				Style: Style{
 					GridRowStart: 3,
 					GridRowEnd:   6,
-					MinHeight:    257.07,
+					MinHeight:    Px(257.07),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	_ = root.Children[0]       // row 1-3 (child1, used for row height calculation)
 	child6 := root.Children[1] // row 2-3

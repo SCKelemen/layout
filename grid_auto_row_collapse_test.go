@@ -18,7 +18,7 @@ func TestGridAutoRowCollapseWithoutMinHeight(t *testing.T) {
 				AutoTrack(),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -26,7 +26,7 @@ func TestGridAutoRowCollapseWithoutMinHeight(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					MinHeight:       50.0, // Has MinHeight
+					MinHeight:       Px(50.0), // Has MinHeight
 				},
 			},
 			{
@@ -40,7 +40,8 @@ func TestGridAutoRowCollapseWithoutMinHeight(t *testing.T) {
 	}
 
 	constraints := Loose(200, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First row should have height from first item
 	if root.Children[0].Rect.Height < 50.0 {
@@ -75,7 +76,7 @@ func TestGridAutoRowWithMinHeight(t *testing.T) {
 				AutoTrack(),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -83,21 +84,22 @@ func TestGridAutoRowWithMinHeight(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					MinHeight:       60.0,
+					MinHeight:       Px(60.0),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					MinHeight:       50.0,
+					MinHeight:       Px(50.0),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should respect MinHeight
 	if math.Abs(root.Children[0].Rect.Height-60.0) > 0.1 {

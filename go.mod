@@ -17,3 +17,4 @@ require (
 )
 
 replace github.com/SCKelemen/wpt-test-gen => ../wpt-test-gen
+

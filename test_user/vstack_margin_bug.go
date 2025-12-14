@@ -66,19 +66,19 @@ func main() {
 	spacer1 := layout.Fixed(0, 10)
 	text1Fixed := &layout.Node{
 		Style: layout.Style{
-			Height: 20,
+			Height: Px(20),
 		},
 	}
 	spacer2 := layout.Fixed(0, 10)
 	text2Fixed := &layout.Node{
 		Style: layout.Style{
-			Height: 20,
+			Height: Px(20),
 		},
 	}
 	spacer3 := layout.Fixed(0, 10)
 	text3Fixed := &layout.Node{
 		Style: layout.Style{
-			Height: 20,
+			Height: Px(20),
 		},
 	}
 
@@ -103,4 +103,5 @@ func main() {
 		y = child.Rect.Y + child.Rect.Height
 	}
 }
+
 

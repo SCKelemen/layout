@@ -11,10 +11,10 @@ func TestGridDenseAutoPlacement(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
-			Width:               150,
-			Height:              100,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			Width: Px(150),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
@@ -24,29 +24,30 @@ func TestGridDenseAutoPlacement(t *testing.T) {
 					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width:           100,
-					Height:          50,
+					Width: Px(100),
+					Height: Px(50),
 				},
 			},
 			{
 				// Item 2: auto-placed, 1x1
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 			{
 				// Item 3: auto-placed, 1x1
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(150, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Item 1 should be at (0, 0) spanning 2 columns
 	if root.Children[0].Rect.X != 0 || root.Children[0].Rect.Y != 0 {
@@ -75,10 +76,10 @@ func TestGridDenseWithSpanning(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			Width:               150,
-			Height:              150,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			Width: Px(150),
+			Height: Px(150),
 		},
 		Children: []*Node{
 			{
@@ -88,36 +89,37 @@ func TestGridDenseWithSpanning(t *testing.T) {
 					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			{
 				// Small item 1: 1x1, should fill (2, 0)
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 			{
 				// Small item 2: 1x1, should fill (2, 1)
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 			{
 				// Small item 3: 1x1, should go to (0, 2) or next available
 				Style: Style{
-					Width:  50,
-					Height: 50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(150, 150)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should be at (0, 0)
 	if root.Children[0].Rect.X != 0 || root.Children[0].Rect.Y != 0 {
@@ -140,21 +142,22 @@ func TestGridAutoPlacementSequential(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
-			Width:               100,
-			Height:              100,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			Width: Px(100),
+			Height: Px(100),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}}, // (0, 0)
-			{Style: Style{Width: 50, Height: 50}}, // (1, 0)
-			{Style: Style{Width: 50, Height: 50}}, // (0, 1)
-			{Style: Style{Width: 50, Height: 50}}, // (1, 1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0, 0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1, 0)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0, 1)
+			{Style: Style{Width: Px(50), Height: Px(50)}}, // (1, 1)
 		},
 	}
 
 	constraints := Loose(100, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Item 0 should be at column 0, row 0
 	if root.Children[0].Rect.X != 0 || root.Children[0].Rect.Y != 0 {
@@ -188,10 +191,10 @@ func TestGridExplicitPlacement(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
-			Width:               150,
-			Height:              100,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			Width: Px(150),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
@@ -199,8 +202,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 2,
-					Width:           50,
-					Height:          50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 			{
@@ -208,8 +211,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           50,
-					Height:          50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 			{
@@ -217,15 +220,16 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 1,
-					Width:           50,
-					Height:          50,
+					Width: Px(50),
+					Height: Px(50),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(150, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Item 0 should be at column 2, row 1
 	expectedX0, expectedY0 := 100.0, 50.0
@@ -256,10 +260,10 @@ func TestGridSpanningItems(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(50), FixedTrack(50), FixedTrack(50)},
-			GridTemplateRows:    []GridTrack{FixedTrack(50), FixedTrack(50)},
-			Width:               150,
-			Height:              100,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			Width: Px(150),
+			Height: Px(100),
 		},
 		Children: []*Node{
 			{
@@ -269,8 +273,8 @@ func TestGridSpanningItems(t *testing.T) {
 					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width:           100,
-					Height:          50,
+					Width: Px(100),
+					Height: Px(50),
 				},
 			},
 			{
@@ -279,15 +283,16 @@ func TestGridSpanningItems(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      2,
 					GridColumnStart: 2,
-					Width:           50,
-					Height:          100,
+					Width: Px(50),
+					Height: Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(150, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Item 0 should span 2 columns
 	if root.Children[0].Rect.Width != 100 {

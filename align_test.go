@@ -8,9 +8,9 @@ import (
 func TestAlignNodesLeft(t *testing.T) {
 	// Create nodes with different X positions
 	nodes := []*Node{
-		{Rect: Rect{X: 100, Y: 0, Width: 50, Height: 50}},
-		{Rect: Rect{X: 200, Y: 0, Width: 50, Height: 50}},
-		{Rect: Rect{X: 50, Y: 0, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 
 	AlignNodes(nodes, AlignLeft)
@@ -27,9 +27,9 @@ func TestAlignNodesLeft(t *testing.T) {
 func TestAlignNodesRight(t *testing.T) {
 	// Create nodes with different X positions
 	nodes := []*Node{
-		{Rect: Rect{X: 100, Y: 0, Width: 50, Height: 50}},
-		{Rect: Rect{X: 200, Y: 0, Width: 50, Height: 50}},
-		{Rect: Rect{X: 50, Y: 0, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 
 	AlignNodes(nodes, AlignRight)
@@ -47,9 +47,9 @@ func TestAlignNodesRight(t *testing.T) {
 func TestAlignNodesTop(t *testing.T) {
 	// Create nodes with different Y positions
 	nodes := []*Node{
-		{Rect: Rect{X: 0, Y: 100, Width: 50, Height: 50}},
-		{Rect: Rect{X: 0, Y: 200, Width: 50, Height: 50}},
-		{Rect: Rect{X: 0, Y: 50, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 
 	AlignNodes(nodes, AlignTop)
@@ -66,9 +66,9 @@ func TestAlignNodesTop(t *testing.T) {
 func TestAlignNodesBottom(t *testing.T) {
 	// Create nodes with different Y positions
 	nodes := []*Node{
-		{Rect: Rect{X: 0, Y: 100, Width: 50, Height: 50}},
-		{Rect: Rect{X: 0, Y: 200, Width: 50, Height: 50}},
-		{Rect: Rect{X: 0, Y: 50, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 
 	AlignNodes(nodes, AlignBottom)
@@ -86,9 +86,9 @@ func TestAlignNodesBottom(t *testing.T) {
 func TestAlignNodesCenterX(t *testing.T) {
 	// Create nodes with different X positions
 	nodes := []*Node{
-		{Rect: Rect{X: 100, Y: 0, Width: 50, Height: 50}}, // center at 125
-		{Rect: Rect{X: 200, Y: 0, Width: 50, Height: 50}}, // center at 225
-		{Rect: Rect{X: 50, Y: 0, Width: 50, Height: 50}},  // center at 75
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 125
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 225
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 75
 	}
 
 	AlignNodes(nodes, AlignCenterX)
@@ -106,9 +106,9 @@ func TestAlignNodesCenterX(t *testing.T) {
 func TestAlignNodesCenterY(t *testing.T) {
 	// Create nodes with different Y positions
 	nodes := []*Node{
-		{Rect: Rect{X: 0, Y: 100, Width: 50, Height: 50}}, // center at 125
-		{Rect: Rect{X: 0, Y: 200, Width: 50, Height: 50}}, // center at 225
-		{Rect: Rect{X: 0, Y: 50, Width: 50, Height: 50}},  // center at 75
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 125
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 225
+		{Rect: Rect{Width: 50, Height: 50}}, // center at 75
 	}
 
 	AlignNodes(nodes, AlignCenterY)
@@ -129,9 +129,9 @@ func TestDistributeNodesHorizontal(t *testing.T) {
 	// nodes[1] at X=200 (rightmost, center at 225)
 	// nodes[2] at X=100 (middle, center at 125)
 	nodes := []*Node{
-		{Rect: Rect{X: 0, Y: 0, Width: 50, Height: 50}},   // leftmost
-		{Rect: Rect{X: 200, Y: 0, Width: 50, Height: 50}}, // rightmost
-		{Rect: Rect{X: 100, Y: 0, Width: 50, Height: 50}}, // middle
+		{Rect: Rect{Width: 50, Height: 50}}, // leftmost
+		{Rect: Rect{Width: 50, Height: 50}}, // rightmost
+		{Rect: Rect{Width: 50, Height: 50}}, // middle
 	}
 
 	DistributeNodes(nodes, DistributeHorizontal)
@@ -163,9 +163,9 @@ func TestDistributeNodesVertical(t *testing.T) {
 	// nodes[1] at Y=200 (bottommost, center at 225)
 	// nodes[2] at Y=100 (middle, center at 125)
 	nodes := []*Node{
-		{Rect: Rect{X: 0, Y: 0, Width: 50, Height: 50}},   // topmost
-		{Rect: Rect{X: 0, Y: 200, Width: 50, Height: 50}}, // bottommost
-		{Rect: Rect{X: 0, Y: 100, Width: 50, Height: 50}}, // middle
+		{Rect: Rect{Width: 50, Height: 50}}, // topmost
+		{Rect: Rect{Width: 50, Height: 50}}, // bottommost
+		{Rect: Rect{Width: 50, Height: 50}}, // middle
 	}
 
 	DistributeNodes(nodes, DistributeVertical)
@@ -194,7 +194,7 @@ func TestDistributeNodesVertical(t *testing.T) {
 func TestDistributeNodesLessThanThree(t *testing.T) {
 	// Distribution requires at least 3 nodes
 	nodes1 := []*Node{
-		{Rect: Rect{X: 0, Y: 0, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 	originalX := nodes1[0].Rect.X
 	DistributeNodes(nodes1, DistributeHorizontal)
@@ -203,8 +203,8 @@ func TestDistributeNodesLessThanThree(t *testing.T) {
 	}
 
 	nodes2 := []*Node{
-		{Rect: Rect{X: 0, Y: 0, Width: 50, Height: 50}},
-		{Rect: Rect{X: 100, Y: 0, Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
+		{Rect: Rect{Width: 50, Height: 50}},
 	}
 	originalX2 := nodes2[0].Rect.X
 	DistributeNodes(nodes2, DistributeHorizontal)

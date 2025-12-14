@@ -11,13 +11,13 @@ func TestGridRowPositioning(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -26,8 +26,8 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			// Row 1, Col 0
@@ -35,8 +35,8 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			// Row 2, Col 0
@@ -44,15 +44,16 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    2,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should be at Y=0 (or padding if any)
 	item0Y := root.Children[0].Rect.Y
@@ -89,36 +90,37 @@ func TestGridRowPositioningWithGap(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
-			GridGap: 20,
+			GridGap: Px(20),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Second item should be at Y=100 (first row) + 20 (gap)
 	item1Y := root.Children[1].Rect.Y
@@ -134,10 +136,10 @@ func TestGridRowPositioningWithAutoRows(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 			GridAutoRows: AutoTrack(),
 		},
@@ -147,8 +149,8 @@ func TestGridRowPositioningWithAutoRows(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			// Row 1 (auto - should size based on content)
@@ -156,15 +158,16 @@ func TestGridRowPositioningWithAutoRows(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          150, // Taller content
+					Width: Px(100),
+					Height: Px(150), // Taller content
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should be at Y=0
 	item0Y := root.Children[0].Rect.Y
@@ -191,36 +194,37 @@ func TestGridRowPositioningWithPadding(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
-			Padding: Uniform(10),
+			Padding: Uniform(Px(10)),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Items should still be positioned correctly relative to each other
 	item0Y := root.Children[0].Rect.Y
@@ -234,3 +238,4 @@ func TestGridRowPositioningWithPadding(t *testing.T) {
 			expectedDiff, actualDiff, item0Y, item1Y)
 	}
 }
+

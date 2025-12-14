@@ -7,16 +7,17 @@ func TestMinContentWidthBlock(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   SizeMinContent,
+			Width:   Px(SizeMinContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 200, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(200), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutBlock(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(container, Loose(500, 500), ctx)
 
 	// Min-content for block should be max of children's widths
 	// Expected: 200 (widest child)
@@ -30,16 +31,17 @@ func TestMaxContentWidthBlock(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   SizeMaxContent,
+			Width:   Px(SizeMaxContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 200, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(200), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutBlock(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(container, Loose(500, 500), ctx)
 
 	// Max-content for block should be max of children's widths
 	// Expected: 200 (widest child)
@@ -53,15 +55,16 @@ func TestFitContentWidthBlock(t *testing.T) {
 	container := &Node{
 		Style: Style{
 			Display:         DisplayBlock,
-			Width:           SizeFitContent,
-			FitContentWidth: 150,
+			Width:           Px(SizeFitContent),
+			FitContentWidth: Px(150),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 200, Height: 50}}, // Exceeds fit-content limit
+			{Style: Style{Width: Px(200), Height: Px(50)}}, // Exceeds fit-content limit
 		},
 	}
 
-	size := LayoutBlock(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(container, Loose(500, 500), ctx)
 
 	// Fit-content should clamp to FitContentWidth (150)
 	if size.Width < 145 || size.Width > 155 {
@@ -75,15 +78,16 @@ func TestMinContentWidthFlexRow(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			Width:         SizeMinContent,
+			Width:         Px(SizeMinContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutFlexbox(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(container, Loose(500, 500), ctx)
 
 	// Min-content for flex row should be sum of children's widths
 	// Expected: 100 + 150 = 250
@@ -98,15 +102,16 @@ func TestMaxContentWidthFlexRow(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			Width:         SizeMaxContent,
+			Width:         Px(SizeMaxContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutFlexbox(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(container, Loose(500, 500), ctx)
 
 	// Max-content for flex row should be sum of children's widths
 	// Expected: 100 + 150 = 250
@@ -121,16 +126,17 @@ func TestMinContentWidthFlexColumn(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionColumn,
-			Width:         SizeMinContent,
+			Width:         Px(SizeMinContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 200, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(200), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutFlexbox(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(container, Loose(500, 500), ctx)
 
 	// Min-content for flex column should be max of children's widths
 	// Expected: 200 (widest child)
@@ -143,11 +149,11 @@ func TestMinContentWidthFlexColumn(t *testing.T) {
 func TestMinContentTrack(t *testing.T) {
 	track := MinContentTrack()
 
-	if track.MaxSize != SizeMinContent {
-		t.Errorf("MinContentTrack should have MaxSize = SizeMinContent, got %.2f", track.MaxSize)
+	if track.MaxSize.Value != SizeMinContent {
+		t.Errorf("MinContentTrack should have MaxSize = SizeMinContent, got %.2f", track.MaxSize.Value)
 	}
-	if track.MinSize != 0 {
-		t.Errorf("MinContentTrack should have MinSize = 0, got %.2f", track.MinSize)
+	if track.MinSize.Value != 0 {
+		t.Errorf("MinContentTrack should have MinSize = 0, got %.2f", track.MinSize.Value)
 	}
 }
 
@@ -155,11 +161,11 @@ func TestMinContentTrack(t *testing.T) {
 func TestMaxContentTrack(t *testing.T) {
 	track := MaxContentTrack()
 
-	if track.MaxSize != SizeMaxContent {
-		t.Errorf("MaxContentTrack should have MaxSize = SizeMaxContent, got %.2f", track.MaxSize)
+	if track.MaxSize.Value != SizeMaxContent {
+		t.Errorf("MaxContentTrack should have MaxSize = SizeMaxContent, got %.2f", track.MaxSize.Value)
 	}
-	if track.MinSize != 0 {
-		t.Errorf("MaxContentTrack should have MinSize = 0, got %.2f", track.MinSize)
+	if track.MinSize.Value != 0 {
+		t.Errorf("MaxContentTrack should have MinSize = 0, got %.2f", track.MinSize.Value)
 	}
 }
 
@@ -167,8 +173,8 @@ func TestMaxContentTrack(t *testing.T) {
 func TestFitContentTrack(t *testing.T) {
 	track := FitContentTrack(300)
 
-	if track.MaxSize != 300 {
-		t.Errorf("FitContentTrack should have MaxSize = 300, got %.2f", track.MaxSize)
+	if track.MaxSize.Value != 300 {
+		t.Errorf("FitContentTrack should have MaxSize = 300, got %.2f", track.MaxSize.Value)
 	}
 	if track.Fraction != -1 {
 		t.Errorf("FitContentTrack should have Fraction = -1, got %.2f", track.Fraction)
@@ -181,24 +187,24 @@ func TestIntrinsicSizingAPIHelpers(t *testing.T) {
 
 	// Test MinContentWidth
 	MinContentWidth(node)
-	if node.Style.Width != SizeMinContent {
+	if node.Style.Width.Value != SizeMinContent {
 		t.Errorf("MinContentWidth should set Width to SizeMinContent")
 	}
 
 	// Test MaxContentWidth
 	node2 := &Node{}
 	MaxContentWidth(node2)
-	if node2.Style.Width != SizeMaxContent {
+	if node2.Style.Width.Value != SizeMaxContent {
 		t.Errorf("MaxContentWidth should set Width to SizeMaxContent")
 	}
 
 	// Test FitContentWidth
 	node3 := &Node{}
 	FitContentWidth(node3, 500)
-	if node3.Style.Width != SizeFitContent {
+	if node3.Style.Width.Value != SizeFitContent {
 		t.Errorf("FitContentWidth should set Width to SizeFitContent")
 	}
-	if node3.Style.FitContentWidth != 500 {
+	if node3.Style.FitContentWidth.Value != 500 {
 		t.Errorf("FitContentWidth should set FitContentWidth to 500")
 	}
 }
@@ -211,11 +217,12 @@ func TestWidthSizingEnumField(t *testing.T) {
 			WidthSizing: IntrinsicSizeMinContent,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 150, Height: 50}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
 		},
 	}
 
-	size := LayoutBlock(container, Loose(500, 500))
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(container, Loose(500, 500), ctx)
 
 	// Should use min-content sizing via enum field
 	if size.Width < 145 || size.Width > 160 {
@@ -228,22 +235,23 @@ func TestNestedIntrinsicSizing(t *testing.T) {
 	innerContainer := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   SizeMaxContent,
+			Width:   Px(SizeMaxContent),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	outerContainer := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   SizeMinContent,
+			Width:   Px(SizeMinContent),
 		},
 		Children: []*Node{innerContainer},
 	}
 
-	size := LayoutBlock(outerContainer, Loose(500, 500))
+	ctx2 := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(outerContainer, Loose(500, 500), ctx2)
 
 	// Outer should size based on inner's max-content
 	if size.Width < 95 || size.Width > 110 {

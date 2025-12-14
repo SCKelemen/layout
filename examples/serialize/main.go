@@ -17,12 +17,13 @@ func main() {
 		layout.Fixed(100, 50),
 		layout.Fixed(100, 50),
 	)
-	root.Style.Width = 200
-	root.Style.Padding = layout.Uniform(10)
+	root.Style.Width = layout.Px(200)
+	root.Style.Padding = layout.Uniform(layout.Px(10))
 
 	// Perform layout
 	constraints := layout.Loose(200, layout.Unbounded)
-	layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(root, constraints, ctx)
 
 	// Serialize to JSON
 	fmt.Println("1. Serializing to JSON...")
@@ -56,7 +57,8 @@ func main() {
 	grid.Children[0].Style.GridColumnEnd = 1
 
 	constraints2 := layout.Loose(200, 200)
-	layout.Layout(grid, constraints2)
+	ctx2 := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(grid, constraints2, ctx2)
 
 	gridJSON, _ := serialize.ToJSON(grid)
 	fmt.Println(string(gridJSON))

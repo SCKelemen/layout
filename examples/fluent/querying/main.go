@@ -37,7 +37,8 @@ func main() {
 	)
 
 	// Layout the tree
-	layout.Layout(tree, layout.Loose(800, 600))
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(tree, layout.Loose(800, 600), ctx)
 
 	fmt.Println("=== Finding Nodes ===")
 
@@ -58,13 +59,13 @@ func main() {
 
 	// Find all wide nodes
 	wideNodes := tree.FindAll(func(n *layout.Node) bool {
-		return n.Style.Width >= 150
+		return n.Style.Width.Value >= 150
 	})
 	fmt.Printf("Wide nodes (>= 150px): %d\n", len(wideNodes))
 
 	// Check if any node is tall
 	hasTall := tree.Any(func(n *layout.Node) bool {
-		return n.Style.Height > 80
+		return n.Style.Height.Value > 80
 	})
 	fmt.Printf("Has tall nodes: %v\n", hasTall)
 
@@ -74,7 +75,7 @@ func main() {
 	})
 	allTextNarrow := true
 	for _, node := range allNarrow {
-		if node.Style.Width >= 200 {
+		if node.Style.Width.Value >= 200 {
 			allTextNarrow = false
 			break
 		}
@@ -91,15 +92,15 @@ func main() {
 
 	// Sum all widths
 	totalWidth := tree.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
-		return acc.(float64) + n.Style.Width
+		return acc.(float64) + n.Style.Width.Value
 	}).(float64)
 	fmt.Printf("Sum of all widths: %.0f\n", totalWidth)
 
 	// Find max height
 	maxHeight := tree.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
 		current := acc.(float64)
-		if n.Style.Height > current {
-			return n.Style.Height
+		if n.Style.Height.Value > current {
+			return n.Style.Height.Value
 		}
 		return current
 	}).(float64)
@@ -131,26 +132,26 @@ func main() {
 	// Double the width of buttons
 	widerButtons := tree.Transform(
 		func(n *layout.Node) bool {
-			return n.Style.Width == 100 && n.Text != ""
+			return n.Style.Width.Value == 100 && n.Text != ""
 		},
 		func(n *layout.Node) *layout.Node {
 			return n.WithWidth(200)
 		},
 	)
-	layout.Layout(widerButtons, layout.Loose(800, 600))
+	layout.Layout(widerButtons, layout.Loose(800, 600), ctx)
 
 	buttonsAfter := widerButtons.FindAll(func(n *layout.Node) bool {
-		return n.Text != "" && n.Style.Width == 200
+		return n.Text != "" && n.Style.Width.Value == 200
 	})
 	fmt.Printf("Buttons widened: %d now have width 200\n", len(buttonsAfter))
 
 	// Scale entire tree by 1.5x
 	scaled := tree.Map(func(n *layout.Node) *layout.Node {
 		return n.
-			WithWidth(n.Style.Width * 1.5).
-			WithHeight(n.Style.Height * 1.5)
+			WithWidth(n.Style.Width.Value * 1.5).
+			WithHeight(n.Style.Height.Value * 1.5)
 	})
-	layout.Layout(scaled, layout.Loose(1200, 900))
+	layout.Layout(scaled, layout.Loose(1200, 900), ctx)
 	fmt.Printf("Tree scaled by 1.5x\n")
 
 	// Add padding to all containers
@@ -159,7 +160,7 @@ func main() {
 			return len(n.Children) > 0
 		},
 		func(n *layout.Node) *layout.Node {
-			currentPadding := n.Style.Padding.Top
+			currentPadding := n.Style.Padding.Top.Value
 			return n.WithPadding(currentPadding + 5)
 		},
 	)
@@ -176,7 +177,7 @@ func main() {
 
 	// Keep only wide elements (shallow filter)
 	wideOnly := tree.Filter(func(n *layout.Node) bool {
-		return len(n.Children) > 0 || n.Style.Width >= 150
+		return len(n.Children) > 0 || n.Style.Width.Value >= 150
 	})
 	wideCount := len(wideOnly.Children)
 	fmt.Printf("Filtered to wide elements: %d immediate children\n", wideCount)
@@ -190,7 +191,7 @@ func main() {
 	fmt.Printf("Original still has %d text nodes\n", len(originalTextNodes))
 
 	originalSum := tree.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
-		return acc.(float64) + n.Style.Width
+		return acc.(float64) + n.Style.Width.Value
 	}).(float64)
 	fmt.Printf("Original sum of widths: %.0f (unchanged)\n", originalSum)
 }

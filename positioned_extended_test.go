@@ -9,24 +9,25 @@ func TestPositionSticky(t *testing.T) {
 	// Test sticky positioning (treated as relative without scroll context)
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionSticky,
-					Top:      10,
-					Left:     20,
-					Width:    100,
-					Height:   100,
+					Top:      Px(10),
+					Left:     Px(20),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 400)
-	Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(root, constraints, ctx)
 	LayoutWithPositioning(root, constraints, root.Rect)
 
 	child := root.Children[0]
@@ -43,17 +44,17 @@ func TestLayoutWithPositioning(t *testing.T) {
 	// Test the LayoutWithPositioning helper function
 	root := &Node{
 		Style: Style{
-			Width:  400,
-			Height: 300,
+			Width:  Px(400),
+			Height: Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Position: PositionAbsolute,
-					Left:     50,
-					Top:      50,
-					Width:    100,
-					Height:   100,
+					Left:     Px(50),
+					Top:      Px(50),
+					Width:    Px(100),
+					Height:   Px(100),
 				},
 			},
 		},

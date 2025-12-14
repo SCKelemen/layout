@@ -17,23 +17,24 @@ func TestFlexboxWithCELAssertions(t *testing.T) {
 			FlexDirection:  layout.FlexDirectionRow,
 			JustifyContent: layout.JustifyContentSpaceBetween,
 			AlignItems:     layout.AlignItemsCenter,
-			Width:          600,
-			Height:         100,
+			Width:          layout.Px(600),
+			Height:         layout.Px(100),
 		},
 		Children: []*layout.Node{
-			{Style: layout.Style{Width: 100, Height: 50}},
-			{Style: layout.Style{Width: 100, Height: 50}},
-			{Style: layout.Style{Width: 100, Height: 50}},
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
 		},
 	}
 
 	// Run layout algorithm
+	ctx := layout.NewLayoutContext(800, 600, 16)
 	layout.Layout(root, layout.Constraints{
 		MinWidth:  0,
 		MaxWidth:  800,
 		MinHeight: 0,
 		MaxHeight: 600,
-	})
+	}, ctx)
 
 	// Create CEL environment for assertions
 	env, err := cel.NewLayoutCELEnv(root)
@@ -86,16 +87,16 @@ func TestGridWithCELAssertions(t *testing.T) {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateColumns: []layout.GridTrack{
-				{MinSize: 100, MaxSize: 100},
-				{MinSize: 100, MaxSize: 100},
+				{MinSize: layout.Px(100), MaxSize: layout.Px(100)},
+				{MinSize: layout.Px(100), MaxSize: layout.Px(100)},
 			},
 			GridTemplateRows: []layout.GridTrack{
-				{MinSize: 50, MaxSize: 50},
-				{MinSize: 50, MaxSize: 50},
+				{MinSize: layout.Px(50), MaxSize: layout.Px(50)},
+				{MinSize: layout.Px(50), MaxSize: layout.Px(50)},
 			},
-			GridGap: 10,
-			Width:   210, // 2*100 + 10
-			Height:  110, // 2*50 + 10
+			GridGap: layout.Px(10),
+			Width:   layout.Px(210), // 2*100 + 10
+			Height:  layout.Px(110), // 2*50 + 10
 		},
 		Children: []*layout.Node{
 			{Style: layout.Style{}}, // Grid item [0,0]
@@ -106,7 +107,8 @@ func TestGridWithCELAssertions(t *testing.T) {
 	}
 
 	// Run layout
-	layout.Layout(root, layout.Tight(210, 110))
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(root, layout.Tight(210, 110), ctx)
 
 	// Create CEL environment
 	env, err := cel.NewLayoutCELEnv(root)

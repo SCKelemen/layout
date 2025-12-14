@@ -17,10 +17,10 @@ func TestFluentVsClassicSimple(t *testing.T) {
 	classic := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  100,
-			Padding: Uniform(10),
-			Margin:  Uniform(8),
+			Width:   Px(200),
+			Height:  Px(100),
+			Padding: Uniform(Px(10)),
+			Margin:  Uniform(Px(8)),
 		},
 	}
 
@@ -34,8 +34,9 @@ func TestFluentVsClassicSimple(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(400, 600)
-	Layout(classic, constraints)
-	Layout(fluent, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(classic, constraints, ctx)
+	Layout(fluent, constraints, ctx)
 
 	// Assert equivalent rects
 	if classic.Rect != fluent.Rect {
@@ -44,14 +45,14 @@ func TestFluentVsClassicSimple(t *testing.T) {
 	}
 
 	// Assert equivalent styles
-	if classic.Style.Width != fluent.Style.Width {
+	if classic.Style.Width.Value != fluent.Style.Width.Value {
 		t.Errorf("Width mismatch: classic=%.2f, fluent=%.2f",
-			classic.Style.Width, fluent.Style.Width)
+			classic.Style.Width.Value, fluent.Style.Width.Value)
 	}
 
-	if classic.Style.Padding.Top != fluent.Style.Padding.Top {
+	if classic.Style.Padding.Top.Value != fluent.Style.Padding.Top.Value {
 		t.Errorf("Padding mismatch: classic=%.2f, fluent=%.2f",
-			classic.Style.Padding.Top, fluent.Style.Padding.Top)
+			classic.Style.Padding.Top.Value, fluent.Style.Padding.Top.Value)
 	}
 }
 
@@ -63,13 +64,13 @@ func TestFluentVsClassicWithChildren(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentSpaceBetween,
-			Width:          400,
-			Padding:        Uniform(10),
+			Width:          Px(400),
+			Padding:        Uniform(Px(10)),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 150, Height: 50}},
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(150), Height: Px(50)}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
@@ -90,8 +91,9 @@ func TestFluentVsClassicWithChildren(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(500, 600)
-	Layout(classic, constraints)
-	Layout(fluent, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(classic, constraints, ctx)
+	Layout(fluent, constraints, ctx)
 
 	// Assert root equivalence
 	if classic.Rect != fluent.Rect {
@@ -136,8 +138,9 @@ func TestFluentVsClassicHelpers(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(600, 400)
-	Layout(classic, constraints)
-	Layout(fluent, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(classic, constraints, ctx)
+	Layout(fluent, constraints, ctx)
 
 	// Assert equivalence
 	if classic.Rect != fluent.Rect {
@@ -146,12 +149,12 @@ func TestFluentVsClassicHelpers(t *testing.T) {
 	}
 
 	// Check padding was applied
-	if classic.Style.Padding.Top != 16 || fluent.Style.Padding.Top != 16 {
+	if classic.Style.Padding.Top.Value != 16 || fluent.Style.Padding.Top.Value != 16 {
 		t.Errorf("Padding not applied correctly")
 	}
 
 	// Check margin was applied
-	if classic.Style.Margin.Top != 8 || fluent.Style.Margin.Top != 8 {
+	if classic.Style.Margin.Top.Value != 8 || fluent.Style.Margin.Top.Value != 8 {
 		t.Errorf("Margin not applied correctly")
 	}
 }
@@ -163,15 +166,15 @@ func TestFluentVsClassicGrid(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 				FractionTrack(1),
 			},
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 				FractionTrack(1),
 			},
-			GridGap: 10,
-			Padding: Uniform(20),
+			GridGap: Px(10),
+			Padding: Uniform(Px(20)),
 		},
 		Children: []*Node{
 			{
@@ -206,14 +209,14 @@ func TestFluentVsClassicGrid(t *testing.T) {
 		WithStyle(Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 				FractionTrack(1),
 			},
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 				FractionTrack(1),
 			},
-			GridGap: 10,
+			GridGap: Px(10),
 		}).
 		WithPadding(20).
 		AddChildren(
@@ -239,8 +242,9 @@ func TestFluentVsClassicGrid(t *testing.T) {
 
 	// Layout both
 	constraints := Tight(600, 400)
-	Layout(classic, constraints)
-	Layout(fluent, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(classic, constraints, ctx)
+	Layout(fluent, constraints, ctx)
 
 	// Assert root equivalence
 	if classic.Rect != fluent.Rect {
@@ -267,29 +271,29 @@ func TestFluentVsClassicNested(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionColumn,
-			Width:         400,
+			Width:         Px(400),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display:       DisplayFlex,
 					FlexDirection: FlexDirectionRow,
-					Height:        100,
+					Height:        Px(100),
 				},
 				Children: []*Node{
-					{Style: Style{Width: 100}},
-					{Style: Style{Width: 200}},
+					{Style: Style{Width: Px(100)}},
+					{Style: Style{Width: Px(200)}},
 				},
 			},
 			{
 				Style: Style{
 					Display:       DisplayFlex,
 					FlexDirection: FlexDirectionRow,
-					Height:        100,
+					Height:        Px(100),
 				},
 				Children: []*Node{
-					{Style: Style{Width: 150}},
-					{Style: Style{Width: 150}},
+					{Style: Style{Width: Px(150)}},
+					{Style: Style{Width: Px(150)}},
 				},
 			},
 		},
@@ -327,8 +331,9 @@ func TestFluentVsClassicNested(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(500, 600)
-	Layout(classic, constraints)
-	Layout(fluent, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(classic, constraints, ctx)
+	Layout(fluent, constraints, ctx)
 
 	// Assert root equivalence
 	if classic.Rect != fluent.Rect {
@@ -371,14 +376,14 @@ func TestFluentImmutability(t *testing.T) {
 		AddChild(Fixed(150, 50))
 
 	// Verify original unchanged
-	if original.Style.Width != originalWidth {
+	if original.Style.Width.Value != originalWidth.Value {
 		t.Errorf("Original width was modified: %.2f -> %.2f",
-			originalWidth, original.Style.Width)
+			originalWidth.Value, original.Style.Width.Value)
 	}
 
-	if original.Style.Padding.Top != originalPadding {
+	if original.Style.Padding.Top.Value != originalPadding.Value {
 		t.Errorf("Original padding was modified: %.2f -> %.2f",
-			originalPadding, original.Style.Padding.Top)
+			originalPadding.Value, original.Style.Padding.Top.Value)
 	}
 
 	if len(original.Children) != originalChildCount {
@@ -387,12 +392,12 @@ func TestFluentImmutability(t *testing.T) {
 	}
 
 	// Verify modified has new values
-	if modified.Style.Width != 300 {
-		t.Errorf("Modified width incorrect: %.2f", modified.Style.Width)
+	if modified.Style.Width.Value != 300 {
+		t.Errorf("Modified width incorrect: %.2f", modified.Style.Width.Value)
 	}
 
-	if modified.Style.Padding.Top != 20 {
-		t.Errorf("Modified padding incorrect: %.2f", modified.Style.Padding.Top)
+	if modified.Style.Padding.Top.Value != 20 {
+		t.Errorf("Modified padding incorrect: %.2f", modified.Style.Padding.Top.Value)
 	}
 
 	if len(modified.Children) != 3 {
@@ -423,8 +428,9 @@ func TestFluentChainEquivalence(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(500, 600)
-	Layout(chained, constraints)
-	Layout(stepwise, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(chained, constraints, ctx)
+	Layout(stepwise, constraints, ctx)
 
 	// Assert equivalence
 	if chained.Rect != stepwise.Rect {
@@ -454,10 +460,10 @@ func TestFluentTransformEquivalence(t *testing.T) {
 	// Transform using fluent API
 	transformed := classic.Transform(
 		func(n *Node) bool {
-			return n.Style.Width > 0 && n.Style.Width < 200
+			return n.Style.Width.Value > 0 && n.Style.Width.Value < 200
 		},
 		func(n *Node) *Node {
-			return n.WithWidth(n.Style.Width * 2)
+			return n.WithWidth(n.Style.Width.Value * 2)
 		},
 	)
 
@@ -470,8 +476,9 @@ func TestFluentTransformEquivalence(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(800, 600)
-	Layout(transformed, constraints)
-	Layout(manual, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(transformed, constraints, ctx)
+	Layout(manual, constraints, ctx)
 
 	// Assert equivalence
 	if len(transformed.Children) != len(manual.Children) {
@@ -484,7 +491,7 @@ func TestFluentTransformEquivalence(t *testing.T) {
 
 		if transformedWidth != manualWidth {
 			t.Errorf("Child %d width mismatch: transformed=%.2f, manual=%.2f",
-				i, transformedWidth, manualWidth)
+				i, transformedWidth.Value, manualWidth.Value)
 		}
 	}
 }
@@ -501,7 +508,7 @@ func TestFluentFilterEquivalence(t *testing.T) {
 
 	// Filter using fluent API
 	filtered := original.Filter(func(n *Node) bool {
-		return n.Style.Width >= 200
+		return n.Style.Width.Value >= 200
 	})
 
 	// Build equivalent tree manually
@@ -512,8 +519,9 @@ func TestFluentFilterEquivalence(t *testing.T) {
 
 	// Layout both
 	constraints := Loose(800, 600)
-	Layout(filtered, constraints)
-	Layout(manual, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(filtered, constraints, ctx)
+	Layout(manual, constraints, ctx)
 
 	// Assert equivalence
 	if len(filtered.Children) != len(manual.Children) {
@@ -526,14 +534,14 @@ func TestFluentFilterEquivalence(t *testing.T) {
 	}
 
 	// Check widths match
-	if filtered.Children[0].Style.Width != 250 {
+	if filtered.Children[0].Style.Width.Value != 250 {
 		t.Errorf("First filtered child width should be 250, got %.2f",
-			filtered.Children[0].Style.Width)
+			filtered.Children[0].Style.Width.Value)
 	}
 
-	if filtered.Children[1].Style.Width != 300 {
+	if filtered.Children[1].Style.Width.Value != 300 {
 		t.Errorf("Second filtered child width should be 300, got %.2f",
-			filtered.Children[1].Style.Width)
+			filtered.Children[1].Style.Width.Value)
 	}
 }
 
@@ -548,8 +556,8 @@ func TestFluentMapEquivalence(t *testing.T) {
 	// Scale using Map
 	scaled := original.Map(func(n *Node) *Node {
 		return n.
-			WithWidth(n.Style.Width * 1.5).
-			WithHeight(n.Style.Height * 1.5)
+			WithWidth(n.Style.Width.Value * 1.5).
+			WithHeight(n.Style.Height.Value * 1.5)
 	})
 
 	// Build equivalent tree manually
@@ -559,26 +567,27 @@ func TestFluentMapEquivalence(t *testing.T) {
 	)
 
 	// Note: HStack itself also gets scaled
-	manual.Style.Width = manual.Style.Width * 1.5
-	manual.Style.Height = manual.Style.Height * 1.5
+	manual.Style.Width = Px(manual.Style.Width.Value * 1.5)
+	manual.Style.Height = Px(manual.Style.Height.Value * 1.5)
 
 	// Layout both
 	constraints := Loose(800, 600)
-	Layout(scaled, constraints)
-	Layout(manual, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	Layout(scaled, constraints, ctx)
+	Layout(manual, constraints, ctx)
 
 	// Check children widths
 	if len(scaled.Children) != 2 {
 		t.Fatalf("Expected 2 children, got %d", len(scaled.Children))
 	}
 
-	if scaled.Children[0].Style.Width != 150 {
+	if scaled.Children[0].Style.Width.Value != 150 {
 		t.Errorf("First child width should be 150, got %.2f",
-			scaled.Children[0].Style.Width)
+			scaled.Children[0].Style.Width.Value)
 	}
 
-	if scaled.Children[1].Style.Width != 300 {
+	if scaled.Children[1].Style.Width.Value != 300 {
 		t.Errorf("Second child width should be 300, got %.2f",
-			scaled.Children[1].Style.Width)
+			scaled.Children[1].Style.Width.Value)
 	}
 }

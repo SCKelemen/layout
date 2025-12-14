@@ -42,7 +42,8 @@ func TestTextBasic(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200) // 100px width - should wrap "Hello world" (110px)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Should have 2 lines: "Hello" (50px) and "world" (50px)
 	if node.TextLayout == nil {
@@ -71,7 +72,8 @@ func TestTextWrappingInvariant(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -107,8 +109,9 @@ func TestTextWrappingMonotonic(t *testing.T) {
 		},
 	})
 
-	LayoutText(node1, Loose(200, 200))
-	LayoutText(node2, Loose(100, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node1, Loose(200, 200), ctx)
+	LayoutText(node2, Loose(100, 200), ctx)
 
 	lines1 := len(node1.TextLayout.Lines)
 	lines2 := len(node2.TextLayout.Lines)
@@ -124,7 +127,7 @@ func TestTextAlignLeft(t *testing.T) {
 
 	text := "Hello"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignLeft,
@@ -132,7 +135,8 @@ func TestTextAlignLeft(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -151,7 +155,7 @@ func TestTextAlignRight(t *testing.T) {
 
 	text := "Hello"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignRight,
@@ -159,7 +163,8 @@ func TestTextAlignRight(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -180,7 +185,7 @@ func TestTextAlignCenter(t *testing.T) {
 
 	text := "Hello"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignCenter,
@@ -188,7 +193,8 @@ func TestTextAlignCenter(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -212,7 +218,7 @@ func TestTextAlignJustify(t *testing.T) {
 	// Line 2: "foo" (30px) - last line, not justified
 	text := "Hello world foo"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignJustify,
@@ -220,7 +226,8 @@ func TestTextAlignJustify(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -265,7 +272,7 @@ func TestJustifyLastLineNotJustified(t *testing.T) {
 	// Only first line should be justified
 	text := "Hello world test"
 	node := Text(text, Style{
-		Width: 120, // Forces wrap after "world"
+		Width: Px(120), // Forces wrap after "world"
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignJustify,
@@ -273,7 +280,8 @@ func TestJustifyLastLineNotJustified(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -310,7 +318,7 @@ func TestJustifySingleWord(t *testing.T) {
 
 	text := "Hello"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignJustify,
@@ -318,7 +326,8 @@ func TestJustifySingleWord(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -358,7 +367,7 @@ func TestJustifyMultipleSpaces(t *testing.T) {
 	// Line 2: "fox" (30px) - last line, not justified
 	text := "The quick brown fox"
 	node := Text(text, Style{
-		Width: 160,
+		Width: Px(160),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignJustify,
@@ -366,7 +375,8 @@ func TestJustifyMultipleSpaces(t *testing.T) {
 	})
 
 	constraints := Loose(160, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -401,7 +411,7 @@ func TestJustifyWithTextIndent(t *testing.T) {
 	// First line gets text-indent of 20px, reducing available width to 130px
 	text := "First line here and text"
 	node := Text(text, Style{
-		Width: 150,
+		Width: Px(150),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			TextAlign:  TextAlignJustify,
@@ -410,7 +420,8 @@ func TestJustifyWithTextIndent(t *testing.T) {
 	})
 
 	constraints := Loose(150, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -445,7 +456,7 @@ func TestJustifyWithWordSpacing(t *testing.T) {
 	// Line 2: "test" = 40px - not justified
 	text := "Hello world test"
 	node := Text(text, Style{
-		Width: 130,
+		Width: Px(130),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -454,7 +465,8 @@ func TestJustifyWithWordSpacing(t *testing.T) {
 	})
 
 	constraints := Loose(130, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -488,7 +500,7 @@ func TestTextAlignLastLeft(t *testing.T) {
 	// Justify with explicit left-alignment for last line
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -497,7 +509,8 @@ func TestTextAlignLastLeft(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -521,7 +534,7 @@ func TestTextAlignLastCenter(t *testing.T) {
 	// Justify with center-alignment for last line
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -530,7 +543,8 @@ func TestTextAlignLastCenter(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -560,7 +574,7 @@ func TestTextAlignLastJustify(t *testing.T) {
 	// Justify including last line
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -569,7 +583,8 @@ func TestTextAlignLastJustify(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -600,7 +615,7 @@ func TestTextJustifyInterWord(t *testing.T) {
 	// Default justification - expand word spaces only
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -609,7 +624,8 @@ func TestTextJustifyInterWord(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -630,7 +646,7 @@ func TestTextJustifyNone(t *testing.T) {
 	// No justification despite text-align: justify
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -639,7 +655,8 @@ func TestTextJustifyNone(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -660,7 +677,7 @@ func TestTextJustifyAuto(t *testing.T) {
 	// Auto should resolve to inter-word
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -669,7 +686,8 @@ func TestTextJustifyAuto(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -690,7 +708,7 @@ func TestTextAlignDefault(t *testing.T) {
 
 	text := "Hello"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			TextAlign: TextAlignDefault, // Zero value
@@ -699,7 +717,8 @@ func TestTextAlignDefault(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -725,7 +744,8 @@ func TestWhiteSpaceNormal(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Normal should collapse multiple spaces and newlines
 	// "Hello    world\n\n\nTest" should become "Hello world Test"
@@ -761,7 +781,8 @@ func TestWhiteSpaceNowrap(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200) // Narrow width
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -786,7 +807,8 @@ func TestWhiteSpacePre(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -805,7 +827,7 @@ func TestWhiteSpacePreWrap(t *testing.T) {
 	// Test that spaces are preserved and wrapping occurs
 	text := "Hello    world test"
 	node := Text(text, Style{
-		Width: 60, // Narrow width to force wrapping
+		Width: Px(60), // Narrow width to force wrapping
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -813,7 +835,8 @@ func TestWhiteSpacePreWrap(t *testing.T) {
 	})
 
 	constraints := Loose(60, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -849,7 +872,7 @@ func TestWhiteSpacePreWrapNewlines(t *testing.T) {
 	// Test that newlines create explicit breaks
 	text := "Line1\nLine2\nLine3"
 	node := Text(text, Style{
-		Width: 200, // Wide enough to fit each line
+		Width: Px(200), // Wide enough to fit each line
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -857,7 +880,8 @@ func TestWhiteSpacePreWrapNewlines(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -875,7 +899,7 @@ func TestWhiteSpacePreLine(t *testing.T) {
 	// Test that spaces collapse but newlines preserved
 	text := "Hello    world\nTest    line"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
@@ -883,7 +907,8 @@ func TestWhiteSpacePreLine(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -910,7 +935,7 @@ func TestWhiteSpacePreLineWrapping(t *testing.T) {
 	// Test wrapping with pre-line
 	text := "This is a very long line that should wrap\nShort line"
 	node := Text(text, Style{
-		Width: 60, // Narrow width to force wrapping
+		Width: Px(60), // Narrow width to force wrapping
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
@@ -918,7 +943,8 @@ func TestWhiteSpacePreLineWrapping(t *testing.T) {
 	})
 
 	constraints := Loose(60, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -937,7 +963,7 @@ func TestOverflowWrapBreakWord(t *testing.T) {
 	// Very long word should break with overflow-wrap: break-word
 	text := "supercalifragilisticexpialidocious"
 	node := Text(text, Style{
-		Width: 60, // Narrow width, word is ~280px (35 chars * 8px)
+		Width: Px(60), // Narrow width, word is ~280px (35 chars * 8px)
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			OverflowWrap: OverflowWrapBreakWord,
@@ -945,7 +971,8 @@ func TestOverflowWrapBreakWord(t *testing.T) {
 	})
 
 	constraints := Loose(60, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -970,7 +997,7 @@ func TestWordBreakBreakAll(t *testing.T) {
 	// Break between any characters with word-break: break-all
 	text := "verylongword"
 	node := Text(text, Style{
-		Width: 50,
+		Width: Px(50),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			WordBreak: WordBreakBreakAll,
@@ -978,7 +1005,8 @@ func TestWordBreakBreakAll(t *testing.T) {
 	})
 
 	constraints := Loose(50, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -996,7 +1024,7 @@ func TestOverflowWrapNormal(t *testing.T) {
 	// Long word overflows without breaking (normal behavior)
 	text := "verylongwordthatdoesnotfit"
 	node := Text(text, Style{
-		Width: 50,
+		Width: Px(50),
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			OverflowWrap: OverflowWrapNormal, // Default
@@ -1004,7 +1032,8 @@ func TestOverflowWrapNormal(t *testing.T) {
 	})
 
 	constraints := Loose(50, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1027,7 +1056,7 @@ func TestTextOverflowClip(t *testing.T) {
 	// Default behavior - text overflows without ellipsis
 	text := "This is a very long text that will overflow"
 	node := Text(text, Style{
-		Width: 100,
+		Width: Px(100),
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1036,7 +1065,8 @@ func TestTextOverflowClip(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1067,7 +1097,7 @@ func TestTextOverflowEllipsis(t *testing.T) {
 	// Text should be truncated with ellipsis
 	text := "This is a very long text that will overflow"
 	node := Text(text, Style{
-		Width: 100,
+		Width: Px(100),
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1076,7 +1106,8 @@ func TestTextOverflowEllipsis(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1125,7 +1156,7 @@ func TestTextOverflowEllipsisAlignRight(t *testing.T) {
 	// Test ellipsis with right alignment - use wider container to see offset
 	text := "This is a long text"
 	node := Text(text, Style{
-		Width: 200, // Wider container so truncated text has room for right-align offset
+		Width: Px(200), // Wider container so truncated text has room for right-align offset
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1135,7 +1166,8 @@ func TestTextOverflowEllipsisAlignRight(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1145,7 +1177,7 @@ func TestTextOverflowEllipsisAlignRight(t *testing.T) {
 	// Let's use a case that definitely overflows
 	text2 := "This is a very long text that definitely overflows the container width"
 	node2 := Text(text2, Style{
-		Width: 150,
+		Width: Px(150),
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1155,7 +1187,8 @@ func TestTextOverflowEllipsisAlignRight(t *testing.T) {
 	})
 
 	constraints2 := Loose(150, 200)
-	LayoutText(node2, constraints2)
+	ctx2 := NewLayoutContext(800, 600, 16)
+	LayoutText(node2, constraints2, ctx2)
 
 	line2 := node2.TextLayout.Lines[0]
 
@@ -1189,7 +1222,7 @@ func TestTextOverflowEllipsisVeryNarrow(t *testing.T) {
 	// Container too narrow even for ellipsis
 	text := "Hello world"
 	node := Text(text, Style{
-		Width: 20, // Very narrow - ellipsis is 30px (3 chars * 10px)
+		Width: Px(20), // Very narrow - ellipsis is 30px (3 chars * 10px)
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1198,7 +1231,8 @@ func TestTextOverflowEllipsisVeryNarrow(t *testing.T) {
 	})
 
 	constraints := Loose(20, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1219,7 +1253,7 @@ func TestTextOverflowEllipsisNoOverflow(t *testing.T) {
 	// Text fits - no ellipsis should be added
 	text := "Short"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:     16,
 			WhiteSpace:   WhiteSpaceNowrap,
@@ -1228,7 +1262,8 @@ func TestTextOverflowEllipsisNoOverflow(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1267,7 +1302,8 @@ func TestLineHeightNormal(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Normal line height is 1.2 × fontSize = 19.2
 	// 3 lines × 19.2 = 57.6
@@ -1291,7 +1327,8 @@ func TestLineHeightMultiplier(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Line height = 16 × 1.5 = 24
 	// 2 lines × 24 = 48
@@ -1315,7 +1352,8 @@ func TestLineHeightAbsolute(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Line height = 30px
 	// 2 lines × 30 = 60
@@ -1339,7 +1377,8 @@ func TestTextIndent(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -1372,7 +1411,8 @@ func TestWordSpacing(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -1398,7 +1438,8 @@ func TestLetterSpacing(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -1425,7 +1466,8 @@ func TestTextEmpty(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Empty text should have minimal height
 	if size.Height < 0 {
@@ -1458,7 +1500,8 @@ func TestTextVeryLongWord(t *testing.T) {
 	})
 
 	constraints := Loose(100, 200) // 100px width, word is 200px
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1477,7 +1520,7 @@ func TestTextBlockIntegration(t *testing.T) {
 
 	root := &Node{
 		Style: Style{
-			Width: 200,
+			Width: Px(200),
 		},
 		Children: []*Node{
 			Text("First paragraph", Style{
@@ -1494,7 +1537,8 @@ func TestTextBlockIntegration(t *testing.T) {
 	}
 
 	constraints := Loose(200, 500)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// Both text nodes should be laid out
 	if root.Children[0].TextLayout == nil {
@@ -1517,8 +1561,8 @@ func TestTextBlockAutoHeight(t *testing.T) {
 
 	root := &Node{
 		Style: Style{
-			Width:  200,
-			Height: -1, // Auto
+			Width:  Px(200),
+			Height: Px(-1), // Auto
 		},
 		Children: []*Node{
 			Text("This is a paragraph that will wrap to multiple lines", Style{
@@ -1530,7 +1574,8 @@ func TestTextBlockAutoHeight(t *testing.T) {
 	}
 
 	constraints := Loose(200, 500)
-	size := LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutBlock(root, constraints, ctx)
 
 	// Block height should be determined by text height
 	if size.Height <= 0 {
@@ -1549,15 +1594,16 @@ func TestTextPadding(t *testing.T) {
 	setupFakeMetrics()
 
 	node := Text("Hello", Style{
-		Width:   100,
-		Padding: Uniform(10),
+		Width:   Px(100),
+		Padding: Uniform(Px(10)),
 		TextStyle: &TextStyle{
 			FontSize: 16,
 		},
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Size should include padding: content + 20px (10px each side)
 	// Content height is 1 line × 19.2 = 19.2
@@ -1573,14 +1619,15 @@ func TestTextExplicitWidth(t *testing.T) {
 	setupFakeMetrics()
 
 	node := Text("Hello world this is a long line", Style{
-		Width: 150, // Explicit width
+		Width: Px(150), // Explicit width
 		TextStyle: &TextStyle{
 			FontSize: 16,
 		},
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Width should be 150 + padding (0 in this case)
 	if math.Abs(size.Width-150.0) > 0.1 {
@@ -1593,14 +1640,15 @@ func TestTextExplicitHeight(t *testing.T) {
 	setupFakeMetrics()
 
 	node := Text("Hello world", Style{
-		Height: 100, // Explicit height
+		Height: Px(100), // Explicit height
 		TextStyle: &TextStyle{
 			FontSize: 16,
 		},
 	})
 
 	constraints := Loose(200, 200)
-	size := LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutText(node, constraints, ctx)
 
 	// Height should be 100 + padding (0 in this case)
 	if math.Abs(size.Height-100.0) > 0.1 {
@@ -1621,7 +1669,8 @@ func TestTextDefaultTextStyle(t *testing.T) {
 	}
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// LayoutText should create default TextStyle
 	if node.Style.TextStyle == nil {
@@ -1660,7 +1709,7 @@ func TestTextAlignmentInvariant(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := Text(tc.text, Style{
-				Width: tc.width,
+				Width: Px(tc.width),
 				TextStyle: &TextStyle{
 					FontSize:  16,
 					TextAlign: tc.textAlign,
@@ -1668,7 +1717,8 @@ func TestTextAlignmentInvariant(t *testing.T) {
 			})
 
 			constraints := Loose(tc.width, 200)
-			LayoutText(node, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			LayoutText(node, constraints, ctx)
 
 			if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 				t.Fatal("TextLayout should have lines")
@@ -1719,7 +1769,8 @@ func TestTextLineHeightInvariant(t *testing.T) {
 			})
 
 			constraints := Loose(200, 200)
-			size := LayoutText(node, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			size := LayoutText(node, constraints, ctx)
 
 			// Height should match expected calculation
 			if math.Abs(size.Height-tc.expected) > 0.1 {
@@ -1745,7 +1796,8 @@ func TestWhiteSpaceNonBreakingSpace(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1803,7 +1855,8 @@ func TestTextCJKWrapping(t *testing.T) {
 	// Total width: 4 chars × 10px = 40px
 	// With maxWidth=25px, should wrap into multiple lines
 	constraints := Loose(25, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1840,7 +1893,8 @@ func TestTextMixedCJKEnglish(t *testing.T) {
 	// - Between CJK characters
 	// - After "World" (space implied by CJK boundary)
 	constraints := Loose(60, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -1927,7 +1981,7 @@ func TestTextIndentWithAlignment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			text := "Hello" // 50px wide with fake metrics
 			node := Text(text, Style{
-				Width: 200,
+				Width: Px(200),
 				TextStyle: &TextStyle{
 					FontSize:   16,
 					TextAlign:  tt.align,
@@ -1936,7 +1990,8 @@ func TestTextIndentWithAlignment(t *testing.T) {
 			})
 
 			constraints := Loose(200, 200)
-			LayoutText(node, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			LayoutText(node, constraints, ctx)
 
 			if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 				t.Fatal("TextLayout should have lines")
@@ -1955,7 +2010,7 @@ func TestTextAlignLastRight(t *testing.T) {
 	// Justify with right-alignment for last line
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -1964,7 +2019,8 @@ func TestTextAlignLastRight(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2002,7 +2058,7 @@ func TestTextAlignLastWithIndent(t *testing.T) {
 	// Use shorter text so last line is clearly shorter than content width
 	text := "Hello world test and"
 	node := Text(text, Style{
-		Width: 150,
+		Width: Px(150),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -2012,7 +2068,8 @@ func TestTextAlignLastWithIndent(t *testing.T) {
 	})
 
 	constraints := Loose(150, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2043,7 +2100,7 @@ func TestTextAlignLastSingleLine(t *testing.T) {
 	// Single line with justify and last-align center
 	text := "Short"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -2052,7 +2109,8 @@ func TestTextAlignLastSingleLine(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) != 1 {
 		t.Fatal("TextLayout should have exactly 1 line")
@@ -2090,7 +2148,7 @@ func TestTextAlignLastAutoFollowsTextAlign(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			text := "Hello world test"
 			node := Text(text, Style{
-				Width: 150,
+				Width: Px(150),
 				TextStyle: &TextStyle{
 					FontSize:      16,
 					TextAlign:     tt.textAlign,
@@ -2099,7 +2157,8 @@ func TestTextAlignLastAutoFollowsTextAlign(t *testing.T) {
 			})
 
 			constraints := Loose(150, 200)
-			LayoutText(node, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			LayoutText(node, constraints, ctx)
 
 			if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 				t.Fatal("TextLayout should have lines")
@@ -2129,7 +2188,7 @@ func TestTextJustifyInterCharacter(t *testing.T) {
 
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -2138,7 +2197,8 @@ func TestTextJustifyInterCharacter(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2163,7 +2223,7 @@ func TestTextJustifyDistribute(t *testing.T) {
 
 	text := "Hello world test again"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -2172,7 +2232,8 @@ func TestTextJustifyDistribute(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2198,7 +2259,7 @@ func TestTextJustifyWithSingleWord(t *testing.T) {
 	// Use two words where second line is a single word
 	text := "Hello world Supercalifragilisticexpialidocious"
 	node := Text(text, Style{
-		Width: 120,
+		Width: Px(120),
 		TextStyle: &TextStyle{
 			FontSize:    16,
 			TextAlign:   TextAlignJustify,
@@ -2207,7 +2268,8 @@ func TestTextJustifyWithSingleWord(t *testing.T) {
 	})
 
 	constraints := Loose(120, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2242,7 +2304,7 @@ func TestCombinedTextAlignLastAndJustify(t *testing.T) {
 
 	text := "Hello world test with multiple words here"
 	node := Text(text, Style{
-		Width: 140,
+		Width: Px(140),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextAlign:     TextAlignJustify,
@@ -2252,7 +2314,8 @@ func TestCombinedTextAlignLastAndJustify(t *testing.T) {
 	})
 
 	constraints := Loose(140, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) < 2 {
 		t.Fatal("TextLayout should have at least 2 lines")
@@ -2286,7 +2349,7 @@ func TestWhiteSpacePreWrapTabs(t *testing.T) {
 
 	text := "Hello\tworld\ttest"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -2294,7 +2357,8 @@ func TestWhiteSpacePreWrapTabs(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2321,7 +2385,7 @@ func TestWhiteSpacePreWrapLeadingTrailingSpaces(t *testing.T) {
 
 	text := "  Hello world  "
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -2329,7 +2393,8 @@ func TestWhiteSpacePreWrapLeadingTrailingSpaces(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) == 0 {
 		t.Fatal("TextLayout should have lines")
@@ -2357,7 +2422,7 @@ func TestWhiteSpacePreLineConsecutiveNewlines(t *testing.T) {
 
 	text := "Line1\n\n\nLine2"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
@@ -2365,7 +2430,8 @@ func TestWhiteSpacePreLineConsecutiveNewlines(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2395,7 +2461,7 @@ func TestWhiteSpacePreWrapLongUnbreakableWord(t *testing.T) {
 	// Test that pre-wrap allows long words to overflow (without overflow-wrap)
 	text := "supercalifragilisticexpialidocious"
 	node := Text(text, Style{
-		Width: 80, // Word is ~280px with fake metrics (35 chars * 8px), much wider than container
+		Width: Px(80), // Word is ~280px with fake metrics (35 chars * 8px), much wider than container
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -2403,7 +2469,8 @@ func TestWhiteSpacePreWrapLongUnbreakableWord(t *testing.T) {
 	})
 
 	constraints := Loose(80, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2429,7 +2496,7 @@ func TestWhiteSpacePreWrapOnlySpaces(t *testing.T) {
 
 	text := "          " // Only spaces
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -2437,7 +2504,8 @@ func TestWhiteSpacePreWrapOnlySpaces(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2470,7 +2538,7 @@ func TestWhiteSpacePreLineMixedContent(t *testing.T) {
 
 	text := "Hello\t\t   world\nTest    line\tmore"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
@@ -2478,7 +2546,8 @@ func TestWhiteSpacePreLineMixedContent(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2508,7 +2577,7 @@ func TestWhiteSpacePreWrapEmptyLines(t *testing.T) {
 
 	text := "First\n\nThird"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
@@ -2516,7 +2585,8 @@ func TestWhiteSpacePreWrapEmptyLines(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil {
 		t.Fatal("TextLayout should be populated")
@@ -2541,7 +2611,7 @@ func TestWhiteSpacePreLineLeadingTrailingSpaces(t *testing.T) {
 
 	text := "  Hello world  \n  Second line  "
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
@@ -2549,7 +2619,8 @@ func TestWhiteSpacePreLineLeadingTrailingSpaces(t *testing.T) {
 	})
 
 	constraints := Loose(200, 200)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	if node.TextLayout == nil || len(node.TextLayout.Lines) != 2 {
 		t.Fatal("TextLayout should have 2 lines")
@@ -2582,23 +2653,24 @@ func TestWhiteSpacePreWrapVsPreLine(t *testing.T) {
 
 	// Test pre-wrap
 	nodePreWrap := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreWrap,
 		},
 	})
-	LayoutText(nodePreWrap, Loose(200, 200))
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(nodePreWrap, Loose(200, 200), ctx)
 
 	// Test pre-line
 	nodePreLine := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			WhiteSpace: WhiteSpacePreLine,
 		},
 	})
-	LayoutText(nodePreLine, Loose(200, 200))
+	LayoutText(nodePreLine, Loose(200, 200), ctx)
 
 	// Pre-wrap should preserve multiple spaces
 	preWrapSpaces := 0
@@ -2646,7 +2718,7 @@ func TestTextTransformUppercase(t *testing.T) {
 
 	text := "Hello World"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextTransform: TextTransformUppercase,
@@ -2654,7 +2726,8 @@ func TestTextTransformUppercase(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Check that text was transformed to uppercase
 	foundUppercase := false
@@ -2676,7 +2749,7 @@ func TestTextTransformLowercase(t *testing.T) {
 
 	text := "Hello World"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextTransform: TextTransformLowercase,
@@ -2684,7 +2757,8 @@ func TestTextTransformLowercase(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Check that text was transformed to lowercase
 	foundLowercase := false
@@ -2706,7 +2780,7 @@ func TestTextTransformCapitalize(t *testing.T) {
 
 	text := "hello world test"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextTransform: TextTransformCapitalize,
@@ -2714,7 +2788,8 @@ func TestTextTransformCapitalize(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Check that first letter of each word is capitalized
 	foundCapitalized := false
@@ -2738,7 +2813,7 @@ func TestTextTransformFullWidth(t *testing.T) {
 
 	text := "ABC"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:      16,
 			TextTransform: TextTransformFullWidth,
@@ -2746,7 +2821,8 @@ func TestTextTransformFullWidth(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Check that text was transformed to full-width
 	foundFullWidth := false
@@ -2774,7 +2850,7 @@ func TestTabSizeDefault(t *testing.T) {
 
 	text := "Hello\tWorld"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize: 16,
 			TabSize:  -1, // Default (8 spaces)
@@ -2782,7 +2858,8 @@ func TestTabSizeDefault(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// In normal mode, tab is expanded to 8 spaces, then collapsed to 1 space
 	// Just verify layout succeeded and text is properly spaced
@@ -2813,7 +2890,7 @@ func TestTabSizeCustom(t *testing.T) {
 
 	text := "Hello\tWorld"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize: 16,
 			TabSize:  4, // 4 spaces per tab
@@ -2821,7 +2898,8 @@ func TestTabSizeCustom(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// In normal mode, tab is expanded to 4 spaces, then collapsed to 1 space
 	// Just verify layout succeeded and text is properly spaced
@@ -2856,7 +2934,7 @@ func TestHangingPunctuationFirst(t *testing.T) {
 
 	text := "(Hello world)"
 	node := Text(text, Style{
-		Width: 150,
+		Width: Px(150),
 		TextStyle: &TextStyle{
 			FontSize:           16,
 			HangingPunctuation: HangingPunctuationFirst,
@@ -2864,7 +2942,8 @@ func TestHangingPunctuationFirst(t *testing.T) {
 	})
 
 	constraints := Loose(150, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Opening punctuation should hang (negative offset)
 	if len(node.TextLayout.Lines) > 0 {
@@ -2882,7 +2961,7 @@ func TestHangingPunctuationLast(t *testing.T) {
 
 	text := "Hello world."
 	node := Text(text, Style{
-		Width: 150,
+		Width: Px(150),
 		TextStyle: &TextStyle{
 			FontSize:           16,
 			HangingPunctuation: HangingPunctuationLast,
@@ -2890,7 +2969,8 @@ func TestHangingPunctuationLast(t *testing.T) {
 	})
 
 	constraints := Loose(150, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// Closing punctuation should hang (width reduced)
 	// The line width should be slightly less than the measured text width
@@ -2914,7 +2994,7 @@ func TestHyphensNone(t *testing.T) {
 	// Text with soft hyphen (U+00AD)
 	text := "super\u00ADcalifragilistic"
 	node := Text(text, Style{
-		Width: 50, // Narrow width to force breaking
+		Width: Px(50), // Narrow width to force breaking
 		TextStyle: &TextStyle{
 			FontSize: 16,
 			Hyphens:  HyphensNone,
@@ -2922,7 +3002,8 @@ func TestHyphensNone(t *testing.T) {
 	})
 
 	constraints := Loose(50, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// With hyphens: none, the word should not break at soft hyphen
 	// It should either overflow or break elsewhere
@@ -2949,7 +3030,7 @@ func TestHyphensManual(t *testing.T) {
 	// Text with soft hyphen (U+00AD)
 	text := "super\u00ADcalifragilistic"
 	node := Text(text, Style{
-		Width: 50, // Narrow width to force breaking
+		Width: Px(50), // Narrow width to force breaking
 		TextStyle: &TextStyle{
 			FontSize: 16,
 			Hyphens:  HyphensManual,
@@ -2957,7 +3038,8 @@ func TestHyphensManual(t *testing.T) {
 	})
 
 	constraints := Loose(50, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// With hyphens: manual, the word CAN break at soft hyphen
 	// Verify that text layout succeeded
@@ -2972,7 +3054,7 @@ func TestHyphensAuto(t *testing.T) {
 	// Long word that could benefit from hyphenation
 	text := "supercalifragilistic"
 	node := Text(text, Style{
-		Width: 50, // Narrow width
+		Width: Px(50), // Narrow width
 		TextStyle: &TextStyle{
 			FontSize: 16,
 			Hyphens:  HyphensAuto,
@@ -2980,7 +3062,8 @@ func TestHyphensAuto(t *testing.T) {
 	})
 
 	constraints := Loose(50, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// With hyphens: auto, layout should succeed
 	// (Dictionary-based hyphenation not implemented yet, but property is supported)
@@ -2998,7 +3081,7 @@ func TestDirectionRTL(t *testing.T) {
 
 	text := "Hello world"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			Direction: DirectionRTL,
@@ -3006,7 +3089,8 @@ func TestDirectionRTL(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// With RTL, default alignment should be right
 	if len(node.TextLayout.Lines) > 0 {
@@ -3025,7 +3109,7 @@ func TestDirectionRTLWithTextAlign(t *testing.T) {
 
 	text := "Hello world"
 	node := Text(text, Style{
-		Width: 200,
+		Width: Px(200),
 		TextStyle: &TextStyle{
 			FontSize:  16,
 			Direction: DirectionRTL,
@@ -3034,7 +3118,8 @@ func TestDirectionRTLWithTextAlign(t *testing.T) {
 	})
 
 	constraints := Loose(200, 100)
-	LayoutText(node, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutText(node, constraints, ctx)
 
 	// In RTL with TextAlignLeft, text should be on right (swapped)
 	if len(node.TextLayout.Lines) > 0 {

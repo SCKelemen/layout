@@ -11,11 +11,11 @@ func TestGridExplicitRow0(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -25,8 +25,8 @@ func TestGridExplicitRow0(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      1, // Explicitly set end
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 			// Explicitly set to row 1
@@ -35,15 +35,16 @@ func TestGridExplicitRow0(t *testing.T) {
 					GridRowStart:    1,
 					GridRowEnd:      2, // Explicitly set end
 					GridColumnStart: 0,
-					Width:           100,
-					Height:          100,
+					Width: Px(100),
+					Height: Px(100),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Items should be in different rows
 	item0Y := root.Children[0].Rect.Y
@@ -68,28 +69,29 @@ func TestGridAutoPlacementVsExplicit0(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
 			// Auto-placed (no GridRowStart set, defaults to 0)
-			{Style: Style{Width: 100, Height: 100}},
+			{Style: Style{Width: Px(100), Height: Px(100)}},
 			// Auto-placed
-			{Style: Style{Width: 100, Height: 100}},
+			{Style: Style{Width: Px(100), Height: Px(100)}},
 			// Auto-placed
-			{Style: Style{Width: 100, Height: 100}},
+			{Style: Style{Width: Px(100), Height: Px(100)}},
 			// Auto-placed
-			{Style: Style{Width: 100, Height: 100}},
+			{Style: Style{Width: Px(100), Height: Px(100)}},
 		},
 	}
 
 	constraints := Loose(500, 500)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Items should be placed in a 2x2 grid
 	// Row 0: items 0, 1
@@ -113,3 +115,4 @@ func TestGridAutoPlacementVsExplicit0(t *testing.T) {
 			root.Children[2].Rect.Y, root.Children[0].Rect.Y)
 	}
 }
+

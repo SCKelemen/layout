@@ -10,24 +10,24 @@ func TestGridBaselineAlignment(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			AlignItems:          AlignItemsBaseline,
-			Width:               200,
-			Height:              100,
+			Width:               Px(200),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  80,
-					Height: 40,
+					Width:  Px(80),
+					Height: Px(40),
 				},
 				Baseline: 30,
 			},
 			{
 				Style: Style{
-					Width:  80,
-					Height: 50,
+					Width:  Px(80),
+					Height: Px(50),
 				},
 				Baseline: 35,
 			},
@@ -35,7 +35,8 @@ func TestGridBaselineAlignment(t *testing.T) {
 	}
 
 	constraints := Loose(200, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Both items should be positioned at the top of their cells
 	// (In our simplified implementation, baseline uses flexstart behavior for grid)
@@ -54,26 +55,26 @@ func TestGridBaselineAlignmentWithMargins(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100), FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
 			AlignItems:          AlignItemsBaseline,
-			Width:               100,
-			Height:              200,
+			Width:               Px(100),
+			Height:              Px(200),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  80,
-					Height: 40,
-					Margin: Spacing{Top: 10},
+					Width:  Px(80),
+					Height: Px(40),
+					Margin: Spacing{Top: Px(10)},
 				},
 				Baseline: 20,
 			},
 			{
 				Style: Style{
-					Width:           80,
-					Height:          50,
-					Margin:          Spacing{Top: 5},
+					Width:           Px(80),
+					Height:          Px(50),
+					Margin:          Spacing{Top: Px(5)},
 					GridRowStart:    1,
 					GridColumnStart: 0,
 				},
@@ -83,7 +84,8 @@ func TestGridBaselineAlignmentWithMargins(t *testing.T) {
 	}
 
 	constraints := Loose(100, 200)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// First item should have margin applied
 	if root.Children[0].Rect.Y != 10 {
@@ -103,24 +105,24 @@ func TestGridBaselineAlignmentNoBaseline(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display:             DisplayGrid,
-			GridTemplateColumns: []GridTrack{FixedTrack(100), FixedTrack(100)},
-			GridTemplateRows:    []GridTrack{FixedTrack(100)},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 			AlignItems:          AlignItemsBaseline,
-			Width:               200,
-			Height:              100,
+			Width:               Px(200),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width:  80,
-					Height: 40,
+					Width:  Px(80),
+					Height: Px(40),
 				},
 				// No baseline set
 			},
 			{
 				Style: Style{
-					Width:  80,
-					Height: 50,
+					Width:  Px(80),
+					Height: Px(50),
 				},
 				// No baseline set
 			},
@@ -128,7 +130,8 @@ func TestGridBaselineAlignmentNoBaseline(t *testing.T) {
 	}
 
 	constraints := Loose(200, 100)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// With baseline alignment (non-stretch), items use their explicit width
 	// Our implementation currently treats baseline as flex-start for grid (simplified)
@@ -166,24 +169,25 @@ func TestGridOtherAlignmentModes(t *testing.T) {
 			root := &Node{
 				Style: Style{
 					Display:             DisplayGrid,
-					GridTemplateColumns: []GridTrack{FixedTrack(100)},
-					GridTemplateRows:    []GridTrack{FixedTrack(100)},
+					GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+					GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
 					AlignItems:          tc.alignment,
-					Width:               100,
-					Height:              100,
+					Width:               Px(100),
+					Height:              Px(100),
 				},
 				Children: []*Node{
 					{
 						Style: Style{
-							Width:  80,
-							Height: 40,
+							Width:  Px(80),
+							Height: Px(40),
 						},
 					},
 				},
 			}
 
 			constraints := Loose(100, 100)
-			size := LayoutGrid(root, constraints)
+			ctx := NewLayoutContext(800, 600, 16)
+			size := LayoutGrid(root, constraints, ctx)
 
 			// Should layout without errors
 			if size.Width <= 0 || size.Height <= 0 {

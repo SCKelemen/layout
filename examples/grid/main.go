@@ -12,16 +12,16 @@ func main() {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateRows: []layout.GridTrack{
-				layout.FixedTrack(80),   // Header
-				layout.FractionTrack(1), // Main content area
-				layout.FixedTrack(40),   // Footer
+				layout.FixedTrack(layout.Px(80)), // Header
+				layout.FractionTrack(1),          // Main content area
+				layout.FixedTrack(layout.Px(40)), // Footer
 			},
 			GridTemplateColumns: []layout.GridTrack{
-				layout.FixedTrack(200),  // Sidebar
-				layout.FractionTrack(1), // Main content
+				layout.FixedTrack(layout.Px(200)), // Sidebar
+				layout.FractionTrack(1),           // Main content
 			},
-			GridGap: 10,
-			Padding: layout.Uniform(10),
+			GridGap: layout.Px(10),
+			Padding: layout.Uniform(layout.Px(10)),
 		},
 		Children: []*layout.Node{
 			// Header spanning full width
@@ -65,7 +65,8 @@ func main() {
 
 	// Perform layout
 	constraints := layout.Loose(800, 600)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Grid container size: %.2f x %.2f\n", size.Width, size.Height)
 

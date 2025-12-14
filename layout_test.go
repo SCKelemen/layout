@@ -13,12 +13,13 @@ func TestLayoutFlexbox(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(200, 100)
-	size := Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := Layout(root, constraints, ctx)
 
 	if size.Width < 100 {
 		t.Errorf("Layout should return correct size, got width %.2f", size.Width)
@@ -31,10 +32,10 @@ func TestLayoutGrid(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -43,7 +44,8 @@ func TestLayoutGrid(t *testing.T) {
 	}
 
 	constraints := Loose(200, 200)
-	size := Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := Layout(root, constraints, ctx)
 
 	if size.Width < 100 {
 		t.Errorf("Layout should return correct size, got width %.2f", size.Width)
@@ -54,14 +56,15 @@ func TestLayoutBlock(t *testing.T) {
 	// Test main Layout function routes to block (default)
 	root := &Node{
 		Style: Style{
-			Width:  100,
-			Height: 100,
+			Width:  Px(100),
+			Height: Px(100),
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(200, 200)
-	size := Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := Layout(root, constraints, ctx)
 
 	if math.Abs(size.Width-100.0) > 1.0 {
 		t.Errorf("Layout should return correct size, got width %.2f", size.Width)
@@ -73,14 +76,15 @@ func TestLayoutNone(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayNone,
-			Width:   100,
-			Height:  100,
+			Width:   Px(100),
+			Height:  Px(100),
 		},
 		Children: []*Node{},
 	}
 
 	constraints := Loose(200, 200)
-	size := Layout(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := Layout(root, constraints, ctx)
 
 	if size.Width != 0 || size.Height != 0 {
 		t.Errorf("Display none should return zero size, got %.2f x %.2f", size.Width, size.Height)

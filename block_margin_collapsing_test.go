@@ -10,31 +10,32 @@ func TestBlockMarginCollapsingAdjacentSiblings(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1, // auto
+			Width: Px(200),
+			Height: Px(-1), // auto
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width:   100,
-					Height:  50,
-					Margin:  Spacing{Bottom: 20}, // First child has 20px bottom margin
+					Width: Px(100),
+					Height: Px(50),
+					Margin:  Spacing{Bottom: Px(20)}, // First child has 20px bottom margin
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width:   100,
-					Height:  50,
-					Margin:  Spacing{Top: 30}, // Second child has 30px top margin
+					Width: Px(100),
+					Height: Px(50),
+					Margin:  Spacing{Top: Px(30)}, // Second child has 30px top margin
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// First child should be at Y = 0
 	if root.Children[0].Rect.Y != 0 {
@@ -60,31 +61,32 @@ func TestBlockMarginCollapsingLargerMarginWins(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1,
+			Width: Px(200),
+			Height: Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width:   100,
-					Height:  50,
-					Margin:  Spacing{Bottom: 50}, // Larger bottom margin
+					Width: Px(100),
+					Height: Px(50),
+					Margin:  Spacing{Bottom: Px(50)}, // Larger bottom margin
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width:   100,
-					Height:  50,
-					Margin:  Spacing{Top: 10}, // Smaller top margin
+					Width: Px(100),
+					Height: Px(50),
+					Margin:  Spacing{Top: Px(10)}, // Smaller top margin
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// Second child should be at Y = 50 + max(50, 10) = 100
 	expectedY := 100.0
@@ -98,36 +100,37 @@ func TestBlockMarginCollapsingThreeChildren(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1,
+			Width: Px(200),
+			Height: Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  30,
-					Margin:  Spacing{Bottom: 15},
+					Height: Px(30),
+					Margin:  Spacing{Bottom: Px(15)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  30,
-					Margin:  Spacing{Top: 10, Bottom: 25},
+					Height: Px(30),
+					Margin:  Spacing{Top: Px(10), Bottom: Px(25)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  30,
-					Margin:  Spacing{Top: 20},
+					Height: Px(30),
+					Margin:  Spacing{Top: Px(20)},
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// First child at Y = 0
 	if root.Children[0].Rect.Y != 0 {
@@ -152,22 +155,23 @@ func TestBlockMarginCollapsingFirstChild(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1,
+			Width: Px(200),
+			Height: Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  50,
-					Margin:  Spacing{Top: 20}, // First child has top margin
+					Height: Px(50),
+					Margin:  Spacing{Top: Px(20)}, // First child has top margin
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// First child should be at Y = 20 (its top margin)
 	expectedY := 20.0
@@ -181,29 +185,30 @@ func TestBlockMarginCollapsingWithHorizontalMargins(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1,
+			Width: Px(200),
+			Height: Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  50,
-					Margin:  Spacing{Left: 10, Right: 10, Bottom: 20},
+					Height: Px(50),
+					Margin:  Spacing{Left: Px(10), Right: Px(10), Bottom: Px(20)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  50,
-					Margin:  Spacing{Left: 15, Right: 15, Top: 30},
+					Height: Px(50),
+					Margin:  Spacing{Left: Px(15), Right: Px(15), Top: Px(30)},
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// First child should have left margin applied
 	if root.Children[0].Rect.X != 10 {
@@ -228,34 +233,35 @@ func TestBlockMarginCollapsingNestedFlex(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width:   200,
-			Height:  -1,
+			Width: Px(200),
+			Height: Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayFlex,
-					Width:   100,
-					Height:  50,
-					Margin:  Spacing{Bottom: 20},
+					Width: Px(100),
+					Height: Px(50),
+					Margin:  Spacing{Bottom: Px(20)},
 				},
 				// Add a child to the flex container so it has content
 				Children: []*Node{
-					{Style: Style{Width: 50, Height: 30}},
+					{Style: Style{Width: Px(50), Height: Px(30)}},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height:  50,
-					Margin:  Spacing{Top: 30},
+					Height: Px(50),
+					Margin:  Spacing{Top: Px(30)},
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutBlock(root, constraints)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	LayoutBlock(root, constraints, ctx)
 
 	// Margins should collapse even when one child is flex
 	expectedY := 80.0 // 50 + max(20, 30)

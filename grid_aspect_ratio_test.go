@@ -18,8 +18,8 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 			},
-			GridRowGap: 8,
-			Width:      1000,
+			GridRowGap: Px(8),
+			Width: Px(1000),
 		},
 		Children: []*Node{
 			// Item with aspect ratio 2:1, minHeight 100
@@ -27,7 +27,7 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 				Style: Style{
 					GridRowStart: 0,
 					GridRowEnd:   1,
-					MinHeight:    100,
+					MinHeight: Px(100),
 					AspectRatio:  2.0, // width:height = 2:1
 				},
 			},
@@ -36,14 +36,15 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 				Style: Style{
 					GridRowStart: 1,
 					GridRowEnd:   2,
-					MinHeight:    200,
+					MinHeight: Px(200),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item1 := root.Children[0]
 	_ = root.Children[1] // item2, used for row height calculation
@@ -84,13 +85,13 @@ func TestGridAspectRatioConstrainedByCell(t *testing.T) {
 		Style: Style{
 			Display: DisplayGrid,
 			GridTemplateRows: []GridTrack{
-				FixedTrack(100), // Fixed row height
+				FixedTrack(Px(100)), // Fixed row height
 				AutoTrack(),
 			},
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 			},
-			Width: 1000,
+			Width: Px(1000),
 		},
 		Children: []*Node{
 			// Item with aspect ratio 2:1 in fixed-height row
@@ -105,7 +106,8 @@ func TestGridAspectRatioConstrainedByCell(t *testing.T) {
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item1 := root.Children[0]
 

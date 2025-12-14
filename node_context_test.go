@@ -11,11 +11,11 @@ import (
 // createContextTestTree creates a tree for context testing:
 //
 //	root (Block)
-//	├── child1 (Flex, Width: 100)
-//	│   ├── grandchild1 (Block, Width: 50)
-//	│   └── grandchild2 (Grid, Width: 60)
-//	├── child2 (Grid, Width: 200)
-//	└── child3 (Flex, Width: 150)
+//	├── child1 (Flex, Width: Px(100))
+//	│   ├── grandchild1 (Block, Width: Px(50))
+//	│   └── grandchild2 (Grid, Width: Px(60))
+//	├── child2 (Grid, Width: Px(200))
+//	└── child3 (Flex, Width: Px(150))
 func createContextTestTree() *Node {
 	return createTestTree() // Reuse from node_fluent_test.go
 }
@@ -250,7 +250,7 @@ func TestSiblings(t *testing.T) {
 		// Create tree with only child
 		onlyChild := &Node{
 			Children: []*Node{
-				{Style: Style{Width: 100}},
+				{Style: Style{Width: Px(100)}},
 			},
 		}
 		ctx := NewContext(onlyChild)
@@ -317,7 +317,7 @@ func TestChildren(t *testing.T) {
 	})
 
 	t.Run("leaf has no children", func(t *testing.T) {
-		leaf := &Node{Style: Style{Width: 100}}
+		leaf := &Node{Style: Style{Width: Px(100)}}
 		leafCtx := NewContext(leaf)
 
 		children := leafCtx.Children()
@@ -392,7 +392,7 @@ func TestFindUp(t *testing.T) {
 		childCtx := rootCtx.ChildAt(0)
 
 		result := childCtx.FindUp(func(n *Node) bool {
-			return n.Style.Width == 999 // Doesn't exist
+			return n.Style.Width.Value == 999 // Doesn't exist
 		})
 
 		if result != nil {
@@ -450,7 +450,7 @@ func TestFindDown(t *testing.T) {
 
 	t.Run("no match returns nil", func(t *testing.T) {
 		result := rootCtx.FindDown(func(n *Node) bool {
-			return n.Style.Width == 999
+			return n.Style.Width.Value == 999
 		})
 
 		if result != nil {
@@ -496,7 +496,7 @@ func TestFindDownAll(t *testing.T) {
 
 	t.Run("no matches returns empty", func(t *testing.T) {
 		result := rootCtx.FindDownAll(func(n *Node) bool {
-			return n.Style.Width == 999
+			return n.Style.Width.Value == 999
 		})
 
 		if len(result) != 0 {
@@ -556,7 +556,7 @@ func TestHasChildren(t *testing.T) {
 		t.Errorf("Root should have children")
 	}
 
-	leaf := &Node{Style: Style{Width: 100}}
+	leaf := &Node{Style: Style{Width: Px(100)}}
 	leafCtx := NewContext(leaf)
 
 	if leafCtx.HasChildren() {

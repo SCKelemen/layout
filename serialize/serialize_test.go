@@ -13,28 +13,28 @@ func TestToJSON(t *testing.T) {
 		Style: layout.Style{
 			Display:       layout.DisplayFlex,
 			FlexDirection: layout.FlexDirectionColumn,
-			Width:         200,
-			Height:        100,
+			Width: Px(200),
+			Height: Px(100),
 		},
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
-					Width:  100,
-					Height: 50,
+					Width: Px(100),
+					Height: Px(50),
 				},
 				Rect: layout.Rect{
 					X:      0,
 					Y:      0,
-					Width:  100,
-					Height: 50,
+					Width: Px(100),
+					Height: Px(50),
 				},
 			},
 		},
 		Rect: layout.Rect{
 			X:      0,
 			Y:      0,
-			Width:  200,
-			Height: 100,
+			Width: Px(200),
+			Height: Px(100),
 		},
 	}
 
@@ -78,14 +78,14 @@ func TestGridSerialization(t *testing.T) {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateRows: []layout.GridTrack{
-				layout.FixedTrack(100),
-				layout.FixedTrack(200),
+				layout.FixedTrack(Px(100)),
+				layout.FixedTrack(Px(200)),
 			},
 			GridTemplateColumns: []layout.GridTrack{
 				layout.FractionTrack(1),
 				layout.FractionTrack(2),
 			},
-			GridGap: 10,
+			GridGap: Px(10),
 		},
 	}
 
@@ -116,8 +116,8 @@ func TestGridSerialization(t *testing.T) {
 func TestAspectRatioSerialization(t *testing.T) {
 	root := &layout.Node{
 		Style: layout.Style{
-			Width:       800,
-			Height:      -1, // auto
+			Width: Px(800),
+			Height: Px(-1), // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -158,3 +158,4 @@ func TestTransformSerialization(t *testing.T) {
 		t.Errorf("Transform.A mismatch: got %v, want %v", deserialized.Style.Transform.A, root.Style.Transform.A)
 	}
 }
+

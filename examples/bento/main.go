@@ -11,8 +11,8 @@ func main() {
 	// This demonstrates how items can span different numbers of rows/columns
 	// Using the Grid() helper function to simplify grid creation
 	root := layout.Grid(4, 4, 150, 200) // 4 rows x 4 columns, rows=150px, cols=200px
-	root.Style.GridGap = 10
-	root.Style.Padding = layout.Uniform(20)
+	root.Style.GridGap = layout.Px(10)
+	root.Style.Padding = layout.Uniform(layout.Px(20))
 	root.Children = []*layout.Node{
 		// Large featured item - spans 2 rows x 2 columns (top-left)
 		{
@@ -20,9 +20,9 @@ func main() {
 				GridRowStart:    0,
 				GridRowEnd:      2, // Spans 2 rows
 				GridColumnStart: 0,
-				GridColumnEnd:   2,   // Spans 2 columns
-				Width:           410, // 2 columns + 1 gap
-				Height:          310, // 2 rows + 1 gap
+				GridColumnEnd:   2,              // Spans 2 columns
+				Width:           layout.Px(410), // 2 columns + 1 gap
+				Height:          layout.Px(310), // 2 rows + 1 gap
 			},
 		},
 		// Medium item - spans 1 row x 2 columns (top-right)
@@ -32,8 +32,8 @@ func main() {
 				GridRowEnd:      1,
 				GridColumnStart: 2,
 				GridColumnEnd:   4, // Spans 2 columns
-				Width:           410,
-				Height:          150,
+				Width:           layout.Px(410),
+				Height:          layout.Px(150),
 			},
 		},
 		// Small item - 1x1 (top-right, second row)
@@ -43,8 +43,8 @@ func main() {
 				GridRowEnd:      2,
 				GridColumnStart: 2,
 				GridColumnEnd:   3,
-				Width:           200,
-				Height:          150,
+				Width:           layout.Px(200),
+				Height:          layout.Px(150),
 			},
 		},
 		// Small item - 1x1 (top-right, second row, second column)
@@ -54,8 +54,8 @@ func main() {
 				GridRowEnd:      2,
 				GridColumnStart: 3,
 				GridColumnEnd:   4,
-				Width:           200,
-				Height:          150,
+				Width:           layout.Px(200),
+				Height:          layout.Px(150),
 			},
 		},
 		// Medium item - spans 2 rows x 1 column (left side, bottom)
@@ -65,8 +65,8 @@ func main() {
 				GridRowEnd:      4, // Spans 2 rows
 				GridColumnStart: 0,
 				GridColumnEnd:   1,
-				Width:           200,
-				Height:          310, // 2 rows + 1 gap
+				Width:           layout.Px(200),
+				Height:          layout.Px(310), // 2 rows + 1 gap
 			},
 		},
 		// Medium item - spans 1 row x 2 columns (bottom, middle)
@@ -76,8 +76,8 @@ func main() {
 				GridRowEnd:      3,
 				GridColumnStart: 1,
 				GridColumnEnd:   3, // Spans 2 columns
-				Width:           410,
-				Height:          150,
+				Width:           layout.Px(410),
+				Height:          layout.Px(150),
 			},
 		},
 		// Small item - 1x1 (bottom-right)
@@ -87,8 +87,8 @@ func main() {
 				GridRowEnd:      3,
 				GridColumnStart: 3,
 				GridColumnEnd:   4,
-				Width:           200,
-				Height:          150,
+				Width:           layout.Px(200),
+				Height:          layout.Px(150),
 			},
 		},
 		// Medium item - spans 1 row x 3 columns (bottom row)
@@ -97,16 +97,17 @@ func main() {
 				GridRowStart:    3,
 				GridRowEnd:      4,
 				GridColumnStart: 1,
-				GridColumnEnd:   4,   // Spans 3 columns
-				Width:           620, // 3 columns + 2 gaps
-				Height:          150,
+				GridColumnEnd:   4,              // Spans 3 columns
+				Width:           layout.Px(620), // 3 columns + 2 gaps
+				Height:          layout.Px(150),
 			},
 		},
 	}
 
 	// Perform layout
 	constraints := layout.Loose(900, 700)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Bento Box Grid Layout\n")
 	fmt.Printf("====================\n\n")

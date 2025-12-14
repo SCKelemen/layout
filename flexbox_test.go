@@ -13,13 +13,14 @@ func TestFlexboxBasicRow(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(400, 200)
-	size := LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(root, constraints, ctx)
 
 	// Container should be at least as wide as children
 	if size.Width < 200 {
@@ -47,13 +48,14 @@ func TestFlexboxJustifyContentFlexStart(t *testing.T) {
 			JustifyContent: JustifyContentFlexStart,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First child should be at X=0
 	if root.Children[0].Rect.X != 0 {
@@ -70,13 +72,14 @@ func TestFlexboxJustifyContentSpaceBetween(t *testing.T) {
 			JustifyContent: JustifyContentSpaceBetween,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// First child should be at start
 	if root.Children[0].Rect.X != 0 {
@@ -99,12 +102,13 @@ func TestFlexboxJustifyContentCenter(t *testing.T) {
 			JustifyContent: JustifyContentCenter,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Child should be centered
 	expectedX := (200.0 - 50.0) / 2.0
@@ -121,13 +125,14 @@ func TestFlexboxFlexGrow(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50, FlexGrow: 1}},
-			{Style: Style{Width: 50, Height: 50, FlexGrow: 2}},
+			{Style: Style{Width: Px(50), Height: Px(50), FlexGrow: 1}},
+			{Style: Style{Width: Px(50), Height: Px(50), FlexGrow: 2}},
 		},
 	}
 
 	constraints := Tight(300, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Calculate expected sizes
 	// Available space: 300 - 50 - 50 = 200
@@ -158,13 +163,14 @@ func TestFlexboxFlexShrink(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 200, Height: 50, FlexShrink: 1}},
-			{Style: Style{Width: 200, Height: 50, FlexShrink: 2}},
+			{Style: Style{Width: Px(200), Height: Px(50), FlexShrink: 1}},
+			{Style: Style{Width: Px(200), Height: Px(50), FlexShrink: 2}},
 		},
 	}
 
 	constraints := Tight(300, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	child0Width := root.Children[0].Rect.Width
 	child1Width := root.Children[1].Rect.Width
@@ -189,13 +195,14 @@ func TestFlexboxColumnDirection(t *testing.T) {
 			FlexDirection: FlexDirectionColumn,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 100, Height: 50}},
-			{Style: Style{Width: 100, Height: 50}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
+			{Style: Style{Width: Px(100), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Children should be stacked vertically
 	if root.Children[0].Rect.Y != 0 {
@@ -218,13 +225,14 @@ func TestFlexboxAlignItemsStretch(t *testing.T) {
 			AlignItems:    AlignItemsStretch,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50}}, // No height specified
-			{Style: Style{Width: 50}}, // No height specified
+			{Style: Style{Width: Px(50)}}, // No height specified
+			{Style: Style{Width: Px(50)}}, // No height specified
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Children should stretch to container height
 	expectedHeight := 100.0
@@ -244,12 +252,13 @@ func TestFlexboxAlignItemsCenter(t *testing.T) {
 			AlignItems:    AlignItemsCenter,
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 30}},
+			{Style: Style{Width: Px(50), Height: Px(30)}},
 		},
 	}
 
 	constraints := Tight(200, 100)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Child should be vertically centered
 	expectedY := (100.0 - 30.0) / 2.0
@@ -264,15 +273,16 @@ func TestFlexboxPadding(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
-			Padding:       Uniform(10),
+			Padding:       Uniform(Px(10)),
 		},
 		Children: []*Node{
-			{Style: Style{Width: 50, Height: 50}},
+			{Style: Style{Width: Px(50), Height: Px(50)}},
 		},
 	}
 
 	constraints := Loose(200, 100)
-	size := LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(root, constraints, ctx)
 
 	// Container should include padding
 	// Content: 50, Padding: 20 (10*2), Total: 70
@@ -293,7 +303,8 @@ func TestFlexboxEmptyContainer(t *testing.T) {
 	}
 
 	constraints := Loose(200, 100)
-	size := LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutFlexbox(root, constraints, ctx)
 
 	// Empty container should have minimal size
 	if size.Width < 0 {
@@ -318,18 +329,20 @@ func TestFlexboxNested(t *testing.T) {
 					FlexDirection: FlexDirectionRow,
 				},
 				Children: []*Node{
-					{Style: Style{Width: 50, Height: 50}},
-					{Style: Style{Width: 50, Height: 50}},
+					{Style: Style{Width: Px(50), Height: Px(50)}},
+					{Style: Style{Width: Px(50), Height: Px(50)}},
 				},
 			},
 		},
 	}
 
 	constraints := Loose(200, 200)
-	LayoutFlexbox(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutFlexbox(root, constraints, ctx)
 
 	// Nested container should be laid out
 	if len(root.Children[0].Children) != 2 {
 		t.Errorf("Expected 2 children in nested container, got %d", len(root.Children[0].Children))
 	}
 }
+

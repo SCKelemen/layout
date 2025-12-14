@@ -108,7 +108,8 @@ func main() {
 	).WithWidth(500).WithPadding(20)
 
 	// Layout the form
-	layout.Layout(registrationForm, layout.Loose(600, 800))
+	ctx := layout.NewLayoutContext(600, 800, 16)
+	layout.Layout(registrationForm, layout.Loose(600, 800), ctx)
 
 	fmt.Printf("Form size: %.0fx%.0f\n",
 		registrationForm.Rect.Width, registrationForm.Rect.Height)
@@ -118,20 +119,20 @@ func main() {
 
 	// Count form fields
 	fields := registrationForm.FindAll(func(n *layout.Node) bool {
-		return n.Style.Height == 40 && n.Style.Width > 0
+		return n.Style.Height.Value == 40 && n.Style.Width.Value > 0
 	})
 	fmt.Printf("Total form fields: %d\n", len(fields))
 
 	// Count sections
 	sections := registrationForm.FindAll(func(n *layout.Node) bool {
 		return len(n.Children) > 0 &&
-			n.Style.Margin.Top == 16
+			n.Style.Margin.Top.Value == 16
 	})
 	fmt.Printf("Form sections: %d\n", len(sections))
 
 	// Find all labels (height 24 nodes)
 	labels := registrationForm.FindAll(func(n *layout.Node) bool {
-		return n.Style.Height == 24 && n.Text != ""
+		return n.Style.Height.Value == 24 && n.Text != ""
 	})
 	fmt.Printf("Form labels: %d\n", len(labels))
 	fmt.Printf("Labels: ")
@@ -149,30 +150,32 @@ func main() {
 	// Compact variant - reduce all spacing
 	compactForm := registrationForm.Transform(
 		func(n *layout.Node) bool {
-			return n.Style.Margin.Top > 0 || n.Style.Padding.Top > 0
+			return n.Style.Margin.Top.Value > 0 || n.Style.Padding.Top.Value > 0
 		},
 		func(n *layout.Node) *layout.Node {
 			return n.
-				WithMargin(n.Style.Margin.Top / 2).
-				WithPadding(n.Style.Padding.Top / 2)
+				WithMargin(n.Style.Margin.Top.Value / 2).
+				WithPadding(n.Style.Padding.Top.Value / 2)
 		},
 	)
 
-	layout.Layout(compactForm, layout.Loose(600, 800))
+	ctx2 := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(compactForm, layout.Loose(600, 800), ctx2)
 	fmt.Printf("Compact form height: %.0f (original: %.0f)\n",
 		compactForm.Rect.Height, registrationForm.Rect.Height)
 
 	// Wide variant - scale all widths
 	wideForm := registrationForm.Transform(
 		func(n *layout.Node) bool {
-			return n.Style.Width > 0
+			return n.Style.Width.Value > 0
 		},
 		func(n *layout.Node) *layout.Node {
-			return n.WithWidth(n.Style.Width * 1.3)
+			return n.WithWidth(n.Style.Width.Value * 1.3)
 		},
 	)
 
-	layout.Layout(wideForm, layout.Loose(800, 800))
+	ctx3 := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(wideForm, layout.Loose(800, 800), ctx3)
 	fmt.Printf("Wide form width: %.0f (original: %.0f)\n",
 		wideForm.Rect.Width, registrationForm.Rect.Width)
 
@@ -198,10 +201,11 @@ func main() {
 		},
 	)
 
-	layout.Layout(viewOnlyForm, layout.Loose(600, 800))
+	ctx4 := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(viewOnlyForm, layout.Loose(600, 800), ctx4)
 
 	viewFields := viewOnlyForm.FindAll(func(n *layout.Node) bool {
-		return n.Style.Height == 40 && n.Style.Width > 0
+		return n.Style.Height.Value == 40 && n.Style.Width.Value > 0
 	})
 	fmt.Printf("View-only form fields: %d (removed password field)\n", len(viewFields))
 
@@ -216,11 +220,12 @@ func main() {
 		},
 		func(n *layout.Node) *layout.Node {
 			// Add error indicator (simulated with extra height)
-			return n.WithHeight(n.Style.Height + 20) // Space for error message
+			return n.WithHeight(n.Style.Height.Value + 20) // Space for error message
 		},
 	)
 
-	layout.Layout(formWithErrors, layout.Loose(600, 800))
+	ctx5 := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(formWithErrors, layout.Loose(600, 800), ctx5)
 	fmt.Printf("Form with validation errors height: %.0f\n", formWithErrors.Rect.Height)
 
 	// Demonstrate collecting form data (simulated)
@@ -235,12 +240,12 @@ func main() {
 		data := acc.(FormData)
 
 		// Collect labels (height 24)
-		if n.Style.Height == 24 && n.Text != "" {
+		if n.Style.Height.Value == 24 && n.Text != "" {
 			data.Labels = append(data.Labels, n.Text)
 		}
 
 		// Collect field placeholders (height 40)
-		if n.Style.Height == 40 && n.Text != "" {
+		if n.Style.Height.Value == 40 && n.Text != "" {
 			data.Values = append(data.Values, n.Text)
 		}
 
@@ -276,7 +281,7 @@ func main() {
 	totalPadding := registrationForm.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
 		sum := acc.(float64)
 		p := n.Style.Padding
-		return sum + p.Top + p.Right + p.Bottom + p.Left
+		return sum + p.Top.Value + p.Right.Value + p.Bottom.Value + p.Left.Value
 	}).(float64)
 
 	fmt.Printf("Total padding in form: %.0f\n", totalPadding)

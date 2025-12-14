@@ -17,11 +17,12 @@ func main() {
 
 	// Create a container and layout the items
 	root := layout.HStack(items...)
-	root.Style.Padding = layout.Uniform(20)
+	root.Style.Padding = layout.Uniform(layout.Px(20))
 	root.Style.JustifyContent = layout.JustifyContentFlexStart
 
 	constraints := layout.Loose(400, 200)
-	layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(400, 200, 16)
+	layout.Layout(root, constraints, ctx)
 
 	fmt.Println("=== Before Alignment ===")
 	for i, item := range items {
@@ -36,7 +37,7 @@ func main() {
 	}
 
 	// Reset and align to vertical center
-	layout.Layout(root, constraints)
+	layout.Layout(root, constraints, ctx)
 	layout.AlignNodes(items, layout.AlignCenterY)
 	fmt.Println("\n=== After AlignCenterY ===")
 	for i, item := range items {
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	// Reset and distribute horizontally
-	layout.Layout(root, constraints)
+	layout.Layout(root, constraints, ctx)
 	layout.DistributeNodes(items, layout.DistributeHorizontal)
 	fmt.Println("\n=== After DistributeHorizontal ===")
 	for i, item := range items {

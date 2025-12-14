@@ -351,7 +351,7 @@ func (n *Node) WithPadding(amount float64) *Node {
 		return nil
 	}
 	copy := n.Clone()
-	copy.Style.Padding = Uniform(amount)
+	copy.Style.Padding = Uniform(Px(amount))
 	return copy
 }
 
@@ -367,10 +367,10 @@ func (n *Node) WithPaddingCustom(top, right, bottom, left float64) *Node {
 	}
 	copy := n.Clone()
 	copy.Style.Padding = Spacing{
-		Top:    top,
-		Right:  right,
-		Bottom: bottom,
-		Left:   left,
+		Top:    Px(top),
+		Right:  Px(right),
+		Bottom: Px(bottom),
+		Left:   Px(left),
 	}
 	return copy
 }
@@ -386,7 +386,7 @@ func (n *Node) WithMargin(amount float64) *Node {
 		return nil
 	}
 	copy := n.Clone()
-	copy.Style.Margin = Uniform(amount)
+	copy.Style.Margin = Uniform(Px(amount))
 	return copy
 }
 
@@ -402,10 +402,10 @@ func (n *Node) WithMarginCustom(top, right, bottom, left float64) *Node {
 	}
 	copy := n.Clone()
 	copy.Style.Margin = Spacing{
-		Top:    top,
-		Right:  right,
-		Bottom: bottom,
-		Left:   left,
+		Top:    Px(top),
+		Right:  Px(right),
+		Bottom: Px(bottom),
+		Left:   Px(left),
 	}
 	return copy
 }
@@ -421,7 +421,7 @@ func (n *Node) WithWidth(width float64) *Node {
 		return nil
 	}
 	copy := n.Clone()
-	copy.Style.Width = width
+	copy.Style.Width = Px(width)
 	return copy
 }
 
@@ -436,7 +436,7 @@ func (n *Node) WithHeight(height float64) *Node {
 		return nil
 	}
 	copy := n.Clone()
-	copy.Style.Height = height
+	copy.Style.Height = Px(height)
 	return copy
 }
 

@@ -22,13 +22,13 @@ func main() {
 		Style: layout.Style{
 			Display:       layout.DisplayFlex,
 			FlexDirection: layout.FlexDirectionColumn,
-			Width:         300,
-			Padding:       layout.Uniform(16),
-			Margin:        layout.Uniform(8),
+			Width:         layout.Px(300),
+			Padding:       layout.Uniform(layout.Px(16)),
+			Margin:        layout.Uniform(layout.Px(8)),
 		},
 		Children: []*layout.Node{
 			{
-				Style: layout.Style{Height: 40},
+				Style: layout.Style{Height: layout.Px(40)},
 				Text:  "Title",
 			},
 			{
@@ -36,7 +36,7 @@ func main() {
 				Text:  "Body",
 			},
 			{
-				Style: layout.Style{Height: 30},
+				Style: layout.Style{Height: layout.Px(30)},
 				Text:  "Footer",
 			},
 		},
@@ -59,8 +59,9 @@ func main() {
 
 	// Layout both
 	constraints := layout.Loose(400, 600)
-	layout.Layout(classicCard, constraints)
-	layout.Layout(fluentCard, constraints)
+	ctx := layout.NewLayoutContext(400, 600, 16)
+	layout.Layout(classicCard, constraints, ctx)
+	layout.Layout(fluentCard, constraints, ctx)
 
 	// Compare results
 	fmt.Printf("Classic card rect: %.0fx%.0f at (%.0f, %.0f)\n",
@@ -93,8 +94,8 @@ func main() {
 	).WithPadding(10).WithMargin(5)
 
 	// Layout both
-	layout.Layout(classicStack, constraints)
-	layout.Layout(fluentStack, constraints)
+	layout.Layout(classicStack, constraints, ctx)
+	layout.Layout(fluentStack, constraints, ctx)
 
 	fmt.Printf("Classic stack rect: %.0fx%.0f\n",
 		classicStack.Rect.Width, classicStack.Rect.Height)
@@ -122,12 +123,12 @@ func main() {
 	// Back to fluent
 	mixed = mixed.WithWidth(350)
 
-	layout.Layout(mixed, constraints)
+	layout.Layout(mixed, constraints, ctx)
 
 	fmt.Printf("Mixed API result: %.0fx%.0f with %d children\n",
 		mixed.Rect.Width, mixed.Rect.Height, len(mixed.Children))
 	fmt.Printf("Padding: %.0f, Margin: %.0f\n\n",
-		mixed.Style.Padding.Top, mixed.Style.Margin.Top)
+		mixed.Style.Padding.Top.Value, mixed.Style.Margin.Top.Value)
 
 	// === Example 4: Building the Same Tree Two Ways ===
 	fmt.Println("Example 4: Complex Tree Two Ways")
@@ -138,20 +139,20 @@ func main() {
 			Display:        layout.DisplayFlex,
 			FlexDirection:  layout.FlexDirectionColumn,
 			JustifyContent: layout.JustifyContentSpaceBetween,
-			Width:          400,
-			Height:         300,
+			Width:          layout.Px(400),
+			Height:         layout.Px(300),
 		},
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
 					Display:       layout.DisplayFlex,
 					FlexDirection: layout.FlexDirectionRow,
-					Height:        50,
+					Height:        layout.Px(50),
 				},
 				Children: []*layout.Node{
-					{Style: layout.Style{Width: 100}, Text: "Logo"},
+					{Style: layout.Style{Width: layout.Px(100)}, Text: "Logo"},
 					{Style: layout.Style{FlexGrow: 1}},
-					{Style: layout.Style{Width: 100}, Text: "Menu"},
+					{Style: layout.Style{Width: layout.Px(100)}, Text: "Menu"},
 				},
 			},
 			{
@@ -162,7 +163,7 @@ func main() {
 			},
 			{
 				Style: layout.Style{
-					Height: 50,
+					Height: layout.Px(50),
 				},
 				Text: "Footer",
 			},
@@ -189,8 +190,8 @@ func main() {
 		)
 
 	// Layout both
-	layout.Layout(classicTree, constraints)
-	layout.Layout(fluentTree, constraints)
+	layout.Layout(classicTree, constraints, ctx)
+	layout.Layout(fluentTree, constraints, ctx)
 
 	// Compare all descendants
 	classicDesc := classicTree.DescendantsAndSelf()
@@ -226,19 +227,19 @@ func main() {
 
 	// Both trees can use transformations
 	classicScaled := classicTree.Map(func(n *layout.Node) *layout.Node {
-		return n.WithWidth(n.Style.Width * 1.2)
+		return n.WithWidth(n.Style.Width.Value * 1.2)
 	})
 
 	fluentScaled := fluentTree.Map(func(n *layout.Node) *layout.Node {
-		return n.WithWidth(n.Style.Width * 1.2)
+		return n.WithWidth(n.Style.Width.Value * 1.2)
 	})
 
-	layout.Layout(classicScaled, constraints)
-	layout.Layout(fluentScaled, constraints)
+	layout.Layout(classicScaled, constraints, ctx)
+	layout.Layout(fluentScaled, constraints, ctx)
 
 	fmt.Printf("Both trees scaled successfully\n")
-	fmt.Printf("Classic scaled width: %.0f\n", classicScaled.Style.Width)
-	fmt.Printf("Fluent scaled width:  %.0f\n\n", fluentScaled.Style.Width)
+	fmt.Printf("Classic scaled width: %.0f\n", classicScaled.Style.Width.Value)
+	fmt.Printf("Fluent scaled width:  %.0f\n\n", fluentScaled.Style.Width.Value)
 
 	// === Summary ===
 	fmt.Println("=== Summary ===")

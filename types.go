@@ -126,23 +126,23 @@ type Style struct {
 	AlignItems     AlignItems
 	AlignContent   AlignContent
 	AlignSelf      AlignItems // Per-item cross-axis alignment override (0 = use parent's AlignItems)
-	FlexGrow       float64
-	FlexShrink     float64
-	FlexBasis      float64 // or "auto" represented as -1
-	FlexGap        float64 // Gap between flex items (0 means no gap)
-	FlexRowGap     float64 // Row gap (cross-axis gap, 0 means use FlexGap)
-	FlexColumnGap  float64 // Column gap (main-axis gap, 0 means use FlexGap)
-	Order          int     // Visual order (default: 0). Items are ordered by ascending order value.
+	FlexGrow       float64    // Flex grow factor (unitless)
+	FlexShrink     float64    // Flex shrink factor (unitless)
+	FlexBasis      Length     // Initial main size (use Px(0) with WidthSizing/HeightSizing for auto)
+	FlexGap        Length     // Gap between flex items (use Px(0) for no gap)
+	FlexRowGap     Length     // Row gap (cross-axis gap, use Px(0) to fall back to FlexGap)
+	FlexColumnGap  Length     // Column gap (main-axis gap, use Px(0) to fall back to FlexGap)
+	Order          int        // Visual order (default: 0). Items are ordered by ascending order value.
 
 	// Grid properties
 	GridTemplateRows    []GridTrack
 	GridTemplateColumns []GridTrack
 	GridAutoRows        GridTrack
 	GridAutoColumns     GridTrack
-	GridAutoFlow        GridAutoFlow // Auto-placement algorithm (default: row)
-	GridGap             float64
-	GridRowGap          float64
-	GridColumnGap       float64
+	GridAutoFlow        GridAutoFlow       // Auto-placement algorithm (default: row)
+	GridGap             Length             // Gap between grid tracks (use Px(0) for no gap)
+	GridRowGap          Length             // Row gap (use Px(0) to fall back to GridGap)
+	GridColumnGap       Length             // Column gap (use Px(0) to fall back to GridGap)
 	GridRowStart        int                // -1 means auto
 	GridRowEnd          int                // -1 means auto
 	GridColumnStart     int                // -1 means auto
@@ -156,20 +156,20 @@ type Style struct {
 	// AlignSelf (defined in Flexbox section) also works for Grid items
 
 	// Sizing
-	Width       float64 // -1 means auto, -2 means min-content, -3 means max-content, -4 means fit-content
-	Height      float64 // -1 means auto, -2 means min-content, -3 means max-content, -4 means fit-content
-	MinWidth    float64
-	MinHeight   float64
-	MaxWidth    float64
-	MaxHeight   float64
+	Width       Length  // Explicit width (use WidthSizing for auto/min-content/max-content/fit-content)
+	Height      Length  // Explicit height (use HeightSizing for auto/min-content/max-content/fit-content)
+	MinWidth    Length  // Minimum width
+	MinHeight   Length  // Minimum height
+	MaxWidth    Length  // Maximum width
+	MaxHeight   Length  // Maximum height
 	AspectRatio float64 // Width/Height ratio (0 means not set). Example: 16/9 = 1.777...
 
 	// Intrinsic sizing (alternative to sentinel values for better API ergonomics)
 	// These provide an alternative way to specify intrinsic sizing beyond sentinel values
 	WidthSizing      IntrinsicSize // Intrinsic sizing mode for width (0 = none/use Width value)
 	HeightSizing     IntrinsicSize // Intrinsic sizing mode for height (0 = none/use Height value)
-	FitContentWidth  float64       // Maximum width for fit-content (only used when WidthSizing = IntrinsicSizeFitContent)
-	FitContentHeight float64       // Maximum height for fit-content (only used when HeightSizing = IntrinsicSizeFitContent)
+	FitContentWidth  Length        // Maximum width for fit-content (only used when WidthSizing = IntrinsicSizeFitContent)
+	FitContentHeight Length        // Maximum height for fit-content (only used when HeightSizing = IntrinsicSizeFitContent)
 
 	Padding Spacing
 	Margin  Spacing // Margin is supported in Flexbox and Grid layouts
@@ -180,11 +180,11 @@ type Style struct {
 
 	// Positioning
 	Position Position
-	Top      float64 // -1 means auto
-	Right    float64 // -1 means auto
-	Bottom   float64 // -1 means auto
-	Left     float64 // -1 means auto
-	ZIndex   int     // Stacking order
+	Top      Length // Positioning offset (use Px(0) for zero, check for auto via separate logic)
+	Right    Length // Positioning offset
+	Bottom   Length // Positioning offset
+	Left     Length // Positioning offset
+	ZIndex   int    // Stacking order
 
 	// Transform (for SVG rendering and visual effects)
 	Transform Transform
@@ -194,16 +194,16 @@ type Style struct {
 	TextStyle *TextStyle
 }
 
-// Spacing represents spacing on all sides
+// Spacing represents spacing on all sides using Length values
 type Spacing struct {
-	Top    float64
-	Right  float64
-	Bottom float64
-	Left   float64
+	Top    Length
+	Right  Length
+	Bottom Length
+	Left   Length
 }
 
 // Uniform creates uniform spacing on all sides
-func Uniform(value float64) Spacing {
+func Uniform(value Length) Spacing {
 	return Spacing{
 		Top:    value,
 		Right:  value,
@@ -213,22 +213,22 @@ func Uniform(value float64) Spacing {
 }
 
 // Horizontal creates horizontal spacing
-func Horizontal(value float64) Spacing {
+func Horizontal(value Length) Spacing {
 	return Spacing{
-		Top:    0,
+		Top:    Px(0),
 		Right:  value,
-		Bottom: 0,
+		Bottom: Px(0),
 		Left:   value,
 	}
 }
 
 // Vertical creates vertical spacing
-func Vertical(value float64) Spacing {
+func Vertical(value Length) Spacing {
 	return Spacing{
 		Top:    value,
-		Right:  0,
+		Right:  Px(0),
 		Bottom: value,
-		Left:   0,
+		Left:   Px(0),
 	}
 }
 
@@ -577,14 +577,13 @@ const (
 
 // GridTrack represents a grid track (row or column)
 type GridTrack struct {
-	MinSize float64
-	MaxSize float64
-	// For fr units, we'll use a ratio
-	Fraction float64 // 0 means not a fraction
+	MinSize  Length  // Minimum track size
+	MaxSize  Length  // Maximum track size (use PxUnbounded or UnboundedLength() for unbounded)
+	Fraction float64 // For fr units (0 means not a fraction)
 }
 
 // FixedTrack creates a fixed-size track
-func FixedTrack(size float64) GridTrack {
+func FixedTrack(size Length) GridTrack {
 	return GridTrack{
 		MinSize:  size,
 		MaxSize:  size,
@@ -593,7 +592,7 @@ func FixedTrack(size float64) GridTrack {
 }
 
 // MinMaxTrack creates a minmax track
-func MinMaxTrack(min, max float64) GridTrack {
+func MinMaxTrack(min, max Length) GridTrack {
 	return GridTrack{
 		MinSize:  min,
 		MaxSize:  max,
@@ -604,8 +603,8 @@ func MinMaxTrack(min, max float64) GridTrack {
 // FractionTrack creates a fractional track (fr unit)
 func FractionTrack(fraction float64) GridTrack {
 	return GridTrack{
-		MinSize:  0,
-		MaxSize:  Unbounded,
+		MinSize:  Px(0),
+		MaxSize:  PxUnbounded,
 		Fraction: fraction,
 	}
 }
@@ -613,8 +612,8 @@ func FractionTrack(fraction float64) GridTrack {
 // AutoTrack creates an auto-sized track
 func AutoTrack() GridTrack {
 	return GridTrack{
-		MinSize:  0,
-		MaxSize:  Unbounded,
+		MinSize:  Px(0),
+		MaxSize:  PxUnbounded,
 		Fraction: 0,
 	}
 }
@@ -816,13 +815,21 @@ func (t Transform) IsIdentity() bool {
 }
 
 // getHorizontalPaddingBorder returns the sum of horizontal padding and border
-func getHorizontalPaddingBorder(padding, border Spacing) float64 {
-	return padding.Left + padding.Right + border.Left + border.Right
+func getHorizontalPaddingBorder(padding, border Spacing, ctx *LayoutContext, currentFontSize float64) float64 {
+	paddingLeft := ResolveLength(padding.Left, ctx, currentFontSize)
+	paddingRight := ResolveLength(padding.Right, ctx, currentFontSize)
+	borderLeft := ResolveLength(border.Left, ctx, currentFontSize)
+	borderRight := ResolveLength(border.Right, ctx, currentFontSize)
+	return paddingLeft + paddingRight + borderLeft + borderRight
 }
 
 // getVerticalPaddingBorder returns the sum of vertical padding and border
-func getVerticalPaddingBorder(padding, border Spacing) float64 {
-	return padding.Top + padding.Bottom + border.Top + border.Bottom
+func getVerticalPaddingBorder(padding, border Spacing, ctx *LayoutContext, currentFontSize float64) float64 {
+	paddingTop := ResolveLength(padding.Top, ctx, currentFontSize)
+	paddingBottom := ResolveLength(padding.Bottom, ctx, currentFontSize)
+	borderTop := ResolveLength(border.Top, ctx, currentFontSize)
+	borderBottom := ResolveLength(border.Bottom, ctx, currentFontSize)
+	return paddingTop + paddingBottom + borderTop + borderBottom
 }
 
 // convertToContentSize converts a width/height from border-box to content-box

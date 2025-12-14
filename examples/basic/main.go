@@ -14,19 +14,19 @@ func main() {
 			FlexDirection:  layout.FlexDirectionRow,
 			JustifyContent: layout.JustifyContentSpaceBetween,
 			AlignItems:     layout.AlignItemsCenter,
-			Padding:        layout.Uniform(20),
+			Padding:        layout.Uniform(layout.Px(20)),
 		},
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
-					Width:  100,
-					Height: 50,
+					Width:  layout.Px(100),
+					Height: layout.Px(50),
 				},
 			},
 			{
 				Style: layout.Style{
-					Width:  100,
-					Height: 50,
+					Width:  layout.Px(100),
+					Height: layout.Px(50),
 				},
 			},
 		},
@@ -34,7 +34,8 @@ func main() {
 
 	// Perform layout with loose constraints
 	constraints := layout.Loose(800, 600)
-	size := layout.Layout(root, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size := layout.Layout(root, constraints, ctx)
 
 	fmt.Printf("Root container size: %.2f x %.2f\n", size.Width, size.Height)
 	fmt.Printf("Root rect: (%.2f, %.2f) %.2f x %.2f\n",

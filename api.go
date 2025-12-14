@@ -64,11 +64,16 @@ func ZStack(children ...*Node) *Node {
 	for _, child := range children {
 		child.Style.Position = PositionAbsolute
 		// Default to top-left if not specified
-		if child.Style.Left < 0 {
-			child.Style.Left = 0
+		// Check if Left/Top are unset (zero value Length has Value=0, Unit=Pixels)
+		// We consider it unset if it's the zero value (Px(0) is explicitly set, so we check Unit)
+		// For now, we'll check if Value is 0 and assume it's unset (this is a heuristic)
+		// A better approach would be to use a sentinel value, but for backward compatibility
+		// we'll use this check. In practice, Px(0) is a valid position.
+		if child.Style.Left.Value == 0 && child.Style.Left.Unit == 0 {
+			child.Style.Left = Px(0)
 		}
-		if child.Style.Top < 0 {
-			child.Style.Top = 0
+		if child.Style.Top.Value == 0 && child.Style.Top.Unit == 0 {
+			child.Style.Top = Px(0)
 		}
 	}
 	return &Node{
@@ -93,8 +98,8 @@ func Spacer() *Node {
 func Fixed(width, height float64) *Node {
 	return &Node{
 		Style: Style{
-			Width:  width,
-			Height: height,
+			Width:  Px(width),
+			Height: Px(height),
 		},
 	}
 }
@@ -103,7 +108,7 @@ func Fixed(width, height float64) *Node {
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func Padding(node *Node, padding float64) *Node {
-	node.Style.Padding = Uniform(padding)
+	node.Style.Padding = Uniform(Px(padding))
 	return node
 }
 
@@ -112,10 +117,10 @@ func Padding(node *Node, padding float64) *Node {
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func PaddingCustom(node *Node, top, right, bottom, left float64) *Node {
 	node.Style.Padding = Spacing{
-		Top:    top,
-		Right:  right,
-		Bottom: bottom,
-		Left:   left,
+		Top:    Px(top),
+		Right:  Px(right),
+		Bottom: Px(bottom),
+		Left:   Px(left),
 	}
 	return node
 }
@@ -124,7 +129,7 @@ func PaddingCustom(node *Node, top, right, bottom, left float64) *Node {
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model
 func Margin(node *Node, margin float64) *Node {
-	node.Style.Margin = Uniform(margin)
+	node.Style.Margin = Uniform(Px(margin))
 	return node
 }
 
@@ -404,10 +409,10 @@ func SnapToGrid(nodes []*Node, snapSize, originX, originY float64) {
 // Frame sets the width and/or height of a node
 func Frame(node *Node, width, height float64) *Node {
 	if width > 0 {
-		node.Style.Width = width
+		node.Style.Width = Px(width)
 	}
 	if height > 0 {
-		node.Style.Height = height
+		node.Style.Height = Px(height)
 	}
 	return node
 }
@@ -426,7 +431,7 @@ func Background(node *Node) *Node {
 //	item := layout.Fixed(100, 50)
 //	item = layout.MinHeight(item, 60) // Ensures item is at least 60px tall
 func MinHeight(node *Node, height float64) *Node {
-	node.Style.MinHeight = height
+	node.Style.MinHeight = Px(height)
 	return node
 }
 
@@ -437,7 +442,7 @@ func MinHeight(node *Node, height float64) *Node {
 //	item := layout.Fixed(100, 50)
 //	item = layout.MinWidth(item, 120) // Ensures item is at least 120px wide
 func MinWidth(node *Node, width float64) *Node {
-	node.Style.MinWidth = width
+	node.Style.MinWidth = Px(width)
 	return node
 }
 
@@ -489,12 +494,12 @@ func AspectRatio(node *Node, ratio float64) *Node {
 func Grid(rows, cols int, rowSize, colSize float64) *Node {
 	gridRows := make([]GridTrack, rows)
 	for i := range gridRows {
-		gridRows[i] = FixedTrack(rowSize)
+		gridRows[i] = FixedTrack(Px(rowSize))
 	}
 
 	gridCols := make([]GridTrack, cols)
 	for i := range gridCols {
-		gridCols[i] = FixedTrack(colSize)
+		gridCols[i] = FixedTrack(Px(colSize))
 	}
 
 	return &Node{
@@ -686,7 +691,7 @@ func PlaceInArea(node *Node, areaName string) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.1 (min-content)
 func MinContentWidth(node *Node) *Node {
-	node.Style.Width = SizeMinContent
+	node.Style.Width = Px(SizeMinContent)
 	return node
 }
 
@@ -699,7 +704,7 @@ func MinContentWidth(node *Node) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.2 (max-content)
 func MaxContentWidth(node *Node) *Node {
-	node.Style.Width = SizeMaxContent
+	node.Style.Width = Px(SizeMaxContent)
 	return node
 }
 
@@ -712,27 +717,27 @@ func MaxContentWidth(node *Node) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.3 (fit-content)
 func FitContentWidth(node *Node, maxSize float64) *Node {
-	node.Style.Width = SizeFitContent
-	node.Style.FitContentWidth = maxSize
+	node.Style.Width = Px(SizeFitContent)
+	node.Style.FitContentWidth = Px(maxSize)
 	return node
 }
 
 // MinContentHeight sets a node's height to use min-content intrinsic sizing.
 func MinContentHeight(node *Node) *Node {
-	node.Style.Height = SizeMinContent
+	node.Style.Height = Px(SizeMinContent)
 	return node
 }
 
 // MaxContentHeight sets a node's height to use max-content intrinsic sizing.
 func MaxContentHeight(node *Node) *Node {
-	node.Style.Height = SizeMaxContent
+	node.Style.Height = Px(SizeMaxContent)
 	return node
 }
 
 // FitContentHeight sets a node's height to use fit-content intrinsic sizing.
 func FitContentHeight(node *Node, maxSize float64) *Node {
-	node.Style.Height = SizeFitContent
-	node.Style.FitContentHeight = maxSize
+	node.Style.Height = Px(SizeFitContent)
+	node.Style.FitContentHeight = Px(maxSize)
 	return node
 }
 
@@ -741,13 +746,13 @@ func FitContentHeight(node *Node, maxSize float64) *Node {
 //
 // Example:
 //
-//	GridTemplateColumns: []GridTrack{MinContentTrack(), FixedTrack(200)}
+//	GridTemplateColumns: []GridTrack{MinContentTrack(), FixedTrack(Px(200))}
 //
 // See: CSS Grid Layout Module Level 1 §7.2.3 (min-content and max-content Track Sizing Functions)
 func MinContentTrack() GridTrack {
 	return GridTrack{
-		MinSize:  0,
-		MaxSize:  SizeMinContent,
+		MinSize:  Px(0),
+		MaxSize:  Px(SizeMinContent),
 		Fraction: 0,
 	}
 }
@@ -757,11 +762,11 @@ func MinContentTrack() GridTrack {
 //
 // Example:
 //
-//	GridTemplateColumns: []GridTrack{MaxContentTrack(), FixedTrack(200)}
+//	GridTemplateColumns: []GridTrack{MaxContentTrack(), FixedTrack(Px(200))}
 func MaxContentTrack() GridTrack {
 	return GridTrack{
-		MinSize:  0,
-		MaxSize:  SizeMaxContent,
+		MinSize:  Px(0),
+		MaxSize:  Px(SizeMaxContent),
 		Fraction: 0,
 	}
 }
@@ -771,11 +776,11 @@ func MaxContentTrack() GridTrack {
 //
 // Example:
 //
-//	GridTemplateColumns: []GridTrack{FitContentTrack(300), FixedTrack(200)}
+//	GridTemplateColumns: []GridTrack{FitContentTrack(300), FixedTrack(Px(200))}
 func FitContentTrack(maxSize float64) GridTrack {
 	return GridTrack{
-		MinSize:  0,
-		MaxSize:  maxSize,
+		MinSize:  Px(0),
+		MaxSize:  Px(maxSize),
 		Fraction: -1, // Special marker for fit-content
 	}
 }

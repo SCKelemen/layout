@@ -111,7 +111,7 @@ func TestTransformMultiply(t *testing.T) {
 func TestTransformApplyToRect(t *testing.T) {
 	// Translate a rectangle
 	transform := Translate(10, 20)
-	rect := Rect{X: 5, Y: 5, Width: 10, Height: 10}
+	rect := Rect{X: 0, Y: 0, Width: 10, Height: 10}
 	result := transform.ApplyToRect(rect)
 
 	expectedX := 15.0

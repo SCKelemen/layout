@@ -16,8 +16,8 @@ func TestGridSpanningAutoRows(t *testing.T) {
 				AutoTrack(),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
-				FixedTrack(100),
+				FixedTrack(Px(100)),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -27,7 +27,7 @@ func TestGridSpanningAutoRows(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      3, // Spans rows 0, 1, 2
 					GridColumnStart: 0,
-					MinHeight:       300.0, // Should be distributed: 100px per row
+					MinHeight:       Px(300.0), // Should be distributed: 100px per row
 				},
 			},
 			// Item in row 0, col 1
@@ -36,14 +36,15 @@ func TestGridSpanningAutoRows(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      1,
 					GridColumnStart: 1,
-					MinHeight:       150.0, // Row 0 should be 150px (max of 100 and 150)
+					MinHeight:       Px(150.0), // Row 0 should be 150px (max of 100 and 150)
 				},
 			},
 		},
 	}
 
 	constraints := Loose(300, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Row 0 should be 150px (max of 100 from spanning item, 150 from item in row 0)
 	// Row 1 should be 100px (from spanning item)
@@ -80,7 +81,7 @@ func TestGridSpanningWithoutMinHeight(t *testing.T) {
 				AutoTrack(),
 			},
 			GridTemplateColumns: []GridTrack{
-				FixedTrack(100),
+				FixedTrack(Px(100)),
 			},
 		},
 		Children: []*Node{
@@ -97,7 +98,8 @@ func TestGridSpanningWithoutMinHeight(t *testing.T) {
 	}
 
 	constraints := Loose(200, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Item should be 0 height (no content, no MinHeight)
 	spanningItem := root.Children[0]

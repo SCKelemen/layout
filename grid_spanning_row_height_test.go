@@ -20,9 +20,9 @@ func TestGridSpanningRowHeight(t *testing.T) {
 				FractionTrack(1),
 				FractionTrack(1),
 			},
-			GridRowGap:    8,
-			GridColumnGap: 8,
-			Width:         1000,
+			GridRowGap:    Px(8),
+			GridColumnGap: Px(8),
+			Width:         Px(1000),
 		},
 		Children: []*Node{
 			// Item 1: spans rows 0-1, left column, height 220
@@ -32,7 +32,7 @@ func TestGridSpanningRowHeight(t *testing.T) {
 					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
-					MinHeight:       220,
+					MinHeight:       Px(220),
 				},
 			},
 			// Item 2: spans rows 0-1, right column, height 200 (smaller)
@@ -42,14 +42,15 @@ func TestGridSpanningRowHeight(t *testing.T) {
 					GridRowEnd:      2,
 					GridColumnStart: 1,
 					GridColumnEnd:   2,
-					MinHeight:       200,
+					MinHeight:       Px(200),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	// Both items span rows 0-1, so row 0 and row 1 should have the same height
 	// The row height should accommodate the taller item (220)
@@ -109,8 +110,8 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 			GridTemplateColumns: []GridTrack{
 				FractionTrack(1),
 			},
-			GridRowGap: 8,
-			Width:      1000,
+			GridRowGap: Px(8),
+			Width:      Px(1000),
 		},
 		Children: []*Node{
 			// Item 1: spans rows 0-1, height 100
@@ -118,7 +119,7 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 				Style: Style{
 					GridRowStart: 0,
 					GridRowEnd:   2,
-					MinHeight:    100,
+					MinHeight:    Px(100),
 				},
 			},
 			// Item 2: row 1 only, height 50
@@ -126,7 +127,7 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 				Style: Style{
 					GridRowStart: 1,
 					GridRowEnd:   2,
-					MinHeight:    50,
+					MinHeight:    Px(50),
 				},
 			},
 			// Item 3: spans rows 1-3, height 150
@@ -134,14 +135,15 @@ func TestGridSpanningMultipleRows(t *testing.T) {
 				Style: Style{
 					GridRowStart: 1,
 					GridRowEnd:   3,
-					MinHeight:    150,
+					MinHeight:    Px(150),
 				},
 			},
 		},
 	}
 
 	constraints := Loose(1000, Unbounded)
-	LayoutGrid(root, constraints)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
 
 	item1 := root.Children[0] // rows 0-1, height 100
 	item2 := root.Children[1] // row 1, height 50

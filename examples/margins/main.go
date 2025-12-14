@@ -18,10 +18,11 @@ func main() {
 		layout.Margin(layout.Fixed(100, 50), 10),
 		layout.Margin(layout.Fixed(100, 50), 10),
 	)
-	stack1.Style.Padding = layout.Uniform(20)
+	stack1.Style.Padding = layout.Uniform(layout.Px(20))
 
 	constraints := layout.Loose(500, 200)
-	size1 := layout.Layout(stack1, constraints)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	size1 := layout.Layout(stack1, constraints, ctx)
 
 	fmt.Printf("   Container: %.2f x %.2f\n", size1.Width, size1.Height)
 	for i, child := range stack1.Children {
@@ -37,9 +38,10 @@ func main() {
 		layout.Margin(layout.Fixed(200, 50), 10),
 		layout.Margin(layout.Fixed(200, 50), 10),
 	)
-	stack2.Style.Padding = layout.Uniform(20)
+	stack2.Style.Padding = layout.Uniform(layout.Px(20))
 
-	size2 := layout.Layout(stack2, constraints)
+	ctx2 := layout.NewLayoutContext(800, 600, 16)
+	size2 := layout.Layout(stack2, constraints, ctx2)
 	fmt.Printf("   Container: %.2f x %.2f\n", size2.Width, size2.Height)
 	for i, child := range stack2.Children {
 		fmt.Printf("   Item %d: (%.2f, %.2f) %.2f x %.2f\n",
@@ -50,8 +52,8 @@ func main() {
 	// Example 3: Grid with margins
 	fmt.Println("3. Grid with margins:")
 	grid := layout.Grid(2, 2, 150, 150)
-	grid.Style.GridGap = 10
-	grid.Style.Padding = layout.Uniform(20)
+	grid.Style.GridGap = layout.Px(10)
+	grid.Style.Padding = layout.Uniform(layout.Px(20))
 
 	// Create grid items with explicit positions
 	item1 := layout.Margin(layout.Fixed(150, 150), 5)
@@ -72,7 +74,8 @@ func main() {
 
 	grid.Children = []*layout.Node{item1, item2, item3, item4}
 
-	size3 := layout.Layout(grid, constraints)
+	ctx3 := layout.NewLayoutContext(800, 600, 16)
+	size3 := layout.Layout(grid, constraints, ctx3)
 	fmt.Printf("   Container: %.2f x %.2f\n", size3.Width, size3.Height)
 	for i, child := range grid.Children {
 		fmt.Printf("   Item %d: (%.2f, %.2f) %.2f x %.2f\n",

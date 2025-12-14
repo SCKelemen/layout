@@ -15,25 +15,25 @@ func main() {
 	items := []*layout.Node{
 		{
 			Style: layout.Style{
-				Height: 30,
+				Height: Px(30),
 				Margin: layout.Uniform(15),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 25,
+				Height: Px(25),
 				Margin: layout.Uniform(15),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(15),
 			},
 		},
 		{
 			Style: layout.Style{
-				Height: 20,
+				Height: Px(20),
 				Margin: layout.Uniform(15),
 			},
 		},

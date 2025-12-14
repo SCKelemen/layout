@@ -11,8 +11,8 @@ func TestFlexboxAlignSelfBasic(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: 0}},                   // Use parent's align-items (flex-start)
@@ -64,8 +64,8 @@ func TestFlexboxAlignSelfColumn(t *testing.T) {
 			FlexDirection:  FlexDirectionColumn,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(100),
-			Height: Px(300),
+			Width:          Px(100),
+			Height:         Px(300),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(30), Height: Px(50), AlignSelf: 0}},                 // Use parent's align-items (flex-start)
@@ -101,13 +101,13 @@ func TestFlexboxAlignSelfWithMargins(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{
-				Width: Px(50),
-				Height: Px(30),
+				Width:     Px(50),
+				Height:    Px(30),
 				AlignSelf: AlignItemsFlexEnd,
 				Margin:    Uniform(Px(10)),
 			}},
@@ -136,12 +136,12 @@ func TestFlexboxAlignSelfStretch(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(30), AlignSelf: AlignItemsStretch}}, // Should stretch to 100
-			{Style: Style{Width: Px(50), AlignSelf: AlignItemsStretch}},             // Should stretch to 100 (no explicit height)
+			{Style: Style{Width: Px(50), AlignSelf: AlignItemsStretch}},                 // Should stretch to 100 (no explicit height)
 		},
 	}
 
@@ -168,8 +168,8 @@ func TestFlexboxAlignSelfBaseline(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			AlignItems:     AlignItemsFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{
@@ -207,8 +207,8 @@ func TestFlexboxAlignSelfMultiLine(t *testing.T) {
 			AlignItems:     AlignItemsFlexStart,
 			AlignContent:   AlignContentFlexStart,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(150),
-			Height: Px(200),
+			Width:          Px(150),
+			Height:         Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(60), Height: Px(30), AlignSelf: AlignItemsFlexStart}},

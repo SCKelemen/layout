@@ -19,7 +19,7 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 				FractionTrack(1),
 			},
 			GridRowGap: Px(8),
-			Width: Px(1000),
+			Width:      Px(1000),
 		},
 		Children: []*Node{
 			// Item with aspect ratio 2:1, minHeight 100
@@ -27,7 +27,7 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 				Style: Style{
 					GridRowStart: 0,
 					GridRowEnd:   1,
-					MinHeight: Px(100),
+					MinHeight:    Px(100),
 					AspectRatio:  2.0, // width:height = 2:1
 				},
 			},
@@ -36,7 +36,7 @@ func TestGridAspectRatioWithStretch(t *testing.T) {
 				Style: Style{
 					GridRowStart: 1,
 					GridRowEnd:   2,
-					MinHeight: Px(200),
+					MinHeight:    Px(200),
 				},
 			},
 		},

@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"github.com/SCKelemen/layout"
+	"log"
 )
 
 func main() {
 	// Test: Does setting Height vs MinHeight make a difference?
-	
+
 	columns := 3
 	gap := 8.0
 	width := 1000.0
@@ -58,7 +58,7 @@ func main() {
 		Style: layout.Style{
 			GridRowStart: 1, GridRowEnd: 2,
 			GridColumnStart: 1, GridColumnEnd: 2,
-			Height: Px(50.0),    // Explicit height
+			Height:    Px(50.0), // Explicit height
 			MinHeight: Px(40.0), // Also has MinHeight
 		},
 	})
@@ -101,4 +101,3 @@ func main() {
 		log.Printf("ERROR: Root height (%.2f) is too small!\n", root.Rect.Height)
 	}
 }
-

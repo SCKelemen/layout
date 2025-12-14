@@ -345,4 +345,3 @@ func TestFlexboxNested(t *testing.T) {
 		t.Errorf("Expected 2 children in nested container, got %d", len(root.Children[0].Children))
 	}
 }
-

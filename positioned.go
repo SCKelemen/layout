@@ -11,11 +11,14 @@ package layout
 // - §7: Sticky positioning
 //
 // See: https://www.w3.org/TR/css-position-3/
-func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
+func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect, ctx *LayoutContext) {
 	if node.Style.Position == PositionStatic {
 		// Static positioning is the default, no special handling needed
 		return
 	}
+
+	// Get current font size for em resolution
+	currentFontSize := getCurrentFontSize(node, ctx)
 
 	// Calculate the positioning context
 	var positioningContext Rect
@@ -39,28 +42,34 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 	top := node.Style.Top
 	bottom := node.Style.Bottom
 
+	// Resolve Length values to pixels
+	leftPx := ResolveLength(left, ctx, currentFontSize)
+	rightPx := ResolveLength(right, ctx, currentFontSize)
+	topPx := ResolveLength(top, ctx, currentFontSize)
+	bottomPx := ResolveLength(bottom, ctx, currentFontSize)
+
 	// Determine if sides are explicitly set
 	// If a side is 0 and the opposite is set, treat 0 as auto (unset)
-	hasLeft := left.Value >= 0
-	hasRight := right.Value >= 0
-	if left.Value == 0 && hasRight {
+	hasLeft := leftPx >= 0
+	hasRight := rightPx >= 0
+	if leftPx == 0 && hasRight {
 		hasLeft = false
-		left = Px(-1)
+		leftPx = -1
 	}
-	if right.Value == 0 && hasLeft {
+	if rightPx == 0 && hasLeft {
 		hasRight = false
-		right = Px(-1)
+		rightPx = -1
 	}
 
-	hasTop := top.Value >= 0
-	hasBottom := bottom.Value >= 0
-	if top.Value == 0 && hasBottom {
+	hasTop := topPx >= 0
+	hasBottom := bottomPx >= 0
+	if topPx == 0 && hasBottom {
 		hasTop = false
-		top = Px(-1)
+		topPx = -1
 	}
-	if bottom.Value == 0 && hasTop {
+	if bottomPx == 0 && hasTop {
 		hasBottom = false
-		bottom = Px(-1)
+		bottomPx = -1
 	}
 
 	// Handle auto values (-1)
@@ -68,11 +77,13 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 	// If both top and bottom are set, height is constrained
 	if node.Style.Position == PositionAbsolute || node.Style.Position == PositionFixed {
 		// Ensure absolutely positioned elements have size if specified
-		if node.Rect.Width <= 0 && node.Style.Width.Value > 0 {
-			node.Rect.Width = node.Style.Width.Value
+		widthPx := ResolveLength(node.Style.Width, ctx, currentFontSize)
+		heightPx := ResolveLength(node.Style.Height, ctx, currentFontSize)
+		if node.Rect.Width <= 0 && widthPx > 0 {
+			node.Rect.Width = widthPx
 		}
-		if node.Rect.Height <= 0 && node.Style.Height.Value > 0 {
-			node.Rect.Height = node.Style.Height.Value
+		if node.Rect.Height <= 0 && heightPx > 0 {
+			node.Rect.Height = heightPx
 		}
 
 		// For absolute/fixed, calculate position from context
@@ -81,24 +92,24 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 			node.Rect.X = positioningContext.X
 		} else if hasLeft && hasRight {
 			// Both set - constrain width
-			availableWidth := positioningContext.Width - left.Value - right.Value
+			availableWidth := positioningContext.Width - leftPx - rightPx
 			if availableWidth < 0 {
 				availableWidth = 0
 			}
 			if node.Rect.Width > availableWidth {
 				node.Rect.Width = availableWidth
 			}
-			node.Rect.X = positioningContext.X + left.Value
+			node.Rect.X = positioningContext.X + leftPx
 		} else if hasLeft {
 			// Left set
-			node.Rect.X = positioningContext.X + left.Value
+			node.Rect.X = positioningContext.X + leftPx
 		} else if hasRight {
 			// Right set - position from right edge
 			if node.Rect.Width > 0 {
-				node.Rect.X = positioningContext.X + positioningContext.Width - node.Rect.Width - right.Value
+				node.Rect.X = positioningContext.X + positioningContext.Width - node.Rect.Width - rightPx
 			} else {
 				// Width not set, position at right edge
-				node.Rect.X = positioningContext.X + positioningContext.Width - right.Value
+				node.Rect.X = positioningContext.X + positioningContext.Width - rightPx
 			}
 		}
 	}
@@ -110,24 +121,24 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 			node.Rect.Y = positioningContext.Y
 		} else if hasTop && hasBottom {
 			// Both set - constrain height
-			availableHeight := positioningContext.Height - top.Value - bottom.Value
+			availableHeight := positioningContext.Height - topPx - bottomPx
 			if availableHeight < 0 {
 				availableHeight = 0
 			}
 			if node.Rect.Height > availableHeight {
 				node.Rect.Height = availableHeight
 			}
-			node.Rect.Y = positioningContext.Y + top.Value
+			node.Rect.Y = positioningContext.Y + topPx
 		} else if hasTop {
 			// Top set
-			node.Rect.Y = positioningContext.Y + top.Value
+			node.Rect.Y = positioningContext.Y + topPx
 		} else if hasBottom {
 			// Bottom set - position from bottom edge
 			if node.Rect.Height > 0 {
-				node.Rect.Y = positioningContext.Y + positioningContext.Height - node.Rect.Height - bottom.Value
+				node.Rect.Y = positioningContext.Y + positioningContext.Height - node.Rect.Height - bottomPx
 			} else {
 				// Height not set, position at bottom edge
-				node.Rect.Y = positioningContext.Y + positioningContext.Height - bottom.Value
+				node.Rect.Y = positioningContext.Y + positioningContext.Height - bottomPx
 			}
 		}
 	}
@@ -140,16 +151,16 @@ func LayoutPositioned(node *Node, parentRect Rect, viewportRect Rect) {
 		originalX := node.Rect.X
 		originalY := node.Rect.Y
 
-		if left.Value >= 0 {
-			node.Rect.X = originalX + left.Value
-		} else if right.Value >= 0 {
-			node.Rect.X = originalX - right.Value
+		if leftPx >= 0 {
+			node.Rect.X = originalX + leftPx
+		} else if rightPx >= 0 {
+			node.Rect.X = originalX - rightPx
 		}
 
-		if top.Value >= 0 {
-			node.Rect.Y = originalY + top.Value
-		} else if bottom.Value >= 0 {
-			node.Rect.Y = originalY - bottom.Value
+		if topPx >= 0 {
+			node.Rect.Y = originalY + topPx
+		} else if bottomPx >= 0 {
+			node.Rect.Y = originalY - bottomPx
 		}
 	}
 
@@ -186,17 +197,17 @@ func findPositionedAncestor(node *Node, root *Node) *Node {
 // This is a helper that handles the two-pass layout:
 // 1. Normal flow layout
 // 2. Positioned elements layout
-func LayoutWithPositioning(root *Node, constraints Constraints, viewportRect Rect) Size {
+func LayoutWithPositioning(root *Node, constraints Constraints, viewportRect Rect, ctx *LayoutContext) Size {
 	// First pass: normal flow layout
-	size := Layout(root, constraints, NewLayoutContext(1920, 1080, 16))
+	size := Layout(root, constraints, ctx)
 
 	// Second pass: handle positioned elements
-	layoutPositionedRecursive(root, root.Rect, viewportRect)
+	layoutPositionedRecursive(root, root.Rect, viewportRect, ctx)
 
 	return size
 }
 
-func layoutPositionedRecursive(node *Node, parentRect Rect, viewportRect Rect) {
+func layoutPositionedRecursive(node *Node, parentRect Rect, viewportRect Rect, ctx *LayoutContext) {
 	// Layout positioned children
 	for _, child := range node.Children {
 		if child.Style.Position != PositionStatic {
@@ -210,10 +221,10 @@ func layoutPositionedRecursive(node *Node, parentRect Rect, viewportRect Rect) {
 				context = node.Rect
 			}
 
-			LayoutPositioned(child, context, viewportRect)
+			LayoutPositioned(child, context, viewportRect, ctx)
 		}
 
 		// Recursively handle children
-		layoutPositionedRecursive(child, child.Rect, viewportRect)
+		layoutPositionedRecursive(child, child.Rect, viewportRect, ctx)
 	}
 }

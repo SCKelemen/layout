@@ -22,6 +22,36 @@ const (
 	// Pixels represents an absolute pixel unit (px).
 	Pixels LengthUnit = iota
 
+	// Absolute length units (CSS spec)
+	// Based on CSS Values and Units Module Level 4
+	// See: https://www.w3.org/TR/css-values-4/#absolute-lengths
+
+	// PtUnit represents points (1pt = 1/72 inch).
+	// Used primarily for print media and font sizes.
+	PtUnit
+
+	// PcUnit represents picas (1pc = 12pt = 1/6 inch).
+	// Traditional typography unit.
+	PcUnit
+
+	// InUnit represents inches (1in = 96px in CSS).
+	// Physical measurement unit.
+	InUnit
+
+	// CmUnit represents centimeters (1cm = 96px/2.54 ≈ 37.8px).
+	// Metric measurement unit.
+	CmUnit
+
+	// MmUnit represents millimeters (1mm = 1/10 cm ≈ 3.78px).
+	// Metric measurement unit.
+	MmUnit
+
+	// QUnit represents quarter-millimeters (1Q = 1/40 cm ≈ 0.945px).
+	// Fine-grained metric unit.
+	QUnit
+
+	// Relative font units
+
 	// EmUnit represents a length relative to the element's font size.
 	// 1em = current element's font size in points.
 	EmUnit
@@ -33,6 +63,8 @@ const (
 	// ChUnit represents a length relative to the width of the '0' character.
 	// 1ch = width of the '0' glyph in the element's font.
 	ChUnit
+
+	// Viewport units
 
 	// VhUnit represents a length relative to viewport height.
 	// 1vh = 1% of viewport height.
@@ -50,6 +82,8 @@ const (
 	// 1vmin = 1% of min(viewport width, viewport height).
 	VminUnit
 
+	// Special units
+
 	// UnboundedUnit represents an unbounded length (infinity).
 	// Used for maximum sizes that have no limit.
 	UnboundedUnit
@@ -60,6 +94,18 @@ func (u LengthUnit) String() string {
 	switch u {
 	case Pixels:
 		return "px"
+	case PtUnit:
+		return "pt"
+	case PcUnit:
+		return "pc"
+	case InUnit:
+		return "in"
+	case CmUnit:
+		return "cm"
+	case MmUnit:
+		return "mm"
+	case QUnit:
+		return "Q"
 	case EmUnit:
 		return "em"
 	case RemUnit:
@@ -89,6 +135,36 @@ func (l Length) String() string {
 // Px creates a Length in pixels.
 func Px(value float64) Length {
 	return Length{Value: value, Unit: Pixels}
+}
+
+// Pt creates a Length in points (1pt = 1/72 inch).
+func Pt(value float64) Length {
+	return Length{Value: value, Unit: PtUnit}
+}
+
+// Pc creates a Length in picas (1pc = 12pt).
+func Pc(value float64) Length {
+	return Length{Value: value, Unit: PcUnit}
+}
+
+// In creates a Length in inches (1in = 96px in CSS).
+func In(value float64) Length {
+	return Length{Value: value, Unit: InUnit}
+}
+
+// Cm creates a Length in centimeters (1cm ≈ 37.8px).
+func Cm(value float64) Length {
+	return Length{Value: value, Unit: CmUnit}
+}
+
+// Mm creates a Length in millimeters (1mm ≈ 3.78px).
+func Mm(value float64) Length {
+	return Length{Value: value, Unit: MmUnit}
+}
+
+// Q creates a Length in quarter-millimeters (1Q ≈ 0.945px).
+func Q(value float64) Length {
+	return Length{Value: value, Unit: QUnit}
 }
 
 // Em creates a Length in em units (relative to element font size).
@@ -147,6 +223,13 @@ func UnboundedLength() Length {
 //
 // Resolution rules:
 //   - Pixels: returned as-is
+//   - Absolute units: converted using CSS reference pixel (1in = 96px)
+//   - Pt: 1pt = 1/72 inch = 96/72 px ≈ 1.333px
+//   - Pc: 1pc = 12pt = 16px
+//   - In: 1in = 96px
+//   - Cm: 1cm = 96/2.54 px ≈ 37.795px
+//   - Mm: 1mm = 96/25.4 px ≈ 3.7795px
+//   - Q: 1Q = 96/101.6 px ≈ 0.945px
 //   - Em: multiplied by currentFontSize
 //   - Rem: multiplied by ctx.RootFontSize
 //   - Ch: multiplied by the width of ctx.ChReferenceChar
@@ -160,6 +243,32 @@ func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float6
 	case Pixels:
 		return l.Value
 
+	// Absolute length units (based on CSS reference pixel: 1in = 96px)
+	case PtUnit:
+		// 1pt = 1/72 inch
+		return l.Value * (96.0 / 72.0)
+
+	case PcUnit:
+		// 1pc = 12pt = 1/6 inch
+		return l.Value * 16.0
+
+	case InUnit:
+		// 1in = 96px (CSS reference pixel)
+		return l.Value * 96.0
+
+	case CmUnit:
+		// 1cm = 1/2.54 inch
+		return l.Value * (96.0 / 2.54)
+
+	case MmUnit:
+		// 1mm = 1/25.4 inch
+		return l.Value * (96.0 / 25.4)
+
+	case QUnit:
+		// 1Q = 1/40 cm = 1/101.6 inch
+		return l.Value * (96.0 / 101.6)
+
+	// Relative font units
 	case EmUnit:
 		// Relative to current element's font size
 		return l.Value * currentFontSize
@@ -173,6 +282,7 @@ func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float6
 		charWidth := measureCharWidth(ctx.ChReferenceChar, currentFontSize, ctx.TextMetrics)
 		return l.Value * charWidth
 
+	// Viewport units
 	case VhUnit:
 		// 1vh = 1% of viewport height
 		return (l.Value / 100.0) * ctx.ViewportHeight

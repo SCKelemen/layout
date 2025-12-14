@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"github.com/SCKelemen/layout"
+	"log"
 )
 
 func main() {
@@ -111,4 +111,3 @@ func main() {
 			row3Item.Rect.Y, spanningEnd)
 	}
 }
-

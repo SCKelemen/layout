@@ -26,8 +26,8 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			// Row 1, Col 0
@@ -35,8 +35,8 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			// Row 2, Col 0
@@ -44,8 +44,8 @@ func TestGridRowPositioning(t *testing.T) {
 				Style: Style{
 					GridRowStart:    2,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 		},
@@ -103,16 +103,16 @@ func TestGridRowPositioningWithGap(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 		},
@@ -149,8 +149,8 @@ func TestGridRowPositioningWithAutoRows(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			// Row 1 (auto - should size based on content)
@@ -158,8 +158,8 @@ func TestGridRowPositioningWithAutoRows(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(150), // Taller content
+					Width:           Px(100),
+					Height:          Px(150), // Taller content
 				},
 			},
 		},
@@ -207,16 +207,16 @@ func TestGridRowPositioningWithPadding(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			{
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 		},
@@ -238,4 +238,3 @@ func TestGridRowPositioningWithPadding(t *testing.T) {
 			expectedDiff, actualDiff, item0Y, item1Y)
 	}
 }
-

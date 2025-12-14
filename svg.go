@@ -32,4 +32,3 @@ func CollectNodesForSVG(root *Node, nodes *[]*Node) {
 		CollectNodesForSVG(child, nodes)
 	}
 }
-

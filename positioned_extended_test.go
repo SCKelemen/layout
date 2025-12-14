@@ -28,7 +28,7 @@ func TestPositionSticky(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, root.Rect)
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
 	// Sticky should offset like relative
@@ -62,7 +62,8 @@ func TestLayoutWithPositioning(t *testing.T) {
 
 	constraints := Loose(500, 400)
 	viewport := Rect{X: 0, Y: 0, Width: 500, Height: 400}
-	size := LayoutWithPositioning(root, constraints, viewport)
+	ctx := NewLayoutContext(800, 600, 16)
+	size := LayoutWithPositioning(root, constraints, viewport, ctx)
 
 	if size.Width <= 0 || size.Height <= 0 {
 		t.Error("LayoutWithPositioning should return valid size")

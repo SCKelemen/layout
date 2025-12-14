@@ -181,11 +181,11 @@ func TestResolveLengthVmax(t *testing.T) {
 		viewportHeight float64
 		wantResolved   float64
 	}{
-		{"50vmax when width > height", Vmax(50), 1920, 1080, 960},  // 50% of 1920
-		{"50vmax when height > width", Vmax(50), 1080, 1920, 960},  // 50% of 1920
-		{"100vmax when equal", Vmax(100), 1000, 1000, 1000},        // 100% of 1000
-		{"10vmax of 1920x1080", Vmax(10), 1920, 1080, 192},         // 10% of 1920
-		{"1vmax of 1000x800", Vmax(1), 1000, 800, 10},              // 1% of 1000
+		{"50vmax when width > height", Vmax(50), 1920, 1080, 960}, // 50% of 1920
+		{"50vmax when height > width", Vmax(50), 1080, 1920, 960}, // 50% of 1920
+		{"100vmax when equal", Vmax(100), 1000, 1000, 1000},       // 100% of 1000
+		{"10vmax of 1920x1080", Vmax(10), 1920, 1080, 192},        // 10% of 1920
+		{"1vmax of 1000x800", Vmax(1), 1000, 800, 10},             // 1% of 1000
 		{"0vmax", Vmax(0), 1920, 1080, 0},
 	}
 
@@ -210,11 +210,11 @@ func TestResolveLengthVmin(t *testing.T) {
 		viewportHeight float64
 		wantResolved   float64
 	}{
-		{"50vmin when width > height", Vmin(50), 1920, 1080, 540},  // 50% of 1080
-		{"50vmin when height > width", Vmin(50), 1080, 1920, 540},  // 50% of 1080
-		{"100vmin when equal", Vmin(100), 1000, 1000, 1000},        // 100% of 1000
-		{"10vmin of 1920x1080", Vmin(10), 1920, 1080, 108},         // 10% of 1080
-		{"1vmin of 1000x800", Vmin(1), 1000, 800, 8},               // 1% of 800
+		{"50vmin when width > height", Vmin(50), 1920, 1080, 540}, // 50% of 1080
+		{"50vmin when height > width", Vmin(50), 1080, 1920, 540}, // 50% of 1080
+		{"100vmin when equal", Vmin(100), 1000, 1000, 1000},       // 100% of 1000
+		{"10vmin of 1920x1080", Vmin(10), 1920, 1080, 108},        // 10% of 1080
+		{"1vmin of 1000x800", Vmin(1), 1000, 800, 8},              // 1% of 800
 		{"0vmin", Vmin(0), 1920, 1080, 0},
 	}
 
@@ -235,11 +235,11 @@ func TestResolveLengthCh(t *testing.T) {
 	ctx := NewLayoutContext(1920, 1080, 16)
 
 	tests := []struct {
-		name         string
-		length       Length
-		fontSize     float64
-		wantApprox   float64 // Approximate expected value (monospace approximation)
-		tolerance    float64
+		name       string
+		length     Length
+		fontSize   float64
+		wantApprox float64 // Approximate expected value (monospace approximation)
+		tolerance  float64
 	}{
 		{"80ch with 16pt font", Ch(80), 16, 80 * 16 * 0.6, 1},
 		{"1ch with 12pt font", Ch(1), 12, 12 * 0.6, 1},

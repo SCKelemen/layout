@@ -124,4 +124,3 @@ func main() {
 			i, child.Rect.X, child.Rect.Y, child.Rect.Width, child.Rect.Height)
 	}
 }
-

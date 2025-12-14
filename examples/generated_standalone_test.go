@@ -89,19 +89,19 @@ func buildLayoutTestTestCelAssertions() *layout.Node {
 			Height:         layout.Px(100.0),
 		},
 		Children: []*layout.Node{
-			&layout.Node{
+			{
 				Style: layout.Style{
 					Width:  layout.Px(100.0),
 					Height: layout.Px(50.0),
 				},
 			},
-			&layout.Node{
+			{
 				Style: layout.Style{
 					Width:  layout.Px(100.0),
 					Height: layout.Px(50.0),
 				},
 			},
-			&layout.Node{
+			{
 				Style: layout.Style{
 					Width:  layout.Px(100.0),
 					Height: layout.Px(50.0),

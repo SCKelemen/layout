@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -15,22 +16,22 @@ func main() {
 	// Create text nodes (auto-sized)
 	text1 := &layout.Node{
 		Style: layout.Style{
-			Height:  20, // Simulate text height
-			Margin:  layout.Uniform(10),
+			Height: 20, // Simulate text height
+			Margin: layout.Uniform(10),
 		},
 	}
 
 	text2 := &layout.Node{
 		Style: layout.Style{
-			Height:  20,
-			Margin:  layout.Uniform(10),
+			Height: 20,
+			Margin: layout.Uniform(10),
 		},
 	}
 
 	text3 := &layout.Node{
 		Style: layout.Style{
-			Height:  20,
-			Margin:  layout.Uniform(10),
+			Height: 20,
+			Margin: layout.Uniform(10),
 		},
 	}
 
@@ -103,5 +104,3 @@ func main() {
 		y = child.Rect.Y + child.Rect.Height
 	}
 }
-
-

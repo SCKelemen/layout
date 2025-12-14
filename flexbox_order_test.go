@@ -10,8 +10,8 @@ func TestFlexboxOrderBasic(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last
@@ -43,8 +43,8 @@ func TestFlexboxOrderNegative(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50), Order: 0}},  // Should be middle (default)
@@ -76,8 +76,8 @@ func TestFlexboxOrderSameValue(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(300),
-			Height: Px(100),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50), Order: 1}}, // First with order=1
@@ -108,8 +108,8 @@ func TestFlexboxOrderColumn(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionColumn,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(100),
-			Height: Px(300),
+			Width:          Px(100),
+			Height:         Px(300),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last
@@ -141,8 +141,8 @@ func TestFlexboxOrderWithWrap(t *testing.T) {
 			FlexDirection:  FlexDirectionRow,
 			FlexWrap:       FlexWrapWrap,
 			JustifyContent: JustifyContentFlexStart,
-			Width: Px(150),
-			Height: Px(200),
+			Width:          Px(150),
+			Height:         Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(60), Height: Px(50), Order: 3}}, // Should be last (second line)
@@ -180,9 +180,9 @@ func TestFlexboxOrderWithGaps(t *testing.T) {
 			Display:        DisplayFlex,
 			FlexDirection:  FlexDirectionRow,
 			JustifyContent: JustifyContentFlexStart,
-			FlexColumnGap: Px(10),
-			Width: Px(300),
-			Height: Px(100),
+			FlexColumnGap:  Px(10),
+			Width:          Px(300),
+			Height:         Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50), Order: 2}}, // Should be last

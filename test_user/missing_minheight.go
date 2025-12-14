@@ -87,4 +87,3 @@ func main() {
 		log.Printf("ERROR: Root height too small! Demonstrates the bug.\n")
 	}
 }
-

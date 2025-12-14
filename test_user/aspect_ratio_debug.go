@@ -26,4 +26,3 @@ func main() {
 	fmt.Printf("Returned size: %.2f x %.2f\n", size.Width, size.Height)
 	fmt.Printf("Expected height: %.2f\n", 800.0/(16.0/9.0))
 }
-

@@ -25,8 +25,8 @@ func TestGridExplicitRow0(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      1, // Explicitly set end
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			// Explicitly set to row 1
@@ -35,8 +35,8 @@ func TestGridExplicitRow0(t *testing.T) {
 					GridRowStart:    1,
 					GridRowEnd:      2, // Explicitly set end
 					GridColumnStart: 0,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 		},
@@ -115,4 +115,3 @@ func TestGridAutoPlacementVsExplicit0(t *testing.T) {
 			root.Children[2].Rect.Y, root.Children[0].Rect.Y)
 	}
 }
-

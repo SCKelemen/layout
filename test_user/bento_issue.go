@@ -156,4 +156,3 @@ func main() {
 		log.Printf("ERROR: Root height (%.2f) is too small! Expected ~470px\n", root.Rect.Height)
 	}
 }
-

@@ -15,14 +15,14 @@ func TestFlexboxMargin(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Uniform(Px(10)),
 				},
 			},
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Uniform(Px(10)),
 				},
@@ -56,14 +56,14 @@ func TestFlexboxMarginVertical(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Uniform(Px(10)),
 				},
 			},
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Uniform(Px(10)),
 				},
@@ -98,7 +98,7 @@ func TestFlexboxMarginWithJustifyContent(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Uniform(Px(10)),
 				},
@@ -130,7 +130,7 @@ func TestFlexboxMarginWithAlignItems(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(100),
+					Width:  Px(100),
 					Height: Px(50),
 					Margin: Vertical(Px(10)), // Top and bottom margins
 				},

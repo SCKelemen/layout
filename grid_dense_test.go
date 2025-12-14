@@ -13,8 +13,8 @@ func TestGridDenseAutoPlacement(t *testing.T) {
 			Display:             DisplayGrid,
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width: Px(150),
-			Height: Px(100),
+			Width:               Px(150),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{
@@ -24,21 +24,21 @@ func TestGridDenseAutoPlacement(t *testing.T) {
 					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width: Px(100),
-					Height: Px(50),
+					Width:           Px(100),
+					Height:          Px(50),
 				},
 			},
 			{
 				// Item 2: auto-placed, 1x1
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 			},
 			{
 				// Item 3: auto-placed, 1x1
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 			},
@@ -78,8 +78,8 @@ func TestGridDenseWithSpanning(t *testing.T) {
 			Display:             DisplayGrid,
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width: Px(150),
-			Height: Px(150),
+			Width:               Px(150),
+			Height:              Px(150),
 		},
 		Children: []*Node{
 			{
@@ -89,28 +89,28 @@ func TestGridDenseWithSpanning(t *testing.T) {
 					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width: Px(100),
-					Height: Px(100),
+					Width:           Px(100),
+					Height:          Px(100),
 				},
 			},
 			{
 				// Small item 1: 1x1, should fill (2, 0)
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 			},
 			{
 				// Small item 2: 1x1, should fill (2, 1)
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 			},
 			{
 				// Small item 3: 1x1, should go to (0, 2) or next available
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 			},
@@ -144,8 +144,8 @@ func TestGridAutoPlacementSequential(t *testing.T) {
 			Display:             DisplayGrid,
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width: Px(100),
-			Height: Px(100),
+			Width:               Px(100),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50)}}, // (0, 0)
@@ -193,8 +193,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 			Display:             DisplayGrid,
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width: Px(150),
-			Height: Px(100),
+			Width:               Px(150),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{
@@ -202,8 +202,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 2,
-					Width: Px(50),
-					Height: Px(50),
+					Width:           Px(50),
+					Height:          Px(50),
 				},
 			},
 			{
@@ -211,8 +211,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    1,
 					GridColumnStart: 0,
-					Width: Px(50),
-					Height: Px(50),
+					Width:           Px(50),
+					Height:          Px(50),
 				},
 			},
 			{
@@ -220,8 +220,8 @@ func TestGridExplicitPlacement(t *testing.T) {
 				Style: Style{
 					GridRowStart:    0,
 					GridColumnStart: 1,
-					Width: Px(50),
-					Height: Px(50),
+					Width:           Px(50),
+					Height:          Px(50),
 				},
 			},
 		},
@@ -262,8 +262,8 @@ func TestGridSpanningItems(t *testing.T) {
 			Display:             DisplayGrid,
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50)), FixedTrack(Px(50))},
 			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width: Px(150),
-			Height: Px(100),
+			Width:               Px(150),
+			Height:              Px(100),
 		},
 		Children: []*Node{
 			{
@@ -273,8 +273,8 @@ func TestGridSpanningItems(t *testing.T) {
 					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   2,
-					Width: Px(100),
-					Height: Px(50),
+					Width:           Px(100),
+					Height:          Px(50),
 				},
 			},
 			{
@@ -283,8 +283,8 @@ func TestGridSpanningItems(t *testing.T) {
 					GridRowStart:    0,
 					GridRowEnd:      2,
 					GridColumnStart: 2,
-					Width: Px(50),
-					Height: Px(100),
+					Width:           Px(50),
+					Height:          Px(100),
 				},
 			},
 		},

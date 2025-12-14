@@ -28,7 +28,7 @@ func TestPositionAbsolute(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, root.Rect)
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
 	if math.Abs(child.Rect.X-50.0) > 1.0 {
@@ -62,7 +62,7 @@ func TestPositionRelative(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, root.Rect)
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
 	// Should be offset from normal flow position (0,0) by (20, 10)
@@ -97,7 +97,7 @@ func TestPositionAbsoluteWithRightBottom(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, root.Rect)
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
 	// Should be positioned from right and bottom
@@ -136,7 +136,7 @@ func TestPositionFixed(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, viewport)
+	LayoutWithPositioning(root, constraints, viewport, ctx)
 
 	child := root.Children[0]
 	// Fixed positioning uses viewport, not parent
@@ -175,7 +175,7 @@ func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
 	constraints := Loose(500, 400)
 	ctx := NewLayoutContext(800, 600, 16)
 	Layout(root, constraints, ctx)
-	LayoutWithPositioning(root, constraints, root.Rect)
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
 	// Width should be constrained: 400 - 50 - 50 = 300

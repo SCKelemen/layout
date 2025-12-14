@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -12,8 +13,8 @@ func main() {
 	// Debug: why isn't aspect ratio working?
 	node := &layout.Node{
 		Style: layout.Style{
-			Width:      800,
-			Height:     -1, // auto
+			Width:       800,
+			Height:      -1, // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -32,5 +33,3 @@ func main() {
 	fmt.Printf("  Returned size: %.2f x %.2f\n", size.Width, size.Height)
 	fmt.Printf("  Expected height: %.2f\n", 800.0/(16.0/9.0))
 }
-
-

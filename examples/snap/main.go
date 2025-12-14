@@ -45,7 +45,8 @@ func main() {
 
 	constraints := layout.Loose(400, 300)
 	viewport := layout.Rect{X: 0, Y: 0, Width: 400, Height: 300}
-	layout.LayoutWithPositioning(root, constraints, viewport)
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.LayoutWithPositioning(root, constraints, viewport, ctx)
 
 	fmt.Println("Before snapping:")
 	for i, child := range root.Children {
@@ -81,7 +82,7 @@ func main() {
 		},
 	}
 
-	layout.LayoutWithPositioning(root2, constraints, viewport)
+	layout.LayoutWithPositioning(root2, constraints, viewport, ctx)
 	fmt.Println("Before snapping:")
 	fmt.Printf("  Item 0: x=%.2f, y=%.2f\n", root2.Children[0].Rect.X, root2.Children[0].Rect.Y)
 

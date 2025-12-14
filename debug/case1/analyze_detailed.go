@@ -64,7 +64,7 @@ func main() {
 	if len(node.Children) >= 8 {
 		child6 := node.Children[6]
 		child7 := node.Children[7]
-		
+
 		fmt.Println("\n=== Child 6 and 7 Analysis ===")
 		fmt.Printf("Child 6: row %d-%d, y=%.2f, height=%.2f, bottom=%.2f\n",
 			child6.Style.GridRowStart, child6.Style.GridRowEnd,
@@ -72,21 +72,19 @@ func main() {
 		fmt.Printf("Child 7: row %d-%d, y=%.2f, height=%.2f, bottom=%.2f\n",
 			child7.Style.GridRowStart, child7.Style.GridRowEnd,
 			child7.Rect.Y, child7.Rect.Height, child7.Rect.Y+child7.Rect.Height)
-		
+
 		gap := child7.Rect.Y - (child6.Rect.Y + child6.Rect.Height)
 		fmt.Printf("Gap: %.2f (expected: 8.00)\n", gap)
-		
+
 		// Calculate expected positions
 		// Child 6 is in row 2-3 (rowEnd is exclusive, so it's only in row 2)
 		// Child 7 is in row 3-6 (starts at row 3)
 		// So child 6 should end at the end of row 2, and child 7 should start at the start of row 3
 		// Gap should be 8px (rowGap)
-		
+
 		fmt.Printf("\nExpected:\n")
 		fmt.Printf("  Child 6 should end at: end of row 2\n")
 		fmt.Printf("  Child 7 should start at: start of row 3\n")
 		fmt.Printf("  Gap between row 2 and row 3: %.2f\n", node.Style.GridRowGap)
 	}
 }
-
-

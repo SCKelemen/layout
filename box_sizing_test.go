@@ -10,8 +10,8 @@ import (
 func TestBoxSizingContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(100),
+			Width:     Px(100),
+			Height:    Px(100),
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox, // Explicit, though this is the default
@@ -40,8 +40,8 @@ func TestBoxSizingContentBox(t *testing.T) {
 func TestBoxSizingBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(100),
+			Width:     Px(100),
+			Height:    Px(100),
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
@@ -82,8 +82,8 @@ func TestBoxSizingBorderBox(t *testing.T) {
 func TestBoxSizingContentBoxAuto(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(-1), // auto
-			Height: Px(-1), // auto
+			Width:     Px(-1), // auto
+			Height:    Px(-1), // auto
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox,
@@ -114,8 +114,8 @@ func TestBoxSizingContentBoxAuto(t *testing.T) {
 func TestBoxSizingBorderBoxAuto(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(-1), // auto
-			Height: Px(-1), // auto
+			Width:     Px(-1), // auto
+			Height:    Px(-1), // auto
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
@@ -147,10 +147,10 @@ func TestBoxSizingBorderBoxAuto(t *testing.T) {
 func TestBoxSizingMinMaxContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(300), // Will be clamped by MaxWidth
-			Height: Px(100),
-			MinWidth: Px(100),
-			MaxWidth: Px(200),
+			Width:     Px(300), // Will be clamped by MaxWidth
+			Height:    Px(100),
+			MinWidth:  Px(100),
+			MaxWidth:  Px(200),
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingContentBox,
@@ -178,10 +178,10 @@ func TestBoxSizingMinMaxContentBox(t *testing.T) {
 func TestBoxSizingMinMaxBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(300), // Will be clamped by MaxWidth
-			Height: Px(100),
-			MinWidth: Px(100),
-			MaxWidth: Px(200),
+			Width:     Px(300), // Will be clamped by MaxWidth
+			Height:    Px(100),
+			MinWidth:  Px(100),
+			MaxWidth:  Px(200),
 			Padding:   Uniform(Px(10)),
 			Border:    Uniform(Px(5)),
 			BoxSizing: BoxSizingBorderBox,
@@ -210,8 +210,8 @@ func TestBoxSizingMinMaxBorderBox(t *testing.T) {
 func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(200),
-			Height: Px(-1), // auto, will be calculated from aspect ratio
+			Width:       Px(200),
+			Height:      Px(-1), // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
 			Padding:     Uniform(Px(10)),
 			Border:      Uniform(Px(5)),
@@ -243,8 +243,8 @@ func TestBoxSizingAspectRatioContentBox(t *testing.T) {
 func TestBoxSizingAspectRatioBorderBox(t *testing.T) {
 	root := &Node{
 		Style: Style{
-			Width: Px(200),
-			Height: Px(-1), // auto, will be calculated from aspect ratio
+			Width:       Px(200),
+			Height:      Px(-1), // auto, will be calculated from aspect ratio
 			AspectRatio: 16.0 / 9.0,
 			Padding:     Uniform(Px(10)),
 			Border:      Uniform(Px(5)),
@@ -279,8 +279,8 @@ func TestBoxSizingNoPaddingBorder(t *testing.T) {
 	// Content-box
 	root1 := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(100),
+			Width:     Px(100),
+			Height:    Px(100),
 			BoxSizing: BoxSizingContentBox,
 		},
 		Children: []*Node{},
@@ -293,8 +293,8 @@ func TestBoxSizingNoPaddingBorder(t *testing.T) {
 	// Border-box
 	root2 := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(100),
+			Width:     Px(100),
+			Height:    Px(100),
 			BoxSizing: BoxSizingBorderBox,
 		},
 		Children: []*Node{},
@@ -316,8 +316,8 @@ func TestBoxSizingChildItems(t *testing.T) {
 	// Test with flexbox
 	child1 := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(50),
+			Width:     Px(100),
+			Height:    Px(50),
 			Padding:   Uniform(Px(5)),
 			Border:    Uniform(Px(2)),
 			BoxSizing: BoxSizingContentBox,
@@ -326,8 +326,8 @@ func TestBoxSizingChildItems(t *testing.T) {
 
 	child2 := &Node{
 		Style: Style{
-			Width: Px(100),
-			Height: Px(50),
+			Width:     Px(100),
+			Height:    Px(50),
 			Padding:   Uniform(Px(5)),
 			Border:    Uniform(Px(2)),
 			BoxSizing: BoxSizingBorderBox,

@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -76,7 +77,7 @@ func main() {
 		Style: layout.Style{
 			// Auto height
 			MinHeight: Px(20),
-			Margin: layout.Uniform(10),
+			Margin:    layout.Uniform(10),
 		},
 	}
 	mixed3 := &layout.Node{
@@ -104,5 +105,3 @@ func main() {
 		}
 	}
 }
-
-

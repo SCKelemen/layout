@@ -104,4 +104,3 @@ func flexboxAlignWithAlignContent(
 
 	return lineOffsets, totalCrossSize
 }
-

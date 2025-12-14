@@ -12,27 +12,27 @@ func TestFlexboxBaselineAlignment(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width: Px(300),
-			Height: Px(100),
+			Width:         Px(300),
+			Height:        Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(30),
 				},
 				Baseline: 20, // Baseline at 20px from top
 			},
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(40),
 				},
 				Baseline: 30, // Baseline at 30px from top
 			},
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 				Baseline: 25, // Baseline at 25px from top
@@ -71,13 +71,13 @@ func TestFlexboxBaselineAlignmentWithMargins(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width: Px(300),
-			Height: Px(100),
+			Width:         Px(300),
+			Height:        Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(30),
 					Margin: Spacing{Top: Px(10)},
 				},
@@ -85,7 +85,7 @@ func TestFlexboxBaselineAlignmentWithMargins(t *testing.T) {
 			},
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(40),
 					Margin: Spacing{Top: Px(5)},
 				},
@@ -117,20 +117,20 @@ func TestFlexboxBaselineAlignmentNoBaseline(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			AlignItems:    AlignItemsBaseline,
-			Width: Px(300),
-			Height: Px(100),
+			Width:         Px(300),
+			Height:        Px(100),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(30),
 				},
 				// No baseline set, defaults to 30 (bottom of box)
 			},
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(50),
 				},
 				Baseline: 25,
@@ -160,20 +160,20 @@ func TestFlexboxBaselineAlignmentColumn(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionColumn,
 			AlignItems:    AlignItemsBaseline,
-			Width: Px(100),
-			Height: Px(300),
+			Width:         Px(100),
+			Height:        Px(300),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(30),
+					Width:  Px(30),
 					Height: Px(50),
 				},
 				Baseline: 10, // For column, baseline is in horizontal direction
 			},
 			{
 				Style: Style{
-					Width: Px(40),
+					Width:  Px(40),
 					Height: Px(50),
 				},
 				Baseline: 15,
@@ -208,27 +208,27 @@ func TestFlexboxBaselineAlignmentMultiLine(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrap,
 			AlignItems:    AlignItemsBaseline,
-			Width: Px(100),
-			Height: Px(200),
+			Width:         Px(100),
+			Height:        Px(200),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(30),
 				},
 				Baseline: 20,
 			},
 			{
 				Style: Style{
-					Width: Px(50),
+					Width:  Px(50),
 					Height: Px(40),
 				},
 				Baseline: 30,
 			},
 			{
 				Style: Style{
-					Width: Px(50), // This wraps to second line
+					Width:  Px(50), // This wraps to second line
 					Height: Px(25),
 				},
 				Baseline: 15,

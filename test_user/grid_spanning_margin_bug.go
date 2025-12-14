@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -11,7 +12,7 @@ import (
 func main() {
 	// Reproduce the bug: margin duplicated when item spans rows
 	fmt.Println("=== Grid Spanning Item Margin Bug ===")
-	
+
 	// Create a grid with items, one spanning multiple rows
 	root := &layout.Node{
 		Style: layout.Style{
@@ -96,12 +97,12 @@ func main() {
 
 	// Check spacing between rows
 	fmt.Println("=== Row Spacing Analysis ===")
-	
+
 	// Row 0 items
 	row0Items := []*layout.Node{}
 	row1Items := []*layout.Node{}
 	row2Items := []*layout.Node{}
-	
+
 	for _, item := range root.Children {
 		if item.Style.GridRowStart == 0 {
 			row0Items = append(row0Items, item)
@@ -113,7 +114,7 @@ func main() {
 			row2Items = append(row2Items, item)
 		}
 	}
-	
+
 	// Check gap between row 0 and row 1
 	if len(row0Items) > 0 && len(row1Items) > 0 {
 		row0Bottom := 0.0
@@ -123,7 +124,7 @@ func main() {
 				row0Bottom = bottom
 			}
 		}
-		
+
 		row1Top := 1000.0
 		for _, item := range row1Items {
 			top := item.Rect.Y - item.Style.Margin.Top
@@ -131,7 +132,7 @@ func main() {
 				row1Top = top
 			}
 		}
-		
+
 		gap := row1Top - row0Bottom
 		expectedGap := 10.0 // GridRowGap
 		fmt.Printf("Gap between row 0 and row 1:\n")
@@ -143,7 +144,7 @@ func main() {
 		}
 		fmt.Println()
 	}
-	
+
 	// Check gap between row 1 and row 2
 	if len(row1Items) > 0 && len(row2Items) > 0 {
 		row1Bottom := 0.0
@@ -153,7 +154,7 @@ func main() {
 				row1Bottom = bottom
 			}
 		}
-		
+
 		row2Top := 1000.0
 		for _, item := range row2Items {
 			top := item.Rect.Y - item.Style.Margin.Top
@@ -161,7 +162,7 @@ func main() {
 				row2Top = top
 			}
 		}
-		
+
 		gap := row2Top - row1Bottom
 		expectedGap := 10.0 // GridRowGap
 		fmt.Printf("Gap between row 1 and row 2:\n")
@@ -173,5 +174,3 @@ func main() {
 		}
 	}
 }
-
-

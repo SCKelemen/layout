@@ -10,23 +10,23 @@ func TestBlockMarginCollapsingAdjacentSiblings(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1), // auto
+			Width:   Px(200),
+			Height:  Px(-1), // auto
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width: Px(100),
-					Height: Px(50),
+					Width:   Px(100),
+					Height:  Px(50),
 					Margin:  Spacing{Bottom: Px(20)}, // First child has 20px bottom margin
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width: Px(100),
-					Height: Px(50),
+					Width:   Px(100),
+					Height:  Px(50),
 					Margin:  Spacing{Top: Px(30)}, // Second child has 30px top margin
 				},
 			},
@@ -61,23 +61,23 @@ func TestBlockMarginCollapsingLargerMarginWins(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1),
+			Width:   Px(200),
+			Height:  Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width: Px(100),
-					Height: Px(50),
+					Width:   Px(100),
+					Height:  Px(50),
 					Margin:  Spacing{Bottom: Px(50)}, // Larger bottom margin
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Width: Px(100),
-					Height: Px(50),
+					Width:   Px(100),
+					Height:  Px(50),
 					Margin:  Spacing{Top: Px(10)}, // Smaller top margin
 				},
 			},
@@ -100,28 +100,28 @@ func TestBlockMarginCollapsingThreeChildren(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1),
+			Width:   Px(200),
+			Height:  Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(30),
+					Height:  Px(30),
 					Margin:  Spacing{Bottom: Px(15)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(30),
+					Height:  Px(30),
 					Margin:  Spacing{Top: Px(10), Bottom: Px(25)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(30),
+					Height:  Px(30),
 					Margin:  Spacing{Top: Px(20)},
 				},
 			},
@@ -155,14 +155,14 @@ func TestBlockMarginCollapsingFirstChild(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1),
+			Width:   Px(200),
+			Height:  Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(50),
+					Height:  Px(50),
 					Margin:  Spacing{Top: Px(20)}, // First child has top margin
 				},
 			},
@@ -185,21 +185,21 @@ func TestBlockMarginCollapsingWithHorizontalMargins(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1),
+			Width:   Px(200),
+			Height:  Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(50),
+					Height:  Px(50),
 					Margin:  Spacing{Left: Px(10), Right: Px(10), Bottom: Px(20)},
 				},
 			},
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(50),
+					Height:  Px(50),
 					Margin:  Spacing{Left: Px(15), Right: Px(15), Top: Px(30)},
 				},
 			},
@@ -233,15 +233,15 @@ func TestBlockMarginCollapsingNestedFlex(t *testing.T) {
 	root := &Node{
 		Style: Style{
 			Display: DisplayBlock,
-			Width: Px(200),
-			Height: Px(-1),
+			Width:   Px(200),
+			Height:  Px(-1),
 		},
 		Children: []*Node{
 			{
 				Style: Style{
 					Display: DisplayFlex,
-					Width: Px(100),
-					Height: Px(50),
+					Width:   Px(100),
+					Height:  Px(50),
 					Margin:  Spacing{Bottom: Px(20)},
 				},
 				// Add a child to the flex container so it has content
@@ -252,7 +252,7 @@ func TestBlockMarginCollapsingNestedFlex(t *testing.T) {
 			{
 				Style: Style{
 					Display: DisplayBlock,
-					Height: Px(50),
+					Height:  Px(50),
 					Margin:  Spacing{Top: Px(30)},
 				},
 			},

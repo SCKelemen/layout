@@ -60,7 +60,7 @@ func TestFlexboxAlignContentImplementation(t *testing.T) {
 					FlexWrap:      FlexWrapWrap,
 					AlignContent:  tt.alignContent,
 					Height:        tt.containerHeight,
-					Width: Px(100), // Force wrapping
+					Width:         Px(100), // Force wrapping
 				},
 				Children: []*Node{
 					{Style: Style{Width: Px(60), Height: Px(50)}}, // 60px to force wrapping
@@ -92,7 +92,7 @@ func TestFlexboxFlexDirectionReverse(t *testing.T) {
 		Style: Style{
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRowReverse,
-			Width: Px(300),
+			Width:         Px(300),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50)}}, // Item 1
@@ -139,8 +139,8 @@ func TestFlexboxFlexWrapReverse(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrapReverse,
 			AlignContent:  AlignContentFlexStart, // Use flex-start to avoid stretching
-			Width: Px(100),                   // Force wrapping
-			Height: Px(200),
+			Width:         Px(100),               // Force wrapping
+			Height:        Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50)}}, // Line 1
@@ -179,7 +179,7 @@ func TestFlexboxGap(t *testing.T) {
 			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionRow,
 			FlexGap:       Px(20), // 20px gap between items
-			Width: Px(200),
+			Width:         Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50)}},
@@ -221,10 +221,10 @@ func TestFlexboxRowGapAndColumnGap(t *testing.T) {
 			FlexDirection: FlexDirectionRow,
 			FlexWrap:      FlexWrapWrap,
 			AlignContent:  AlignContentFlexStart, // Use flex-start to avoid stretching
-			FlexRowGap:    Px(30),                    // 30px between rows
-			FlexColumnGap: Px(40),                    // 40px between columns
-			Width: Px(100),                   // Force wrapping
-			Height: Px(200),
+			FlexRowGap:    Px(30),                // 30px between rows
+			FlexColumnGap: Px(40),                // 40px between columns
+			Width:         Px(100),               // Force wrapping
+			Height:        Px(200),
 		},
 		Children: []*Node{
 			{Style: Style{Width: Px(50), Height: Px(50)}}, // Line 1

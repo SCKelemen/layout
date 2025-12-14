@@ -29,7 +29,7 @@ func TestGetSVGTransform(t *testing.T) {
 func TestGetFinalRect(t *testing.T) {
 	// Test without transform
 	node := &Node{
-		Rect: Rect{Width: 100, Height: 50},
+		Rect: Rect{X: 10, Y: 20, Width: 100, Height: 50},
 		Style: Style{
 			Transform: IdentityTransform(),
 		},

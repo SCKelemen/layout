@@ -3,6 +3,7 @@ package examples
 import (
 	"strings"
 	"testing"
+
 	"github.com/SCKelemen/layout"
 	"github.com/SCKelemen/wpt-test-gen/pkg/cel"
 )
@@ -10,22 +11,22 @@ import (
 // Browser test for CSS Test: Flexbox with CEL assertions
 func TestTestCelAssertions(t *testing.T) {
 	// Test spec loaded from: /tmp/test-cel-assertions.json
-	
+
 	// This is a standalone test that uses the layout library directly
 	root := buildLayoutTestTestCelAssertions()
+	ctx := layout.NewLayoutContext(800, 600, 16)
 	layout.Layout(root, layout.Constraints{
-		MinWidth: Px(0),
-		MaxWidth: Px(800),
-		MinHeight: Px(0),
-		MaxHeight: Px(600),
-	})
+		MinWidth:  0,
+		MaxWidth:  800,
+		MinHeight: 0,
+		MaxHeight: 600,
+	}, ctx)
 
 	// Create CEL environment
 	env, err := cel.NewLayoutCELEnv(root)
 	if err != nil {
 		t.Fatalf("Failed to create CEL environment: %v", err)
 	}
-	
 
 	// Evaluate all CEL assertions
 	assertions := []struct {
@@ -77,34 +78,33 @@ func TestTestCelAssertions(t *testing.T) {
 	}
 }
 
-
 // buildLayoutTestTestCelAssertions constructs the layout tree for this test
 func buildLayoutTestTestCelAssertions() *layout.Node {
 	root := &layout.Node{
 		Style: layout.Style{
-			Display: layout.DisplayFlex,
+			Display:        layout.DisplayFlex,
 			JustifyContent: layout.JustifyContentSpaceBetween,
-			AlignItems: layout.AlignItemsCenter,
-			Width: Px(600.0),
-			Height: Px(100.0),
+			AlignItems:     layout.AlignItemsCenter,
+			Width:          layout.Px(600.0),
+			Height:         layout.Px(100.0),
 		},
 		Children: []*layout.Node{
 			&layout.Node{
 				Style: layout.Style{
-					Width: Px(100.0),
-					Height: Px(50.0),
+					Width:  layout.Px(100.0),
+					Height: layout.Px(50.0),
 				},
 			},
 			&layout.Node{
 				Style: layout.Style{
-					Width: Px(100.0),
-					Height: Px(50.0),
+					Width:  layout.Px(100.0),
+					Height: layout.Px(50.0),
 				},
 			},
 			&layout.Node{
 				Style: layout.Style{
-					Width: Px(100.0),
-					Height: Px(50.0),
+					Width:  layout.Px(100.0),
+					Height: layout.Px(50.0),
 				},
 			},
 		},
@@ -112,4 +112,3 @@ func buildLayoutTestTestCelAssertions() *layout.Node {
 
 	return root
 }
-

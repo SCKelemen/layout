@@ -75,7 +75,7 @@ func main() {
 	grandparentCtx := parentCtx.Parent()
 	if grandparentCtx != nil {
 		fmt.Printf("Grandparent is an HStack with %d children\n", len(grandparentCtx.Node.Children))
-		fmt.Printf("Grandparent has padding: %.0f\n", grandparentCtx.Node.Style.Padding.Top)
+		fmt.Printf("Grandparent has padding: %.0f\n", grandparentCtx.Node.Style.Padding.Top.Value)
 	}
 
 	fmt.Println("\n=== Getting All Ancestors ===")
@@ -86,7 +86,7 @@ func main() {
 	for i, ancestor := range ancestors {
 		childCount := len(ancestor.Node.Children)
 		fmt.Printf("  %d. Depth %d: %d children, padding %.0f\n",
-			i+1, ancestor.Depth(), childCount, ancestor.Node.Style.Padding.Top)
+			i+1, ancestor.Depth(), childCount, ancestor.Node.Style.Padding.Top.Value)
 	}
 
 	// Get path from target to root

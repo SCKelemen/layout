@@ -1439,7 +1439,7 @@ func TestFold(t *testing.T) {
 		maxWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
 			current := acc.(float64)
 			if n.Style.Width.Value > current {
-				return n.Style.Width
+				return n.Style.Width.Value
 			}
 			return current
 		}).(float64)

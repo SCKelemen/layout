@@ -13,28 +13,28 @@ func TestToJSON(t *testing.T) {
 		Style: layout.Style{
 			Display:       layout.DisplayFlex,
 			FlexDirection: layout.FlexDirectionColumn,
-			Width: Px(200),
-			Height: Px(100),
+			Width:         layout.Px(200),
+			Height:        layout.Px(100),
 		},
 		Children: []*layout.Node{
 			{
 				Style: layout.Style{
-					Width: Px(100),
-					Height: Px(50),
+					Width:  layout.Px(100),
+					Height: layout.Px(50),
 				},
 				Rect: layout.Rect{
 					X:      0,
 					Y:      0,
-					Width: Px(100),
-					Height: Px(50),
+					Width:  100,
+					Height: 50,
 				},
 			},
 		},
 		Rect: layout.Rect{
 			X:      0,
 			Y:      0,
-			Width: Px(200),
-			Height: Px(100),
+			Width:  200,
+			Height: 100,
 		},
 	}
 
@@ -78,14 +78,14 @@ func TestGridSerialization(t *testing.T) {
 		Style: layout.Style{
 			Display: layout.DisplayGrid,
 			GridTemplateRows: []layout.GridTrack{
-				layout.FixedTrack(Px(100)),
-				layout.FixedTrack(Px(200)),
+				layout.FixedTrack(layout.Px(100)),
+				layout.FixedTrack(layout.Px(200)),
 			},
 			GridTemplateColumns: []layout.GridTrack{
 				layout.FractionTrack(1),
 				layout.FractionTrack(2),
 			},
-			GridGap: Px(10),
+			GridGap: layout.Px(10),
 		},
 	}
 
@@ -108,16 +108,16 @@ func TestGridSerialization(t *testing.T) {
 	if len(deserialized.Style.GridTemplateColumns) != 2 {
 		t.Errorf("GridTemplateColumns count mismatch: got %d, want 2", len(deserialized.Style.GridTemplateColumns))
 	}
-	if deserialized.Style.GridGap != 10 {
-		t.Errorf("GridGap mismatch: got %v, want 10", deserialized.Style.GridGap)
+	if deserialized.Style.GridGap.Value != 10 {
+		t.Errorf("GridGap mismatch: got %v, want 10", deserialized.Style.GridGap.Value)
 	}
 }
 
 func TestAspectRatioSerialization(t *testing.T) {
 	root := &layout.Node{
 		Style: layout.Style{
-			Width: Px(800),
-			Height: Px(-1), // auto
+			Width:       layout.Px(800),
+			Height:      layout.Px(-1), // auto
 			AspectRatio: 16.0 / 9.0,
 		},
 	}
@@ -158,4 +158,3 @@ func TestTransformSerialization(t *testing.T) {
 		t.Errorf("Transform.A mismatch: got %v, want %v", deserialized.Style.Transform.A, root.Style.Transform.A)
 	}
 }
-

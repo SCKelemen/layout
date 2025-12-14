@@ -9,7 +9,8 @@ This document provides examples and usage guide for text layout properties in th
 Controls whether text is italic, oblique, or normal (upright).
 
 **CSS Property**: `font-style`
-**Reference**: [CSS Fonts Module Level 4 §5.2.2](https://www.w3.org/TR/css-fonts-4/#font-style-prop)
+**Specification**: [CSS Fonts Module Level 4 §5.2.2](https://www.w3.org/TR/css-fonts-4/#font-style-prop)
+**MDN**: [font-style](https://developer.mozilla.org/en-US/docs/Web/CSS/font-style)
 
 ```go
 // Normal (upright) text
@@ -37,6 +38,8 @@ italicText := Text("This is italic text", Style{
 Controls the boldness of text.
 
 **CSS Property**: `font-weight`
+**Specification**: [CSS Fonts Module Level 4 §5.2.3](https://www.w3.org/TR/css-fonts-4/#font-weight-prop)
+**MDN**: [font-weight](https://developer.mozilla.org/en-US/docs/Web/CSS/font-weight)
 
 ```go
 // Normal weight
@@ -56,7 +59,8 @@ node.Style.TextStyle.FontWeight = FontWeight(600)
 Controls which decoration lines are shown. Multiple decorations can be combined using bitwise OR.
 
 **CSS Property**: `text-decoration-line`
-**Reference**: [CSS Text Decoration Module Level 3 §2.1](https://www.w3.org/TR/css-text-decor-3/#text-decoration-line-property)
+**Specification**: [CSS Text Decoration Module Level 3 §2.1](https://www.w3.org/TR/css-text-decor-3/#text-decoration-line-property)
+**MDN**: [text-decoration-line](https://developer.mozilla.org/en-US/docs/Web/CSS/text-decoration-line)
 
 ```go
 // No decoration
@@ -95,7 +99,8 @@ if node.Style.TextStyle.TextDecoration.Has(TextDecorationUnderline) {
 Controls the style of decoration lines.
 
 **CSS Property**: `text-decoration-style`
-**Reference**: [CSS Text Decoration Module Level 3 §2.2](https://www.w3.org/TR/css-text-decor-3/#text-decoration-style-property)
+**Specification**: [CSS Text Decoration Module Level 3 §2.2](https://www.w3.org/TR/css-text-decor-3/#text-decoration-style-property)
+**MDN**: [text-decoration-style](https://developer.mozilla.org/en-US/docs/Web/CSS/text-decoration-style)
 
 ```go
 // Solid line (default)
@@ -131,7 +136,8 @@ wavyUnderline := Text("Spelling error", Style{
 Controls the color of decoration lines. Can be any CSS color string.
 
 **CSS Property**: `text-decoration-color`
-**Reference**: [CSS Text Decoration Module Level 3 §2.3](https://www.w3.org/TR/css-text-decor-3/#text-decoration-color-property)
+**Specification**: [CSS Text Decoration Module Level 3 §2.3](https://www.w3.org/TR/css-text-decor-3/#text-decoration-color-property)
+**MDN**: [text-decoration-color](https://developer.mozilla.org/en-US/docs/Web/CSS/text-decoration-color)
 
 ```go
 // Use current text color (default)
@@ -148,7 +154,8 @@ node.Style.TextStyle.TextDecorationColor = "rgb(255, 0, 0)"
 Controls how inline elements are aligned vertically relative to their parent or line box.
 
 **CSS Property**: `vertical-align`
-**Reference**: [CSS Inline Layout Module Level 3 §3.2](https://www.w3.org/TR/css-inline-3/#propdef-vertical-align)
+**Specification**: [CSS Inline Layout Module Level 3 §3.2](https://www.w3.org/TR/css-inline-3/#propdef-vertical-align)
+**MDN**: [vertical-align](https://developer.mozilla.org/en-US/docs/Web/CSS/vertical-align)
 
 ```go
 // Align baseline with parent baseline (default)

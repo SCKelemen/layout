@@ -1,6 +1,6 @@
 # Layout
 
-A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This library provides a reusable layout system that can be used for terminal UIs (like Bubble Tea), web layouts, or offscreen rendering.
+A pure Go implementation of CSS Grid and CSS Flexbox layout engines with accurate Unicode text support. This library provides a reusable layout system that can be used for terminal UIs (like Bubble Tea), web layouts, or offscreen rendering.
 
 ## Features
 
@@ -40,6 +40,15 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines. This librar
   - Inspect layout trees
   - Save and load layout configurations
   - Useful for testing and documentation
+
+- **Accurate Unicode Text Support** (via [github.com/SCKelemen/text](https://github.com/SCKelemen/text)): Production-ready text measurement and rendering
+  - ✅ **UAX #29** (Grapheme Clustering) - Proper emoji and combining character support
+  - ✅ **UAX #14** (Line Breaking) - Correct line break opportunities
+  - ✅ **UAX #11** (East Asian Width) - Accurate CJK character width
+  - ✅ **UAX #9** (Bidirectional Text) - RTL and mixed-direction text
+  - ✅ **UTS #51** (Emoji Sequences) - Flags, ZWJ sequences, modifiers
+  - ✅ **100% Conformance** - All 297,981 Unicode tests passing
+  - Perfect for terminal UIs where character cell width matters
 
 ## Installation
 
@@ -174,6 +183,51 @@ root := &layout.Node{
 constraints := layout.Loose(600, 400)
 layout.Layout(root, constraints)
 ```
+
+### Unicode Text Integration
+
+For accurate Unicode text measurement (essential for terminal UIs), use the text library integration:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/SCKelemen/layout"
+)
+
+func main() {
+    // Set up accurate Unicode text metrics
+    metrics := layout.NewTerminalTextMetrics()
+    layout.SetTextMetricsProvider(metrics)
+
+    // Now all text layout uses accurate Unicode measurements
+    root := layout.Text("Hello 世界 😀", layout.Style{
+        TextStyle: &layout.TextStyle{
+            FontSize:   16,
+            LineHeight: 1.5,
+            TextAlign:  layout.TextAlignCenter,
+        },
+        Width: layout.Px(200),
+    })
+
+    size := layout.Layout(root, layout.Loose(200, 600), nil)
+    fmt.Printf("Layout size: %.1f x %.1f\n", size.Width, size.Height)
+
+    // Access text operations directly
+    txt := metrics.Text()
+    fmt.Printf("Text width: %.1f cells\n", txt.Width("Hello 世界 😀"))
+    fmt.Printf("Graphemes: %v\n", txt.Graphemes("Hello👋🏻"))
+}
+```
+
+**What you get:**
+- ✅ Accurate width for ASCII, CJK, emoji, and mixed content
+- ✅ Proper emoji sequence handling (flags, modifiers, ZWJ sequences)
+- ✅ Grapheme cluster awareness for correct character boundaries
+- ✅ Bidirectional text support for RTL languages
+
+See [examples/text_integration](examples/text_integration/main.go) for a complete example.
 
 ## Fluent API
 

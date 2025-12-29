@@ -1,5 +1,7 @@
 cel.dev/expr v0.24.0 h1:56OvJKSH3hDGL0ml5uSxZmz3/3Pq4tJ+fb1unVLAFcY=
 cel.dev/expr v0.24.0/go.mod h1:hLPLo1W4QUmuYdA72RBX06QTs6MXw941piREPl3Yfiw=
+github.com/SCKelemen/units v0.0.0-20251215145938-c61f55703fef h1:RQO33x712cY5sepDHL96slSt/spkeVkNkpxGEvWiX1w=
+github.com/SCKelemen/units v0.0.0-20251215145938-c61f55703fef/go.mod h1:4AtPZnvBZHQ66SxsUk8VjxztXGMMvbA5toat/65B7S4=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

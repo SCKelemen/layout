@@ -189,8 +189,15 @@ type Style struct {
 	// Transform (for SVG rendering and visual effects)
 	Transform Transform
 
+	// WritingMode controls the block flow direction for layout containers.
+	// Inherited property that applies to all elements (block, flex, grid, text).
+	// Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/
+	// Default: WritingModeHorizontalTB (zero value)
+	WritingMode WritingMode
+
 	// TextStyle contains text-specific properties (nil for non-text nodes).
 	// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
+	// Note: TextStyle.WritingMode is deprecated; use Style.WritingMode instead for inheritance.
 	TextStyle *TextStyle
 }
 

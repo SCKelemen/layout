@@ -1,34 +1,56 @@
 package layout
 
-// blockLayoutChildren lays out children in vertical stack with margin collapsing.
+// blockLayoutChildren lays out children in block flow direction with margin collapsing.
 //
-// Algorithm based on CSS Box Model Module Level 3:
+// Algorithm based on CSS Box Model Module Level 3 and CSS Writing Modes Level 3:
 // - §8.3.1: Collapsing margins
+// - Writing Modes: block direction depends on writing-mode
 //
 // See: https://www.w3.org/TR/css-box-3/#collapsing-margins
+// See: https://www.w3.org/TR/css-writing-modes-3/
+//
+// Block direction (children stacking):
+// - Horizontal modes: children stack vertically (Y increases)
+// - Vertical modes: children stack horizontally (X increases or decreases)
 //
 // Margin collapsing rules (simplified):
-// 1. Adjacent vertical margins of block-level boxes collapse (use max, not sum)
-// 2. Parent and first child top margins collapse if no border/padding/content separates them
-// 3. Parent and last child bottom margins collapse if no border/padding/height separates them
+// 1. Adjacent block-axis margins collapse (use max, not sum)
+// 2. Parent and first child start margins collapse if no border/padding/content separates them
+// 3. Parent and last child end margins collapse if no border/padding/size separates them
 // 4. Empty block margins collapse with themselves
 //
 // For this implementation, we focus on the most common case:
 // - Adjacent sibling margins collapse (rule 1)
-func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *LayoutContext, parentFontSize float64) (currentY, maxChildWidth float64) {
+func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *LayoutContext, parentFontSize float64) (currentBlockPos, maxCrossSize float64) {
 	children := node.Children
-	currentY = 0.0
-	maxChildWidth = 0.0
+	writingMode := node.Style.WritingMode
+	isVertical := writingMode.IsVertical()
 
-	childConstraints := Constraints{
-		MinWidth:  0,
-		MaxWidth:  nodeWidth,
-		MinHeight: 0,
-		MaxHeight: Unbounded,
+	currentBlockPos = 0.0
+	maxCrossSize = 0.0
+
+	// Set child constraints based on writing mode
+	// Horizontal mode: constrain width (inline), unbounded height (block)
+	// Vertical mode: unbounded width (block), constrain height (inline)
+	var childConstraints Constraints
+	if isVertical {
+		childConstraints = Constraints{
+			MinWidth:  0,
+			MaxWidth:  Unbounded,
+			MinHeight: 0,
+			MaxHeight: nodeWidth, // nodeWidth is actually the inline size in vertical mode
+		}
+	} else {
+		childConstraints = Constraints{
+			MinWidth:  0,
+			MaxWidth:  nodeWidth,
+			MinHeight: 0,
+			MaxHeight: Unbounded,
+		}
 	}
 
-	// Track previous child's bottom margin for collapsing
-	var prevBottomMargin float64 = 0.0
+	// Track previous child's end margin (bottom for horizontal, right/left for vertical) for collapsing
+	var prevEndMargin float64 = 0.0
 
 	for i, child := range children {
 		// Skip display:none children
@@ -45,19 +67,35 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 		childMarginLeft := ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
 		childMarginRight := ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
 
+		// Map margins to logical directions (start/end in block axis)
+		var childMarginBlockStart, childMarginBlockEnd, childMarginInlineStart, childMarginInlineEnd float64
+		if isVertical {
+			// Vertical mode: block axis is horizontal
+			childMarginBlockStart = childMarginLeft   // Start = left for vertical-lr
+			childMarginBlockEnd = childMarginRight    // End = right for vertical-lr
+			childMarginInlineStart = childMarginTop   // Inline start = top
+			childMarginInlineEnd = childMarginBottom  // Inline end = bottom
+		} else {
+			// Horizontal mode: block axis is vertical
+			childMarginBlockStart = childMarginTop     // Start = top
+			childMarginBlockEnd = childMarginBottom    // End = bottom
+			childMarginInlineStart = childMarginLeft   // Inline start = left
+			childMarginInlineEnd = childMarginRight    // Inline end = right
+		}
+
 		// Apply margin collapsing with previous sibling
 		// Collapsed margin is max of adjacent margins, not sum
-		var effectiveTopMargin float64
+		var effectiveStartMargin float64
 		if i == 0 {
-			// First child: use its top margin as-is (could collapse with parent, but we don't implement that yet)
-			effectiveTopMargin = childMarginTop
-			currentY = effectiveTopMargin
+			// First child: use its start margin as-is (could collapse with parent, but we don't implement that yet)
+			effectiveStartMargin = childMarginBlockStart
+			currentBlockPos = effectiveStartMargin
 		} else {
-			// Collapse with previous sibling's bottom margin
+			// Collapse with previous sibling's end margin
 			// The effective space is the max of the two margins
-			effectiveTopMargin = max(prevBottomMargin, childMarginTop)
-			// Since we already added prevBottomMargin to currentY, subtract it and add the collapsed margin
-			currentY = currentY - prevBottomMargin + effectiveTopMargin
+			effectiveStartMargin = max(prevEndMargin, childMarginBlockStart)
+			// Since we already added prevEndMargin to currentBlockPos, subtract it and add the collapsed margin
+			currentBlockPos = currentBlockPos - prevEndMargin + effectiveStartMargin
 		}
 
 		// Layout child
@@ -80,25 +118,47 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 
 		// Position child with padding, border, and margin offset
 		// Children are positioned in the content area, which starts after padding + border
+		var childX, childY float64
+		if isVertical {
+			// Vertical mode: block direction is X
+			childX = parentPaddingLeft + parentBorderLeft + currentBlockPos
+			childY = parentPaddingTop + parentBorderTop + childMarginInlineStart
+		} else {
+			// Horizontal mode: block direction is Y
+			childX = parentPaddingLeft + parentBorderLeft + childMarginInlineStart
+			childY = parentPaddingTop + parentBorderTop + currentBlockPos
+		}
+
 		child.Rect = Rect{
-			X:      parentPaddingLeft + parentBorderLeft + childMarginLeft,
-			Y:      parentPaddingTop + parentBorderTop + currentY,
+			X:      childX,
+			Y:      childY,
 			Width:  childSize.Width,
 			Height: childSize.Height,
 		}
 
-		// Update currentY for next child (add child height and bottom margin)
-		currentY += childSize.Height + childMarginBottom
+		// Update currentBlockPos for next child (add child size in block direction and end margin)
+		var childBlockSize float64
+		if isVertical {
+			childBlockSize = childSize.Width
+		} else {
+			childBlockSize = childSize.Height
+		}
+		currentBlockPos += childBlockSize + childMarginBlockEnd
 
-		// Track max child width (including margins)
-		childWidthWithMargins := childSize.Width + childMarginLeft + childMarginRight
-		if childWidthWithMargins > maxChildWidth {
-			maxChildWidth = childWidthWithMargins
+		// Track max cross-axis size (including margins)
+		var childCrossSizeWithMargins float64
+		if isVertical {
+			childCrossSizeWithMargins = childSize.Height + childMarginInlineStart + childMarginInlineEnd
+		} else {
+			childCrossSizeWithMargins = childSize.Width + childMarginInlineStart + childMarginInlineEnd
+		}
+		if childCrossSizeWithMargins > maxCrossSize {
+			maxCrossSize = childCrossSizeWithMargins
 		}
 
-		// Store bottom margin for next iteration's collapse calculation
-		prevBottomMargin = childMarginBottom
+		// Store end margin for next iteration's collapse calculation
+		prevEndMargin = childMarginBlockEnd
 	}
 
-	return currentY, maxChildWidth
+	return currentBlockPos, maxCrossSize
 }

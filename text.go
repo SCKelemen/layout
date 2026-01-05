@@ -91,8 +91,12 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 	style := node.Style.TextStyle
 
-	// Get writing mode from TextStyle (defaults to horizontal-tb)
-	writingMode := style.WritingMode
+	// Get writing mode - prefer Style.WritingMode (inherited), fall back to TextStyle.WritingMode (legacy)
+	writingMode := node.Style.WritingMode
+	if writingMode == WritingModeHorizontalTB && style.WritingMode != WritingModeHorizontalTB {
+		// Style.WritingMode is default but TextStyle.WritingMode is set, use TextStyle value for backward compat
+		writingMode = style.WritingMode
+	}
 
 	// Get current font size for em unit resolution
 	currentFontSize := 16.0 // Default

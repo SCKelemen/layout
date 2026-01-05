@@ -26,12 +26,29 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	nodeWidth, nodeHeight = blockApplyConstraints(node, setup, nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight)
 
 	// §8.3.1: Collapsing margins - Layout children with margin collapsing
-	currentY, maxChildWidth := blockLayoutChildren(node, setup, nodeWidth, ctx, currentFontSize)
+	currentBlockPos, maxCrossSize := blockLayoutChildren(node, setup, nodeWidth, ctx, currentFontSize)
+
+	// Determine which dimension was calculated by children layout based on writing mode
+	isVertical := node.Style.WritingMode.IsVertical()
+	var childrenBlockSize, childrenCrossSize float64
+	if isVertical {
+		// Vertical mode: block = width, cross = height
+		childrenBlockSize = currentBlockPos
+		childrenCrossSize = maxCrossSize
+	} else {
+		// Horizontal mode: block = height, cross = width
+		childrenBlockSize = currentBlockPos
+		childrenCrossSize = maxCrossSize
+	}
 
 	// If height is auto, use children height (unless aspect ratio already calculated it)
 	if setup.isAutoHeight && !aspectRatioCalculatedHeight {
 		// Aspect ratio didn't calculate height, so use children height
-		nodeHeight = currentY
+		if isVertical {
+			nodeHeight = childrenCrossSize
+		} else {
+			nodeHeight = childrenBlockSize
+		}
 		// Ensure MinHeight is still respected even when using children height
 		if setup.minHeightContent > 0 {
 			nodeHeight = max(nodeHeight, setup.minHeightContent)
@@ -53,10 +70,17 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		if !aspectRatioCalculatedWidth {
 			// Aspect ratio didn't calculate width, so use children width
 			// But if there are no children and we have contentWidth, use that
-			if maxChildWidth == 0 && setup.contentWidth > 0 {
+			var childrenWidth float64
+			if isVertical {
+				childrenWidth = childrenBlockSize
+			} else {
+				childrenWidth = childrenCrossSize
+			}
+
+			if childrenWidth == 0 && setup.contentWidth > 0 {
 				nodeWidth = setup.contentWidth
 			} else {
-				nodeWidth = maxChildWidth
+				nodeWidth = childrenWidth
 			}
 		}
 		// Ensure MinWidth is still respected (even if aspect ratio calculated width)

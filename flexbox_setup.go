@@ -2,6 +2,7 @@ package layout
 
 // flexboxSetup contains the setup state for flexbox layout
 // Algorithm based on CSS Flexible Box Layout Module Level 1: §9.2: Line Length Determination
+// Extended with CSS Writing Modes Level 3 support
 type flexboxSetup struct {
 	// Container dimensions
 	horizontalPadding float64
@@ -11,12 +12,15 @@ type flexboxSetup struct {
 	contentWidth      float64
 	contentHeight     float64
 
-	// Axis determination
-	isRow                bool
+	// Axis determination (considering both flex-direction and writing-mode)
+	isRow                bool // True if flex-direction is row/row-reverse
+	isMainHorizontal     bool // True if main axis runs horizontally (physical)
+	isReverse            bool // True if flex-direction is *-reverse
 	mainSize             float64
 	crossSize            float64
 	hasExplicitMainSize  bool
 	hasExplicitCrossSize bool
+	writingMode          WritingMode
 }
 
 // flexboxDetermineLineLength initializes the flexbox layout state and determines line length.
@@ -128,23 +132,52 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 		setup.contentHeight = 0
 	}
 
-	// Determine main and cross axis
+	// Determine main and cross axis considering both flex-direction and writing-mode
+	// Based on CSS Writing Modes Level 3 and CSS Flexbox Level 1
+	//
+	// In horizontal writing modes (horizontal-tb):
+	//   - row/row-reverse: main axis = horizontal (inline direction)
+	//   - column/column-reverse: main axis = vertical (block direction)
+	//
+	// In vertical writing modes (vertical-lr, vertical-rl, sideways-*):
+	//   - row/row-reverse: main axis = vertical (inline direction)
+	//   - column/column-reverse: main axis = horizontal (block direction)
+	setup.writingMode = node.Style.WritingMode
 	setup.isRow = node.Style.FlexDirection == FlexDirectionRow || node.Style.FlexDirection == FlexDirectionRowReverse
-	setup.mainSize = setup.contentWidth
-	setup.crossSize = setup.contentHeight
-	if !setup.isRow {
-		setup.mainSize, setup.crossSize = setup.crossSize, setup.mainSize
+	setup.isReverse = node.Style.FlexDirection == FlexDirectionRowReverse || node.Style.FlexDirection == FlexDirectionColumnReverse
+
+	isVerticalWritingMode := setup.writingMode.IsVertical()
+
+	// Determine physical direction of main axis
+	if setup.isRow {
+		// flex-direction: row/row-reverse
+		// Main axis follows inline direction
+		setup.isMainHorizontal = !isVerticalWritingMode
+	} else {
+		// flex-direction: column/column-reverse
+		// Main axis follows block direction
+		setup.isMainHorizontal = isVerticalWritingMode
+	}
+
+	// Set main and cross sizes based on physical axis direction
+	if setup.isMainHorizontal {
+		setup.mainSize = setup.contentWidth
+		setup.crossSize = setup.contentHeight
+	} else {
+		setup.mainSize = setup.contentHeight
+		setup.crossSize = setup.contentWidth
 	}
 
 	// Does this container have a definite cross size (via style or constraints)?
 	// This determines whether align-items: stretch should use crossSize or content-driven lineCrossSize
-	if setup.isRow {
-		// Cross axis is height
+	// Check based on physical cross axis direction
+	if setup.isMainHorizontal {
+		// Main is horizontal, so cross axis is vertical (height)
 		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
 	} else {
-		// Cross axis is width
+		// Main is vertical, so cross axis is horizontal (width)
 		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
@@ -152,13 +185,14 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 
 	// Does this container have a definite main size (via style or constraints)?
 	// If not, free-space distribution in the main axis should be skipped (CSS flexbox §9.2 / §9.3).
-	if setup.isRow {
-		// Main axis is width
+	// Check based on physical main axis direction
+	if setup.isMainHorizontal {
+		// Main axis is horizontal (width)
 		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}
 	} else {
-		// Main axis is height
+		// Main axis is vertical (height)
 		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}

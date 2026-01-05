@@ -177,7 +177,7 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 	// Main dimension = max line main extent (not sum)
 	// Cross dimension = use explicit cross size if available, otherwise sum of line cross sizes
 	var containerSize Size
-	if setup.isRow {
+	if setup.isMainHorizontal {
 		crossDimension := totalCrossSize
 		if setup.hasExplicitCrossSize {
 			crossDimension = setup.crossSize
@@ -255,7 +255,7 @@ func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool)
 }
 
 // justifyContentWithGap applies justify-content with gap support
-func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isRow bool, gap float64) {
+func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, gap float64) {
 	if len(line) == 0 {
 		return
 	}
@@ -269,7 +269,7 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 		itemSize := item.mainSize
 		if itemSize == 0 {
 			// Fallback to rect size if mainSize is 0
-			if isRow {
+			if isMainHorizontal {
 				itemSize = item.node.Rect.Width
 			} else {
 				itemSize = item.node.Rect.Height
@@ -299,7 +299,7 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 			spaceBetween := freeSpace / float64(len(line)-1)
 			currentPos := startOffset
 			for _, item := range line {
-				if isRow {
+				if isMainHorizontal {
 					item.node.Rect.X += currentPos + item.mainMarginStart
 					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				} else {
@@ -325,19 +325,19 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 	}
 
 	// Apply offset (accounting for margins, padding, and gap)
-	// Note: For row direction, we only modify X. For column direction, we only modify Y.
-	// The cross-axis position (Y for row, X for column) is set separately and should not be modified here.
+	// Note: For main axis horizontal, we modify X. For main axis vertical, we modify Y.
+	// The cross-axis position (Y for horizontal main, X for vertical main) is set separately and should not be modified here.
 	currentPos := startOffset + offset
 	for i, item := range line {
-		if isRow {
-			// Row direction: modify X (main axis), preserve Y (cross axis)
+		if isMainHorizontal {
+			// Main axis horizontal: modify X (main axis), preserve Y (cross axis)
 			item.node.Rect.X += currentPos + item.mainMarginStart
 			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 			if i < len(line)-1 {
 				currentPos += gap
 			}
 		} else {
-			// Column direction: modify Y (main axis), preserve X (cross axis)
+			// Main axis vertical: modify Y (main axis), preserve X (cross axis)
 			item.node.Rect.Y += currentPos + item.mainMarginStart
 			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 			if i < len(line)-1 {
@@ -348,6 +348,6 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 }
 
 // justifyContent is kept for backward compatibility but now calls justifyContentWithGap with 0 gap
-func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isRow bool) {
-	justifyContentWithGap(justify, line, startOffset, containerSize, isRow, 0)
+func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool) {
+	justifyContentWithGap(justify, line, startOffset, containerSize, isMainHorizontal, 0)
 }

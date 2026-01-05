@@ -37,7 +37,7 @@ func flexboxAlignmentMainAxis(
 		// Get rect dimensions - cross-axis was already set by flexboxAlignmentCrossAxis
 		// We just need to set/update main-axis dimensions
 		var rectWidth, rectHeight float64
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			rectWidth = item.mainSize
 			rectHeight = item.node.Rect.Height // Preserve cross-axis value
 		} else {
@@ -46,7 +46,7 @@ func flexboxAlignmentMainAxis(
 		}
 
 		// Update main-axis size if needed
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			if rectWidth == 0 && item.node.Style.Width.Value >= 0 {
 				rectWidth = ResolveLength(item.node.Style.Width, ctx, childFontSize)
 				// Update mainSize so justify-content calculations use correct size
@@ -60,7 +60,7 @@ func flexboxAlignmentMainAxis(
 		}
 
 		// Update rect with main-axis dimensions (preserving cross-axis from previous step)
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			item.node.Rect.Width = rectWidth
 			// Y and Height were already set by flexboxAlignmentCrossAxis
 		} else {
@@ -73,7 +73,7 @@ func flexboxAlignmentMainAxis(
 	// This is needed because justifyContentWithGap uses item.mainSize
 	for _, item := range line {
 		childFontSize := getCurrentFontSize(item.node, ctx)
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			if item.mainSize == 0 && item.node.Style.Width.Value >= 0 {
 				item.mainSize = ResolveLength(item.node.Style.Width, ctx, childFontSize)
 			}
@@ -86,7 +86,7 @@ func flexboxAlignmentMainAxis(
 
 	// Calculate content area start offset (accounting for padding and border)
 	contentAreaStart := 0.0
-	if setup.isRow {
+	if setup.isMainHorizontal {
 		contentAreaStart = ResolveLength(node.Style.Padding.Left, ctx, parentFontSize) + ResolveLength(node.Style.Border.Left, ctx, parentFontSize)
 	} else {
 		contentAreaStart = ResolveLength(node.Style.Padding.Top, ctx, parentFontSize) + ResolveLength(node.Style.Border.Top, ctx, parentFontSize)
@@ -108,9 +108,9 @@ func flexboxAlignmentMainAxis(
 			reversedJustify = JustifyContentFlexStart
 		}
 		// Use normal justify logic with reversed semantics
-		justifyContentWithGap(reversedJustify, line, contentAreaStart, mainSize, setup.isRow, columnGap)
+		justifyContentWithGap(reversedJustify, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap)
 	} else {
-		justifyContentWithGap(node.Style.JustifyContent, line, contentAreaStart, mainSize, setup.isRow, columnGap)
+		justifyContentWithGap(node.Style.JustifyContent, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap)
 	}
 
 	// Calculate this line's main extent (including margins and gaps)
@@ -118,7 +118,7 @@ func flexboxAlignmentMainAxis(
 	// We need to calculate the extent relative to the content area start
 	lineMainSize := 0.0
 	for _, item := range line {
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			itemEnd := item.node.Rect.X + item.node.Rect.Width + item.mainMarginEnd
 			// Convert to content-area relative
 			itemEndRelative := itemEnd - contentAreaStart
@@ -204,10 +204,10 @@ func flexboxAlignmentCrossAxis(
 			itemAlign = item.node.Style.AlignSelf
 		}
 		// Set initial rect dimensions
-		// For row: mainSize=width, crossSize=height
-		// For column: mainSize=height, crossSize=width
+		// For main axis horizontal: mainSize=width, crossSize=height
+		// For main axis vertical: mainSize=height, crossSize=width
 		var rectWidth, rectHeight float64
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			rectWidth = item.mainSize
 			rectHeight = item.crossSize
 		} else {
@@ -218,15 +218,15 @@ func flexboxAlignmentCrossAxis(
 		// Apply align-self/align-items stretch if needed (for cross-size)
 		// Use lineCrossSize consistently - it already accounts for single-line stretch
 		if itemAlign == AlignItemsStretch {
-			if setup.isRow {
-				// For row direction, cross-size is height
+			if setup.isMainHorizontal {
+				// For main axis horizontal, cross-size is height
 				rectHeight = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
 				if rectHeight < 0 {
 					rectHeight = 0
 				}
 				item.crossSize = rectHeight
 			} else {
-				// For column direction, cross-size is width
+				// For main axis vertical, cross-size is width
 				rectWidth = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
 				if rectWidth < 0 {
 					rectWidth = 0
@@ -265,7 +265,7 @@ func flexboxAlignmentCrossAxis(
 		parentFontSize := getCurrentFontSize(node, ctx)
 
 		// Update rect with cross-axis position
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			item.node.Rect.Y = ResolveLength(node.Style.Padding.Top, ctx, parentFontSize) + ResolveLength(node.Style.Border.Top, ctx, parentFontSize) + lineStartCrossOffset + crossOffset
 			item.node.Rect.Height = rectHeight
 		} else {

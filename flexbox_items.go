@@ -37,7 +37,7 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 
 		// Get child margins (resolve Length to pixels)
 		var childMainMarginStart, childMainMarginEnd, childCrossMarginStart, childCrossMarginEnd float64
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			childMainMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
 			childMainMarginEnd = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
@@ -67,7 +67,7 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			MinHeight: 0,
 			MaxHeight: childCrossSize,
 		}
-		if !setup.isRow {
+		if !setup.isMainHorizontal {
 			childConstraints.MaxWidth, childConstraints.MaxHeight = childConstraints.MaxHeight, childConstraints.MaxWidth
 		}
 
@@ -81,7 +81,7 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			childSize = LayoutBlock(child, childConstraints, ctx)
 		}
 
-		if setup.isRow {
+		if setup.isMainHorizontal {
 			item.mainSize = childSize.Width
 			item.crossSize = childSize.Height
 			// Use explicit dimensions if measured size is 0 or Unbounded
@@ -128,12 +128,12 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			if measuredMainSize > 0 {
 				item.baseSize = measuredMainSize
 				item.flexBasis = measuredMainSize
-			} else if setup.isRow && child.Style.Width.Value >= 0 {
+			} else if setup.isMainHorizontal && child.Style.Width.Value >= 0 {
 				// Use explicit width for baseSize
 				resolvedWidth := ResolveLength(child.Style.Width, ctx, childFontSize)
 				item.baseSize = resolvedWidth
 				item.flexBasis = resolvedWidth
-			} else if !setup.isRow && child.Style.Height.Value >= 0 {
+			} else if !setup.isMainHorizontal && child.Style.Height.Value >= 0 {
 				// Use explicit height for baseSize
 				resolvedHeight := ResolveLength(child.Style.Height, ctx, childFontSize)
 				item.baseSize = resolvedHeight

@@ -38,11 +38,21 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 		// Get child margins (resolve Length to pixels)
 		var childMainMarginStart, childMainMarginEnd, childCrossMarginStart, childCrossMarginEnd float64
 		if setup.isMainHorizontal {
-			childMainMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
-			childMainMarginEnd = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
+			// Main axis is horizontal
+			// Direction depends on whether progression is left-to-right or right-to-left
+			if setup.writingMode.IsRightToLeft() {
+				// vertical-rl: main axis progresses right-to-left
+				childMainMarginStart = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
+				childMainMarginEnd = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
+			} else {
+				// vertical-lr or horizontal-tb: main axis progresses left-to-right
+				childMainMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
+				childMainMarginEnd = ResolveLength(child.Style.Margin.Right, ctx, childFontSize)
+			}
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childCrossMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 		} else {
+			// Main axis is vertical (always top-to-bottom for now)
 			childMainMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childMainMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)

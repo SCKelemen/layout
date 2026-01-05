@@ -537,6 +537,13 @@ func (w WritingMode) IsSideways() bool {
 	return w == WritingModeSidewaysRL || w == WritingModeSidewaysLR
 }
 
+// IsRightToLeft returns true if the block progression direction is right-to-left.
+// This is true for vertical-rl and sideways-rl modes where content blocks progress
+// from right to left (in contrast to vertical-lr and sideways-lr where they progress left to right).
+func (w WritingMode) IsRightToLeft() bool {
+	return w == WritingModeVerticalRL || w == WritingModeSidewaysRL
+}
+
 // FontWeight represents font weight (numeric or named).
 type FontWeight int
 

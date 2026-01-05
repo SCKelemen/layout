@@ -71,8 +71,16 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 		var childMarginBlockStart, childMarginBlockEnd, childMarginInlineStart, childMarginInlineEnd float64
 		if isVertical {
 			// Vertical mode: block axis is horizontal
-			childMarginBlockStart = childMarginLeft   // Start = left for vertical-lr
-			childMarginBlockEnd = childMarginRight    // End = right for vertical-lr
+			// Direction depends on whether blocks progress left-to-right or right-to-left
+			if writingMode.IsRightToLeft() {
+				// vertical-rl: blocks progress right-to-left
+				childMarginBlockStart = childMarginRight  // Start = right for vertical-rl
+				childMarginBlockEnd = childMarginLeft     // End = left for vertical-rl
+			} else {
+				// vertical-lr: blocks progress left-to-right
+				childMarginBlockStart = childMarginLeft   // Start = left for vertical-lr
+				childMarginBlockEnd = childMarginRight    // End = right for vertical-lr
+			}
 			childMarginInlineStart = childMarginTop   // Inline start = top
 			childMarginInlineEnd = childMarginBottom  // Inline end = bottom
 		} else {
@@ -116,12 +124,28 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 		parentBorderLeft := ResolveLength(node.Style.Border.Left, ctx, parentFontSize)
 		parentBorderTop := ResolveLength(node.Style.Border.Top, ctx, parentFontSize)
 
+		// Get child block size for positioning (needed for right-to-left)
+		var childBlockSize float64
+		if isVertical {
+			childBlockSize = childSize.Width
+		} else {
+			childBlockSize = childSize.Height
+		}
+
 		// Position child with padding, border, and margin offset
 		// Children are positioned in the content area, which starts after padding + border
 		var childX, childY float64
 		if isVertical {
 			// Vertical mode: block direction is X
-			childX = parentPaddingLeft + parentBorderLeft + currentBlockPos
+			if writingMode.IsRightToLeft() {
+				// vertical-rl: position from right edge, moving leftward
+				// We need the content width to calculate position from right
+				contentWidth := setup.contentWidth
+				childX = parentPaddingLeft + parentBorderLeft + contentWidth - currentBlockPos - childBlockSize
+			} else {
+				// vertical-lr: position from left edge, moving rightward
+				childX = parentPaddingLeft + parentBorderLeft + currentBlockPos
+			}
 			childY = parentPaddingTop + parentBorderTop + childMarginInlineStart
 		} else {
 			// Horizontal mode: block direction is Y
@@ -137,12 +161,7 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 		}
 
 		// Update currentBlockPos for next child (add child size in block direction and end margin)
-		var childBlockSize float64
-		if isVertical {
-			childBlockSize = childSize.Width
-		} else {
-			childBlockSize = childSize.Height
-		}
+		// childBlockSize already calculated above for positioning
 		currentBlockPos += childBlockSize + childMarginBlockEnd
 
 		// Track max cross-axis size (including margins)

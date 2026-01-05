@@ -643,11 +643,19 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		//
 		// In vertical writing modes, swap X/Y positioning:
 		// - Horizontal-TB: columns control X, rows control Y (default behavior)
-		// - Vertical-LR: columns control Y, rows control X (swap X and Y)
+		// - Vertical-LR/RL: columns control Y, rows control X (swap X and Y)
+		//   - Vertical-LR: rows progress left-to-right
+		//   - Vertical-RL: rows progress right-to-left
 		var finalX, finalY, finalWidth, finalHeight float64
 		if isVerticalWritingMode {
 			// Vertical mode: rows control X (horizontal), columns control Y (vertical)
-			finalX = paddingLeft + borderLeft + itemY  // itemY becomes X
+			if writingMode.IsRightToLeft() {
+				// Vertical-RL: rows progress right-to-left, position from right edge
+				finalX = paddingLeft + borderLeft + contentWidth - itemY - itemHeight
+			} else {
+				// Vertical-LR: rows progress left-to-right
+				finalX = paddingLeft + borderLeft + itemY  // itemY becomes X
+			}
 			finalY = paddingTop + borderTop + itemX    // itemX becomes Y
 			finalWidth = itemHeight                     // height becomes width
 			finalHeight = itemWidth                     // width becomes height

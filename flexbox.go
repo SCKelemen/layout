@@ -255,7 +255,7 @@ func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool)
 }
 
 // justifyContentWithGap applies justify-content with gap support
-func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, gap float64) {
+func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, gap float64, writingMode WritingMode) {
 	if len(line) == 0 {
 		return
 	}
@@ -298,9 +298,16 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 			// Distribute free space between items (not including gap)
 			spaceBetween := freeSpace / float64(len(line)-1)
 			currentPos := startOffset
+			isRightToLeft := writingMode.IsRightToLeft() && isMainHorizontal
 			for _, item := range line {
 				if isMainHorizontal {
-					item.node.Rect.X += currentPos + item.mainMarginStart
+					if isRightToLeft {
+						// Right-to-left: position from right edge moving leftward
+						item.node.Rect.X += startOffset + containerSize - currentPos - item.mainMarginStart - item.mainSize
+					} else {
+						// Left-to-right: position from left edge moving rightward
+						item.node.Rect.X += currentPos + item.mainMarginStart
+					}
 					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
 				} else {
 					item.node.Rect.Y += currentPos + item.mainMarginStart
@@ -327,11 +334,22 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 	// Apply offset (accounting for margins, padding, and gap)
 	// Note: For main axis horizontal, we modify X. For main axis vertical, we modify Y.
 	// The cross-axis position (Y for horizontal main, X for vertical main) is set separately and should not be modified here.
+	//
+	// For right-to-left writing modes (vertical-rl, sideways-rl), when the main axis is horizontal,
+	// items are positioned from right to left instead of left to right.
+	isRightToLeft := writingMode.IsRightToLeft() && isMainHorizontal
+
 	currentPos := startOffset + offset
 	for i, item := range line {
 		if isMainHorizontal {
 			// Main axis horizontal: modify X (main axis), preserve Y (cross axis)
-			item.node.Rect.X += currentPos + item.mainMarginStart
+			if isRightToLeft {
+				// Right-to-left: position from right edge moving leftward
+				item.node.Rect.X += startOffset + containerSize - currentPos - item.mainMarginStart - item.mainSize
+			} else {
+				// Left-to-right: position from left edge moving rightward
+				item.node.Rect.X += currentPos + item.mainMarginStart
+			}
 			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 			if i < len(line)-1 {
 				currentPos += gap
@@ -348,6 +366,6 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 }
 
 // justifyContent is kept for backward compatibility but now calls justifyContentWithGap with 0 gap
-func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool) {
-	justifyContentWithGap(justify, line, startOffset, containerSize, isMainHorizontal, 0)
+func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, writingMode WritingMode) {
+	justifyContentWithGap(justify, line, startOffset, containerSize, isMainHorizontal, 0, writingMode)
 }

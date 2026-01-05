@@ -108,9 +108,9 @@ func flexboxAlignmentMainAxis(
 			reversedJustify = JustifyContentFlexStart
 		}
 		// Use normal justify logic with reversed semantics
-		justifyContentWithGap(reversedJustify, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap)
+		justifyContentWithGap(reversedJustify, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap, setup.writingMode)
 	} else {
-		justifyContentWithGap(node.Style.JustifyContent, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap)
+		justifyContentWithGap(node.Style.JustifyContent, line, contentAreaStart, mainSize, setup.isMainHorizontal, columnGap, setup.writingMode)
 	}
 
 	// Calculate this line's main extent (including margins and gaps)

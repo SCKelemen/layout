@@ -545,35 +545,44 @@ func splitIntoWords(text string) []string {
 	return words
 }
 
-// breakIntoLines breaks text into lines based on available width using UAX #14.
+// breakIntoLines breaks text into lines based on available inline size using UAX #14.
 // Based on CSS Text Module Level 3 §4: https://www.w3.org/TR/css-text-3/#line-breaking
 // Uses Unicode Line Breaking Algorithm (UAX #14) for proper break opportunities.
-func breakIntoLines(text string, maxWidth float64, style TextStyle) []TextLine {
+//
+// The maxInlineSize parameter represents:
+//   - Horizontal writing modes: max width (text flows left-to-right or right-to-left)
+//   - Vertical writing modes: max height (text flows top-to-bottom)
+//
+// Note: TextLine.Width field represents the inline-size extent:
+//   - Horizontal: width in pixels
+//   - Vertical: height in pixels (how tall the "line" is when flowing top-to-bottom)
+func breakIntoLines(text string, maxInlineSize float64, style TextStyle) []TextLine {
 	if text == "" {
 		return []TextLine{}
 	}
 
-	// Treat maxWidth <= 0 as unbounded (no wrapping)
-	if maxWidth <= 0 {
-		maxWidth = Unbounded
+	// Treat maxInlineSize <= 0 as unbounded (no wrapping)
+	if maxInlineSize <= 0 {
+		maxInlineSize = Unbounded
 	}
 
 	// For pre mode, split on newlines first
 	if style.WhiteSpace == WhiteSpacePre {
-		return breakIntoLinesPre(text, maxWidth, style)
+		return breakIntoLinesPre(text, maxInlineSize, style)
 	}
 
 	// For pre-wrap and pre-line, split on newlines then wrap each segment
 	if style.WhiteSpace == WhiteSpacePreWrap || style.WhiteSpace == WhiteSpacePreLine {
-		return breakIntoLinesPreWrap(text, maxWidth, style)
+		return breakIntoLinesPreWrap(text, maxInlineSize, style)
 	}
 
 	// Use UAX #14 to find line break opportunities
-	return breakIntoLinesUAX14(text, maxWidth, style)
+	return breakIntoLinesUAX14(text, maxInlineSize, style)
 }
 
 // breakIntoLinesUAX14 breaks text into lines using UAX #14 line breaking algorithm.
-func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextLine {
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []TextLine {
 	// Find all line break opportunities using UAX #14, respecting hyphens property
 	breakPoints := findLineBreakOpportunitiesWithHyphens(text, style.Hyphens)
 	if len(breakPoints) < 2 {
@@ -640,8 +649,8 @@ func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextL
 			effectiveLineWidth += spaceWidth
 		}
 
-		// Break if this word would exceed maxWidth (and we have content already on this line)
-		if maxWidth > 0 && maxWidth < Unbounded && effectiveLineWidth > maxWidth && len(current.Boxes) > 0 && canBreakBefore(style.WhiteSpace) {
+		// Break if this word would exceed maxInlineSize (and we have content already on this line)
+		if maxInlineSize > 0 && maxInlineSize < Unbounded && effectiveLineWidth > maxInlineSize && len(current.Boxes) > 0 && canBreakBefore(style.WhiteSpace) {
 			// Remove trailing space from line end if last word had one (not used for justification)
 			if lastWordHadTrailingSpace && current.SpaceCount > 0 {
 				// Get the last space width
@@ -665,12 +674,12 @@ func breakIntoLinesUAX14(text string, maxWidth float64, style TextStyle) []TextL
 		}
 
 		// Check if word is too long and should be broken (overflow-wrap or word-break)
-		// Only break if it's the first word on line and exceeds maxWidth
-		if len(current.Boxes) == 0 && maxWidth > 0 && maxWidth < Unbounded && wordWidth > maxWidth {
+		// Only break if it's the first word on line and exceeds maxInlineSize
+		if len(current.Boxes) == 0 && maxInlineSize > 0 && maxInlineSize < Unbounded && wordWidth > maxInlineSize {
 			if style.OverflowWrap == OverflowWrapBreakWord || style.OverflowWrap == OverflowWrapAnywhere ||
 				style.WordBreak == WordBreakBreakAll {
 				// Break word into smaller pieces
-				pieces := breakWordToFit(wordText, maxWidth, style)
+				pieces := breakWordToFit(wordText, maxInlineSize, style)
 				for j, piece := range pieces {
 					if j > 0 {
 						// Start new line for subsequent pieces
@@ -761,8 +770,9 @@ func canBreakBefore(whiteSpace WhiteSpace) bool {
 	return true
 }
 
-// breakIntoLinesPre breaks text into lines preserving newlines and spaces (pre mode)
-func breakIntoLinesPre(text string, maxWidth float64, style TextStyle) []TextLine {
+// breakIntoLinesPre breaks text into lines preserving newlines and spaces (pre mode).
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func breakIntoLinesPre(text string, maxInlineSize float64, style TextStyle) []TextLine {
 	lines := []TextLine{}
 
 	// Split by newlines
@@ -787,9 +797,10 @@ func breakIntoLinesPre(text string, maxWidth float64, style TextStyle) []TextLin
 	return lines
 }
 
-// breakIntoLinesPreWrap handles pre-wrap and pre-line modes
-// Split on newlines, then wrap each segment
-func breakIntoLinesPreWrap(text string, maxWidth float64, style TextStyle) []TextLine {
+// breakIntoLinesPreWrap handles pre-wrap and pre-line modes.
+// Split on newlines, then wrap each segment.
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func breakIntoLinesPreWrap(text string, maxInlineSize float64, style TextStyle) []TextLine {
 	lines := []TextLine{}
 
 	// Split by newlines
@@ -805,22 +816,23 @@ func breakIntoLinesPreWrap(text string, maxWidth float64, style TextStyle) []Tex
 			continue
 		}
 
-		// Wrap this segment if it exceeds maxWidth
+		// Wrap this segment if it exceeds maxInlineSize
 		// For pre-wrap: preserve spaces within the segment
 		// For pre-line: spaces already collapsed in preprocessText
-		segmentLines := wrapSegment(segment, maxWidth, style)
+		segmentLines := wrapSegment(segment, maxInlineSize, style)
 		lines = append(lines, segmentLines...)
 	}
 
 	return lines
 }
 
-// wrapSegment wraps a single segment (between newlines) with preserved spaces
-func wrapSegment(segment string, maxWidth float64, style TextStyle) []TextLine {
-	// If unlimited width or segment fits, return as single line
+// wrapSegment wraps a single segment (between newlines) with preserved spaces.
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func wrapSegment(segment string, maxInlineSize float64, style TextStyle) []TextLine {
+	// If unlimited inline size or segment fits, return as single line
 	segmentWidth, ascent, descent := textMetrics.Measure(segment, style)
 
-	if maxWidth >= Unbounded || segmentWidth <= maxWidth {
+	if maxInlineSize >= Unbounded || segmentWidth <= maxInlineSize {
 		return []TextLine{{
 			Boxes: []InlineBox{{
 				Kind:    InlineBoxText,
@@ -836,15 +848,16 @@ func wrapSegment(segment string, maxWidth float64, style TextStyle) []TextLine {
 	// Need to wrap
 	// For pre-wrap mode, preserve all spaces including multiple consecutive ones
 	if style.WhiteSpace == WhiteSpacePreWrap {
-		return wrapSegmentPreserveSpaces(segment, maxWidth, style)
+		return wrapSegmentPreserveSpaces(segment, maxInlineSize, style)
 	}
 
 	// For pre-line, use UAX #14 (spaces already collapsed in preprocessText)
-	return breakIntoLinesUAX14(segment, maxWidth, style)
+	return breakIntoLinesUAX14(segment, maxInlineSize, style)
 }
 
-// wrapSegmentPreserveSpaces wraps text while preserving all spaces (for pre-wrap mode)
-func wrapSegmentPreserveSpaces(segment string, maxWidth float64, style TextStyle) []TextLine {
+// wrapSegmentPreserveSpaces wraps text while preserving all spaces (for pre-wrap mode).
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style TextStyle) []TextLine {
 	lines := []TextLine{}
 	current := TextLine{Boxes: []InlineBox{}}
 	currentWidth := 0.0
@@ -867,8 +880,8 @@ func wrapSegmentPreserveSpaces(segment string, maxWidth float64, style TextStyle
 				word := string(runes[wordStart:wordEnd])
 				wordWidth, ascent, descent := textMetrics.Measure(word, style)
 
-				// Check if adding this word would exceed maxWidth
-				if currentWidth > 0 && currentWidth+wordWidth > maxWidth {
+				// Check if adding this word would exceed maxInlineSize
+				if currentWidth > 0 && currentWidth+wordWidth > maxInlineSize {
 					// Start new line
 					current.Width = currentWidth
 					lines = append(lines, current)
@@ -892,7 +905,7 @@ func wrapSegmentPreserveSpaces(segment string, maxWidth float64, style TextStyle
 				spaceWidth, ascent, descent := textMetrics.Measure(" ", style)
 
 				// Check if space fits on current line
-				if currentWidth+spaceWidth > maxWidth && currentWidth > 0 {
+				if currentWidth+spaceWidth > maxInlineSize && currentWidth > 0 {
 					// Start new line
 					current.Width = currentWidth
 					lines = append(lines, current)
@@ -924,9 +937,10 @@ func wrapSegmentPreserveSpaces(segment string, maxWidth float64, style TextStyle
 	return lines
 }
 
-// breakWordToFit breaks a word into pieces that fit maxWidth
-// Used for overflow-wrap: break-word and word-break: break-all
-func breakWordToFit(word string, maxWidth float64, style TextStyle) []string {
+// breakWordToFit breaks a word into pieces that fit maxInlineSize.
+// Used for overflow-wrap: break-word and word-break: break-all.
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func breakWordToFit(word string, maxInlineSize float64, style TextStyle) []string {
 	pieces := []string{}
 	runes := []rune(word)
 
@@ -937,7 +951,7 @@ func breakWordToFit(word string, maxWidth float64, style TextStyle) []string {
 		charStr := string(r)
 		charWidth, _, _ := textMetrics.Measure(charStr, style)
 
-		if currentWidth+charWidth > maxWidth && currentPiece.Len() > 0 {
+		if currentWidth+charWidth > maxInlineSize && currentPiece.Len() > 0 {
 			// Finish current piece
 			pieces = append(pieces, currentPiece.String())
 			currentPiece.Reset()
@@ -1043,8 +1057,9 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 	return lines
 }
 
-// truncateTextToWidth truncates text to fit within maxWidth
-func truncateTextToWidth(text string, maxWidth float64, style TextStyle) string {
+// truncateTextToWidth truncates text to fit within maxInlineSize.
+// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
+func truncateTextToWidth(text string, maxInlineSize float64, style TextStyle) string {
 	runes := []rune(text)
 
 	// Binary search for the longest prefix that fits
@@ -1056,7 +1071,7 @@ func truncateTextToWidth(text string, maxWidth float64, style TextStyle) string 
 		candidate := string(runes[:mid])
 		width, _, _ := textMetrics.Measure(candidate, style)
 
-		if width <= maxWidth {
+		if width <= maxInlineSize {
 			result = candidate
 			left = mid + 1
 		} else {

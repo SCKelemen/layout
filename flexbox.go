@@ -151,12 +151,19 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 				// The item may have been measured with unbounded or wrong constraints initially,
 				// so we need to re-layout with the actual final size after FlexGrow was applied.
 
+				// Save the position set by parent's alignment
+				savedX := item.node.Rect.X
+				savedY := item.node.Rect.Y
 				finalWidth := item.node.Rect.Width
 				finalHeight := item.node.Rect.Height
 
 				// Create tight constraints based on final size and re-layout
 				tightConstraints := Tight(finalWidth, finalHeight)
 				LayoutFlexbox(item.node, tightConstraints, ctx)
+
+				// Restore position (re-layout resets X, Y to 0)
+				item.node.Rect.X = savedX
+				item.node.Rect.Y = savedY
 			}
 		}
 

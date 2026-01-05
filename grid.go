@@ -102,6 +102,11 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		contentHeight = 0
 	}
 
+	// Determine writing mode for grid positioning
+	// Based on CSS Writing Modes Level 3 and CSS Grid Layout Level 1
+	writingMode := node.Style.WritingMode
+	isVerticalWritingMode := writingMode.IsVertical()
+
 	// Get grid template
 	rows := node.Style.GridTemplateRows
 	columns := node.Style.GridTemplateColumns
@@ -635,11 +640,30 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// Margins are applied within the cell boundaries, not extending into gaps
 		// For spanning items, margins are still contained within the spanned cell area
 		// Add padding and border offsets to position items within the container's content area
+		//
+		// In vertical writing modes, swap X/Y positioning:
+		// - Horizontal-TB: columns control X, rows control Y (default behavior)
+		// - Vertical-LR: columns control Y, rows control X (swap X and Y)
+		var finalX, finalY, finalWidth, finalHeight float64
+		if isVerticalWritingMode {
+			// Vertical mode: rows control X (horizontal), columns control Y (vertical)
+			finalX = paddingLeft + borderLeft + itemY  // itemY becomes X
+			finalY = paddingTop + borderTop + itemX    // itemX becomes Y
+			finalWidth = itemHeight                     // height becomes width
+			finalHeight = itemWidth                     // width becomes height
+		} else {
+			// Horizontal mode: columns control X, rows control Y (normal)
+			finalX = paddingLeft + borderLeft + itemX
+			finalY = paddingTop + borderTop + itemY
+			finalWidth = itemWidth
+			finalHeight = itemHeight
+		}
+
 		item.node.Rect = Rect{
-			X:      paddingLeft + borderLeft + itemX,
-			Y:      paddingTop + borderTop + itemY,
-			Width:  itemWidth,
-			Height: itemHeight,
+			X:      finalX,
+			Y:      finalY,
+			Width:  finalWidth,
+			Height: finalHeight,
 		}
 
 		// Note: The margin is already accounted for in maxItemHeight calculation above,

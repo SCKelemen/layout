@@ -2,6 +2,7 @@ package layout
 
 // gridSetup contains the setup state for grid layout
 // Algorithm based on CSS Grid Layout Module Level 1: §11: Grid Sizing
+// Extended with CSS Writing Modes Level 3 support
 type gridSetup struct {
 	// Container dimensions
 	horizontalPadding       float64
@@ -20,6 +21,12 @@ type gridSetup struct {
 	// Grid gaps
 	rowGap    float64
 	columnGap float64
+
+	// Writing mode support (considering both grid structure and writing-mode)
+	writingMode     WritingMode
+	isRowBlockAxis  bool // True if rows run in block direction (horizontal-tb: false, vertical-lr: true)
+	blockAxisSize   float64 // Content size in block dimension
+	inlineAxisSize  float64 // Content size in inline dimension
 }
 
 // gridDetermineContainerSize initializes the grid layout state and determines container dimensions.
@@ -126,6 +133,37 @@ func gridDetermineContainerSize(node *Node, constraints Constraints, ctx *Layout
 		setup.columnGap = ResolveLength(node.Style.GridGap, ctx, currentFontSize)
 	} else {
 		setup.columnGap = columnGapResolved
+	}
+
+	// Determine writing mode and axis mapping
+	// Based on CSS Writing Modes Level 3 and CSS Grid Layout Level 1
+	//
+	// In horizontal writing modes (horizontal-tb):
+	//   - Rows run horizontally, controlling vertical positioning (Y axis)
+	//   - Columns run vertically, controlling horizontal positioning (X axis)
+	//   - Block axis = vertical, Inline axis = horizontal
+	//   - isRowBlockAxis = false (rows are NOT in block direction)
+	//
+	// In vertical writing modes (vertical-lr, vertical-rl):
+	//   - Rows run vertically, controlling horizontal positioning (X axis)
+	//   - Columns run horizontally, controlling vertical positioning (Y axis)
+	//   - Block axis = horizontal, Inline axis = vertical
+	//   - isRowBlockAxis = true (rows ARE in block direction)
+	setup.writingMode = node.Style.WritingMode
+	isVerticalWritingMode := setup.writingMode.IsVertical()
+
+	// In vertical writing modes, rows and columns swap their physical meaning
+	setup.isRowBlockAxis = isVerticalWritingMode
+
+	// Set block and inline axis sizes based on writing mode
+	if isVerticalWritingMode {
+		// Vertical mode: block = horizontal, inline = vertical
+		setup.blockAxisSize = setup.contentWidth
+		setup.inlineAxisSize = setup.contentHeight
+	} else {
+		// Horizontal mode: block = vertical, inline = horizontal
+		setup.blockAxisSize = setup.contentHeight
+		setup.inlineAxisSize = setup.contentWidth
 	}
 
 	return setup

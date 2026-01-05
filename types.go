@@ -459,6 +459,77 @@ const (
 	DirectionRTL                  // Right-to-left
 )
 
+// WritingMode controls the block flow direction and inline base direction.
+// Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/#propdef-writing-mode
+//
+// The writing-mode property defines whether lines of text are laid out horizontally or vertically,
+// and the direction in which blocks progress. It affects the mapping of CSS logical properties
+// to physical dimensions.
+//
+// In horizontal writing modes (horizontal-tb):
+//   - Inline dimension = width (text flows left-to-right or right-to-left)
+//   - Block dimension = height (blocks flow top-to-bottom)
+//   - Lines are stacked vertically
+//
+// In vertical writing modes (vertical-rl, vertical-lr):
+//   - Inline dimension = height (text flows top-to-bottom)
+//   - Block dimension = width (blocks flow right-to-left or left-to-right)
+//   - Lines are stacked horizontally
+//
+// Character orientation in vertical modes is determined by UAX #50 (Unicode Vertical Text Layout).
+//
+// Note: Terminal rendering has limitations for vertical modes (no character rotation),
+// but SVG rendering can properly handle vertical text with UAX #50 character orientation.
+type WritingMode int
+
+const (
+	// WritingModeHorizontalTB is horizontal top-to-bottom writing mode.
+	// Text flows horizontally (LTR or RTL based on Direction property),
+	// blocks progress from top to bottom.
+	// This is the default for Latin, Greek, Cyrillic, Arabic, Hebrew, and most scripts.
+	WritingModeHorizontalTB WritingMode = iota // CSS default (zero value)
+
+	// WritingModeVerticalRL is vertical right-to-left writing mode.
+	// Text flows vertically top-to-bottom, blocks progress from right to left.
+	// This is the traditional mode for Chinese, Japanese, and Korean.
+	// Character orientation follows UAX #50:
+	//   - CJK ideographs remain upright
+	//   - Latin characters are rotated 90° clockwise
+	WritingModeVerticalRL
+
+	// WritingModeVerticalLR is vertical left-to-right writing mode.
+	// Text flows vertically top-to-bottom, blocks progress from left to right.
+	// Used in Mongolian script and some modern CJK layouts.
+	// Character orientation follows UAX #50.
+	WritingModeVerticalLR
+
+	// WritingModeSidewaysRL is sideways right-to-left writing mode (Level 4).
+	// Similar to vertical-rl but all characters (including CJK) are rotated sideways.
+	// Text flows left-to-right but rotated 90° clockwise.
+	// Less common; used for artistic effects or specific languages.
+	WritingModeSidewaysRL
+
+	// WritingModeSidewaysLR is sideways left-to-right writing mode (Level 4).
+	// Similar to vertical-lr but all characters are rotated sideways.
+	// Text flows left-to-right but rotated 90° counter-clockwise.
+	WritingModeSidewaysLR
+)
+
+// IsVertical returns true if the writing mode is vertical (vertical-rl, vertical-lr, sideways-rl, or sideways-lr).
+func (w WritingMode) IsVertical() bool {
+	return w != WritingModeHorizontalTB
+}
+
+// IsHorizontal returns true if the writing mode is horizontal-tb.
+func (w WritingMode) IsHorizontal() bool {
+	return w == WritingModeHorizontalTB
+}
+
+// IsSideways returns true if the writing mode is sideways-rl or sideways-lr.
+func (w WritingMode) IsSideways() bool {
+	return w == WritingModeSidewaysRL || w == WritingModeSidewaysLR
+}
+
 // FontWeight represents font weight (numeric or named).
 type FontWeight int
 
@@ -570,7 +641,15 @@ type TextStyle struct {
 	// Vertical Alignment (CSS Inline Layout Module Level 3)
 	VerticalAlign VerticalAlign
 
-	// Direction (§2)
+	// Writing Mode (CSS Writing Modes Level 3 §3.1)
+	// Determines whether text flows horizontally or vertically,
+	// and the direction in which blocks progress.
+	// Default is WritingModeHorizontalTB (zero value).
+	WritingMode WritingMode
+
+	// Direction (CSS Writing Modes Level 3 §2.1)
+	// Determines inline base direction (LTR or RTL).
+	// Works with WritingMode to determine text flow.
 	Direction Direction
 }
 

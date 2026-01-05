@@ -91,14 +91,24 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 	style := node.Style.TextStyle
 
+	// Get writing mode from TextStyle (defaults to horizontal-tb)
+	writingMode := style.WritingMode
+
 	// Get current font size for em unit resolution
 	currentFontSize := 16.0 // Default
 	if style.FontSize > 0 {
 		currentFontSize = style.FontSize
 	}
 
-	// 1. Determine available content width from constraints and Style (box sizing)
+	// 1. Determine available content size from constraints and Style (box sizing)
+	// In vertical modes, we work with inline dimension (height) instead of width
+	// TODO(vertical): Full vertical text layout implementation with proper line breaking
+	// For now, vertical modes fall back to horizontal logic
 	availableWidth := constraints.MaxWidth
+	if writingMode.IsVertical() {
+		// Vertical mode: inline dimension is height
+		availableWidth = constraints.MaxHeight
+	}
 
 	// Resolve padding and border Length values to pixels
 	paddingLeft := ResolveLength(node.Style.Padding.Left, ctx, currentFontSize)

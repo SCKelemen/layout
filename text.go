@@ -695,13 +695,7 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []
 					}
 
 					pieceWidth, ascent, descent := textMetrics.Measure(piece, style)
-					current.Boxes = append(current.Boxes, InlineBox{
-						Kind:    InlineBoxText,
-						Text:    piece,
-						Width:   pieceWidth,
-						Ascent:  ascent,
-						Descent: descent,
-					})
+					current.Boxes = append(current.Boxes, newInlineBox(piece, pieceWidth, ascent, descent, style.WritingMode))
 					currentWidth += pieceWidth
 				}
 
@@ -720,13 +714,7 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []
 		}
 
 		// Add the word to current line
-		box := InlineBox{
-			Kind:    InlineBoxText,
-			Text:    wordText,
-			Width:   wordWidth,
-			Ascent:  ascent,
-			Descent: descent,
-		}
+		box := newInlineBox(wordText, wordWidth, ascent, descent, style.WritingMode)
 		current.Boxes = append(current.Boxes, box)
 		currentWidth += wordWidth
 
@@ -783,13 +771,7 @@ func breakIntoLinesPre(text string, maxInlineSize float64, style TextStyle) []Te
 		// Measure the entire line text (preserving all spaces)
 		// Text-indent affects alignment, not intrinsic width, so handle in positionLines()
 		advance, ascent, descent := textMetrics.Measure(lineText, style)
-		line.Boxes = append(line.Boxes, InlineBox{
-			Kind:    InlineBoxText,
-			Text:    lineText,
-			Width:   advance,
-			Ascent:  ascent,
-			Descent: descent,
-		})
+		line.Boxes = append(line.Boxes, newInlineBox(lineText, advance, ascent, descent, style.WritingMode))
 		line.Width = advance
 		lines = append(lines, line)
 	}
@@ -834,13 +816,7 @@ func wrapSegment(segment string, maxInlineSize float64, style TextStyle) []TextL
 
 	if maxInlineSize >= Unbounded || segmentWidth <= maxInlineSize {
 		return []TextLine{{
-			Boxes: []InlineBox{{
-				Kind:    InlineBoxText,
-				Text:    segment,
-				Width:   segmentWidth,
-				Ascent:  ascent,
-				Descent: descent,
-			}},
+			Boxes: []InlineBox{newInlineBox(segment, segmentWidth, ascent, descent, style.WritingMode)},
 			Width: segmentWidth,
 		}}
 	}
@@ -890,13 +866,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 				}
 
 				// Add word to current line
-				current.Boxes = append(current.Boxes, InlineBox{
-					Kind:    InlineBoxText,
-					Text:    word,
-					Width:   wordWidth,
-					Ascent:  ascent,
-					Descent: descent,
-				})
+				current.Boxes = append(current.Boxes, newInlineBox(word, wordWidth, ascent, descent, style.WritingMode))
 				currentWidth += wordWidth
 			}
 
@@ -914,13 +884,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 				}
 
 				// Add space
-				current.Boxes = append(current.Boxes, InlineBox{
-					Kind:    InlineBoxText,
-					Text:    " ",
-					Width:   spaceWidth,
-					Ascent:  ascent,
-					Descent: descent,
-				})
+				current.Boxes = append(current.Boxes, newInlineBox(" ", spaceWidth, ascent, descent, style.WritingMode))
 				currentWidth += spaceWidth
 			}
 
@@ -993,13 +957,7 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 		availableWidth := contentWidth - ellipsisWidth
 		if availableWidth <= 0 {
 			// Not enough space even for ellipsis - just show ellipsis
-			line.Boxes = []InlineBox{{
-				Kind:    InlineBoxText,
-				Text:    ellipsisText,
-				Width:   ellipsisWidth,
-				Ascent:  ellipsisAscent,
-				Descent: ellipsisDescent,
-			}}
+			line.Boxes = []InlineBox{newInlineBox(ellipsisText, ellipsisWidth, ellipsisAscent, ellipsisDescent, style.WritingMode)}
 			line.Width = ellipsisWidth
 			line.SpaceCount = 0
 			line.SpaceWidth = 0
@@ -1024,13 +982,7 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 					truncatedText := truncateTextToWidth(box.Text, remainingWidth, style)
 					if truncatedText != "" {
 						truncWidth, truncAscent, truncDesc := textMetrics.Measure(truncatedText, style)
-						truncatedBoxes = append(truncatedBoxes, InlineBox{
-							Kind:    box.Kind,
-							Text:    truncatedText,
-							Width:   truncWidth,
-							Ascent:  truncAscent,
-							Descent: truncDesc,
-						})
+						truncatedBoxes = append(truncatedBoxes, newInlineBox(truncatedText, truncWidth, truncAscent, truncDesc, style.WritingMode))
 						currentWidth += truncWidth
 					}
 				}
@@ -1039,13 +991,7 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 		}
 
 		// Add ellipsis
-		truncatedBoxes = append(truncatedBoxes, InlineBox{
-			Kind:    InlineBoxText,
-			Text:    ellipsisText,
-			Width:   ellipsisWidth,
-			Ascent:  ellipsisAscent,
-			Descent: ellipsisDescent,
-		})
+		truncatedBoxes = append(truncatedBoxes, newInlineBox(ellipsisText, ellipsisWidth, ellipsisAscent, ellipsisDescent, style.WritingMode))
 
 		line.Boxes = truncatedBoxes
 		line.Width = currentWidth + ellipsisWidth
@@ -1431,12 +1377,51 @@ func getCharacterOrientation(r rune, wm WritingMode) bool {
 	if wm.IsSideways() {
 		return false
 	}
-	
+
 	// For vertical-rl and vertical-lr, use UAX #50
 	if wm == WritingModeVerticalRL || wm == WritingModeVerticalLR {
 		return uax50.IsUpright(r)
 	}
-	
+
 	// Horizontal modes don't rotate characters
 	return true
+}
+
+// computeTextOrientations computes character orientations for the given text string.
+// Returns a slice of bools where each element corresponds to a rune in the text:
+//   - true: character should be upright (CJK in vertical modes)
+//   - false: character should be rotated 90° (Latin in vertical modes)
+//
+// For horizontal writing modes, returns nil (no orientation data needed).
+// For vertical modes, uses UAX #50 to determine orientation per character.
+func computeTextOrientations(text string, wm WritingMode) []bool {
+	// Horizontal modes don't need orientation data
+	if !wm.IsVertical() {
+		return nil
+	}
+
+	runes := []rune(text)
+	if len(runes) == 0 {
+		return nil
+	}
+
+	orientations := make([]bool, len(runes))
+	for i, r := range runes {
+		orientations[i] = getCharacterOrientation(r, wm)
+	}
+
+	return orientations
+}
+
+// newInlineBox creates an InlineBox with character orientation data populated.
+// This helper ensures consistent InlineBox creation throughout the text layout code.
+func newInlineBox(text string, width, ascent, descent float64, wm WritingMode) InlineBox {
+	return InlineBox{
+		Kind:         InlineBoxText,
+		Text:         text,
+		Width:        width,
+		Ascent:       ascent,
+		Descent:      descent,
+		Orientations: computeTextOrientations(text, wm),
+	}
 }

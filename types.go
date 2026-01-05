@@ -688,6 +688,16 @@ type InlineBox struct {
 	Width   float64
 	Ascent  float64
 	Descent float64
+
+	// Orientations stores character orientation for vertical writing modes.
+	// Length matches the number of runes in Text.
+	// true = upright (natural vertical orientation, e.g., CJK)
+	// false = rotated 90° (e.g., Latin characters in vertical text)
+	// Empty slice for horizontal modes (no rotation needed).
+	//
+	// Based on Unicode UAX #50: Unicode Vertical Text Layout
+	// See: https://www.unicode.org/reports/tr50/
+	Orientations []bool
 }
 
 // IntrinsicSize represents intrinsic sizing keywords from CSS Sizing Module Level 3.

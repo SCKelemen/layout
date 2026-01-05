@@ -149,9 +149,9 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		lines = applyTextOverflow(lines, contentWidth, *style)
 	}
 
-	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), text-indent (§7.2.1), and direction (§2)
+	// 4. Compute per-line positions (x,y) based on text-align (§7.1), text-align-last (§7.2.2), text-justify (§7.3), text-indent (§7.2.1), direction (§2), and writing-mode
 	lineHeight := resolveLineHeight(style.LineHeight, style.FontSize)
-	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, style.Direction, lineHeight)
+	positionLines(lines, contentWidth, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, style.Direction, lineHeight, writingMode)
 
 	// 4.5. Apply hanging-punctuation (§9.2)
 	applyHangingPunctuation(lines, style.HangingPunctuation, *style)
@@ -1102,7 +1102,12 @@ func resolveTextAlignLast(last TextAlignLast, textAlign TextAlign) TextAlignLast
 
 // positionLines positions lines based on text-align, text-align-last, text-justify, and text-indent.
 // Based on CSS Text Module Level 3 §7.1, §7.2.2, and §7.3
-func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, direction Direction, lineHeight float64) {
+//
+// For vertical writing modes, the logical positioning changes:
+//   - Horizontal: lines stack vertically (Y increases), alignment is horizontal (X)
+//   - Vertical-LR: lines stack left-to-right (X increases), alignment is vertical (Y)
+//   - Vertical-RL: lines stack right-to-left (X decreases), alignment is vertical (Y)
+func positionLines(lines []TextLine, contentInlineSize float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, direction Direction, lineHeight float64, writingMode WritingMode) {
 	// Resolve TextAlignDefault based on direction
 	align := textAlign
 	wasDefault := (align == TextAlignDefault)
@@ -1124,7 +1129,22 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 		}
 	}
 
-	currentY := 0.0
+	// For vertical writing modes, lines stack horizontally
+	// For horizontal modes, lines stack vertically (current behavior)
+	isVertical := writingMode.IsVertical()
+	// Vertical-RL and Sideways-RL both stack right-to-left
+	isRightToLeft := (writingMode == WritingModeVerticalRL || writingMode == WritingModeSidewaysRL)
+
+	// Initialize block-axis position
+	// Horizontal: block-axis is Y (lines stack downward)
+	// Vertical-LR: block-axis is X (lines stack rightward)
+	// Vertical-RL/Sideways-RL: block-axis is X (lines stack leftward, starting from contentInlineSize)
+	currentBlockPos := 0.0
+	if isVertical && isRightToLeft {
+		// Vertical-RL/Sideways-RL: start from the right edge and move leftward
+		currentBlockPos = contentInlineSize
+	}
+
 	for i := range lines {
 		line := &lines[i]
 		lineWidth := line.Width
@@ -1135,24 +1155,28 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 			indent = textIndent
 		}
 
-		// Calculate X offset based on text-align
+		// Calculate inline-axis offset based on text-align
+		// Horizontal mode: inline-axis is X
+		// Vertical mode: inline-axis is Y
 		// Per CSS Text Module Level 3 §7.2.1: text-indent is treated as a margin
-		// applied to the start edge (left in LTR)
+		// applied to the start edge (left in LTR, top in vertical)
+		var inlineOffset float64
+
 		switch align {
 		case TextAlignLeft:
-			// Left-aligned: text starts at indent position
-			line.OffsetX = indent
+			// Start-aligned: text starts at indent position
+			inlineOffset = indent
 
 		case TextAlignRight:
-			// Right-aligned: indent reduces available width, text aligns to (contentWidth - indent)
-			// So text ends at (contentWidth - indent), not at contentWidth
-			line.OffsetX = contentWidth - lineWidth - indent
+			// End-aligned: indent reduces available size, text aligns to (contentInlineSize - indent)
+			// So text ends at (contentInlineSize - indent), not at contentInlineSize
+			inlineOffset = contentInlineSize - lineWidth - indent
 
 		case TextAlignCenter:
-			// Center-aligned: indent reduces available width, center within remaining space
-			// Available width is (contentWidth - indent), center the line within that
-			availableWidth := contentWidth - indent
-			line.OffsetX = indent + (availableWidth-lineWidth)/2
+			// Center-aligned: indent reduces available size, center within remaining space
+			// Available size is (contentInlineSize - indent), center the line within that
+			availableSize := contentInlineSize - indent
+			inlineOffset = indent + (availableSize-lineWidth)/2
 
 		case TextAlignJustify:
 			// Justified: distribute extra space using text-justify algorithm
@@ -1168,24 +1192,21 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 
 			// Handle text-justify: none
 			if justifyMode == TextJustifyNone {
-				line.OffsetX = indent
-				continue
-			}
-
-			if !isLastLine && hasMultipleWords {
+				inlineOffset = indent
+			} else if !isLastLine && hasMultipleWords {
 				// Middle lines: apply justification algorithm
-				availableWidth := contentWidth
+				availableSize := contentInlineSize
 				if i == 0 && indent != 0 {
-					availableWidth -= indent
+					availableSize -= indent
 				}
 
-				extraSpace := availableWidth - lineWidth
+				extraSpace := availableSize - lineWidth
 				if extraSpace > 0 {
 					switch justifyMode {
 					case TextJustifyInterWord:
 						// Distribute across word spaces only (current implementation)
 						line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
-						line.Width = availableWidth
+						line.Width = availableSize
 
 					case TextJustifyInterCharacter, TextJustifyDistribute:
 						// Distribute across both word spaces AND character gaps
@@ -1211,59 +1232,81 @@ func positionLines(lines []TextLine, contentWidth float64, textAlign TextAlign, 
 							// Store both space and character adjustments
 							line.SpaceAdjustment = gapAdjustment
 							line.CharacterAdjustment = gapAdjustment
-							line.Width = availableWidth
+							line.Width = availableSize
 						} else if line.SpaceCount > 0 {
 							// Fallback: if no character gaps, use inter-word
 							line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
-							line.Width = availableWidth
+							line.Width = availableSize
 						}
 					}
 				}
-				line.OffsetX = indent
+				inlineOffset = indent
 			} else {
 				// Last line or single word: use text-align-last
 				lastAlign := resolveTextAlignLast(textAlignLast, align)
 
 				switch lastAlign {
 				case TextAlignLastLeft:
-					line.OffsetX = indent
+					inlineOffset = indent
 				case TextAlignLastRight:
-					line.OffsetX = contentWidth - lineWidth
+					inlineOffset = contentInlineSize - lineWidth
 					if i == 0 {
-						line.OffsetX -= indent
+						inlineOffset -= indent
 					}
 				case TextAlignLastCenter:
-					availableWidth := contentWidth
+					availableSize := contentInlineSize
 					if i == 0 {
-						availableWidth -= indent
+						availableSize -= indent
 					}
-					line.OffsetX = indent + (availableWidth-lineWidth)/2
+					inlineOffset = indent + (availableSize-lineWidth)/2
 				case TextAlignLastJustify:
 					// Justify even last line
 					if hasMultipleWords {
-						availableWidth := contentWidth
+						availableSize := contentInlineSize
 						if i == 0 && indent != 0 {
-							availableWidth -= indent
+							availableSize -= indent
 						}
-						extraSpace := availableWidth - lineWidth
+						extraSpace := availableSize - lineWidth
 						if extraSpace > 0 {
 							line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
-							line.Width = availableWidth
+							line.Width = availableSize
 						}
 					}
-					line.OffsetX = indent
+					inlineOffset = indent
 				default:
-					line.OffsetX = indent
+					inlineOffset = indent
 				}
 			}
 
 		default:
-			line.OffsetX = 0.0
+			inlineOffset = 0.0
 		}
 
-		// Set Y position
-		line.OffsetY = currentY
-		currentY += lineHeight
+		// Map logical offsets to physical X/Y based on writing mode
+		if isVertical {
+			// Vertical modes: inline is Y, block is X
+			line.OffsetY = inlineOffset
+			if isRightToLeft {
+				// Vertical-RL/Sideways-RL: lines flow right-to-left (X decreases)
+				line.OffsetX = currentBlockPos - lineHeight
+			} else {
+				// Vertical-LR/Sideways-LR: lines flow left-to-right (X increases)
+				line.OffsetX = currentBlockPos
+			}
+		} else {
+			// Horizontal mode: inline is X, block is Y
+			line.OffsetX = inlineOffset
+			line.OffsetY = currentBlockPos
+		}
+
+		// Advance block-axis position
+		if isVertical && isRightToLeft {
+			// Vertical-RL/Sideways-RL: move leftward
+			currentBlockPos -= lineHeight
+		} else {
+			// Horizontal or Vertical-LR/Sideways-LR: move downward or rightward
+			currentBlockPos += lineHeight
+		}
 	}
 }
 

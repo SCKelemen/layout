@@ -3,6 +3,8 @@ package layout
 import (
 	"strings"
 	"unicode"
+
+	"github.com/SCKelemen/unicode/uax50"
 )
 
 // TextMetricsProvider abstracts text measurement.
@@ -1287,4 +1289,86 @@ func Text(text string, style ...Style) *Node {
 	}
 
 	return node
+}
+
+// --- Vertical Writing Mode Helpers ---
+// These functions abstract the dimension mapping for vertical writing modes.
+// In vertical modes, the inline and block dimensions are swapped compared to horizontal modes.
+
+// getInlineSize returns the inline dimension (the direction text flows within a line).
+// For horizontal modes: inline = width
+// For vertical modes: inline = height
+func getInlineSize(width, height float64, wm WritingMode) float64 {
+	if wm.IsVertical() {
+		return height
+	}
+	return width
+}
+
+// getBlockSize returns the block dimension (the direction lines are stacked).
+// For horizontal modes: block = height
+// For vertical modes: block = width
+func getBlockSize(width, height float64, wm WritingMode) float64 {
+	if wm.IsVertical() {
+		return width
+	}
+	return height
+}
+
+// getInlineConstraint returns the constraint for the inline dimension.
+func getInlineConstraint(constraints Constraints, wm WritingMode) float64 {
+	if wm.IsVertical() {
+		return constraints.MaxHeight
+	}
+	return constraints.MaxWidth
+}
+
+// makeSize creates a Size with physical width/height from logical inline/block sizes.
+func makeSize(inlineSize, blockSize float64, wm WritingMode) Size {
+	if wm.IsVertical() {
+		// Vertical: inline=height, block=width
+		return Size{Width: blockSize, Height: inlineSize}
+	}
+	// Horizontal: inline=width, block=height
+	return Size{Width: inlineSize, Height: blockSize}
+}
+
+// getInlinePaddingBorder returns padding+border in the inline dimension.
+func getInlinePaddingBorder(paddingLeft, paddingRight, paddingTop, paddingBottom,
+	borderLeft, borderRight, borderTop, borderBottom float64, wm WritingMode) float64 {
+	if wm.IsVertical() {
+		return paddingTop + paddingBottom + borderTop + borderBottom
+	}
+	return paddingLeft + paddingRight + borderLeft + borderRight
+}
+
+// getBlockPaddingBorder returns padding+border in the block dimension.
+func getBlockPaddingBorder(paddingLeft, paddingRight, paddingTop, paddingBottom,
+	borderLeft, borderRight, borderTop, borderBottom float64, wm WritingMode) float64 {
+	if wm.IsVertical() {
+		return paddingLeft + paddingRight + borderLeft + borderRight
+	}
+	return paddingTop + paddingBottom + borderTop + borderBottom
+}
+
+// getCharacterOrientation returns whether a character should be displayed upright or rotated
+// in vertical text based on UAX #50 (Unicode Vertical Text Layout).
+//
+// Returns true if the character should be upright (CJK ideographs, kana, etc.),
+// false if it should be rotated 90° clockwise (Latin, digits, etc.).
+//
+// For sideways modes, this function is not used as all characters are rotated.
+func getCharacterOrientation(r rune, wm WritingMode) bool {
+	// Sideways modes rotate all characters
+	if wm.IsSideways() {
+		return false
+	}
+	
+	// For vertical-rl and vertical-lr, use UAX #50
+	if wm == WritingModeVerticalRL || wm == WritingModeVerticalLR {
+		return uax50.IsUpright(r)
+	}
+	
+	// Horizontal modes don't rotate characters
+	return true
 }

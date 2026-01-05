@@ -140,6 +140,26 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 			node, line, setup, lineCrossSize, lineStartCrossOffset,
 			columnGap, setup.mainSize, isReverse, ctx)
 
+		// Re-layout nested flex containers that got their size from FlexGrow
+		// This must happen AFTER both cross and main axis alignment, so items have final Rect
+		// This handles the case where a flex item is itself a flex container with FlexGrow,
+		// and its children need to be re-stretched based on the item's final computed size.
+		for _, item := range line {
+			if item.node.Style.Display == DisplayFlex && item.flexGrow > 0 {
+				// For nested flex containers with FlexGrow, always re-layout them with their final
+				// computed size so their children can properly stretch.
+				// The item may have been measured with unbounded or wrong constraints initially,
+				// so we need to re-layout with the actual final size after FlexGrow was applied.
+
+				finalWidth := item.node.Rect.Width
+				finalHeight := item.node.Rect.Height
+
+				// Create tight constraints based on final size and re-layout
+				tightConstraints := Tight(finalWidth, finalHeight)
+				LayoutFlexbox(item.node, tightConstraints, ctx)
+			}
+		}
+
 		// Track maximum line main size (for container main dimension)
 		if lineMainSize > maxLineMainSize {
 			maxLineMainSize = lineMainSize

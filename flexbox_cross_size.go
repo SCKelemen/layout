@@ -20,17 +20,21 @@ func flexboxDetermineCrossSize(line []*flexItem, crossSize float64, alignItems A
 
 	// For single-line containers, apply stretch if align-items is stretch
 	// For multi-line, align-content will handle stretching
-	// Only use crossSize when the cross size is definite (explicit style or constraints)
-	// Otherwise, use content-driven lineCrossSize to avoid zeroing out content
-	if alignItems == AlignItemsStretch && isSingleLine && hasExplicitCrossSize {
-		// Only override line cross size with container cross size if the cross size is definite.
-		// If crossSize is smaller than content, we may clamp, but never shrink below content.
-		if crossSize > 0 {
+	//
+	// Use container's cross size when:
+	// 1. Container has explicit cross size (from style or constraints), OR
+	// 2. All children have zero cross size (meaning they want to stretch)
+	//    AND crossSize is definite (not unbounded)
+	if alignItems == AlignItemsStretch && isSingleLine {
+		shouldUseCrossSize := hasExplicitCrossSize ||
+			(lineCrossSize == 0 && crossSize > 0 && crossSize < Unbounded)
+
+		if shouldUseCrossSize && crossSize > 0 && crossSize < Unbounded {
 			// Grow to container cross size but do not shrink below content
-			if crossSize > lineCrossSize {
+			// (unless content is 0, in which case we use crossSize)
+			if crossSize > lineCrossSize || lineCrossSize == 0 {
 				lineCrossSize = crossSize
 			}
-			// If crossSize <= lineCrossSize, leave lineCrossSize as content-driven.
 		}
 	}
 

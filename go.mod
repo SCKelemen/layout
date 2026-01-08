@@ -4,13 +4,11 @@ go 1.24.0
 
 require (
 	github.com/SCKelemen/text v0.0.0-00010101000000-000000000000
+	github.com/SCKelemen/unicode v1.0.1-0.20251225190048-233be2b0d647
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require (
-	github.com/SCKelemen/unicode v1.0.1-0.20251225190048-233be2b0d647 // indirect
-	github.com/SCKelemen/units v0.0.0-20251215145938-c61f55703fef // indirect
-)
+require github.com/SCKelemen/units v0.0.0-20251215145938-c61f55703fef // indirect
 
 require (
 	cel.dev/expr v0.24.0 // indirect

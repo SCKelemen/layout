@@ -1,7 +1,13 @@
 cel.dev/expr v0.24.0 h1:56OvJKSH3hDGL0ml5uSxZmz3/3Pq4tJ+fb1unVLAFcY=
 cel.dev/expr v0.24.0/go.mod h1:hLPLo1W4QUmuYdA72RBX06QTs6MXw941piREPl3Yfiw=
+github.com/SCKelemen/text v1.1.0 h1:/7cv7XKWfrthRLkltch1zW2HCoCvx/zMQEfPghhQT50=
+github.com/SCKelemen/text v1.1.0/go.mod h1:R0JK7oSmsRRZ6r8s9a9/ZHGJwRQFPCAp9bp0cJRgt7g=
+github.com/SCKelemen/unicode v1.1.0 h1:lwWMOyeRrcXrIMAR/aL2DzYT8FAp9xjB3zhEkrwX6Gw=
+github.com/SCKelemen/unicode v1.1.0/go.mod h1:TjSqvWpwZC7BTqAgCfnsweOaS1yIxY039Wubh7xC4G0=
 github.com/SCKelemen/units v1.0.3 h1:ZLQ2bhb1wfXBbwpHLv2BA7UXrY+zaY4/doPGqbccrDs=
 github.com/SCKelemen/units v1.0.3/go.mod h1:kgbJAQ+0m29oq171mOI4STRfOaTYij9rl9J4xOq1H7s=
+github.com/SCKelemen/wpt-test-gen v1.0.0 h1:1syOxWP0YfmP9zywnQ+uUrNLmIavBvaT39z3PrdIKTo=
+github.com/SCKelemen/wpt-test-gen v1.0.0/go.mod h1:sijt5DI2l3Cai5UpVt2jJj7Sowkj7mGe5phHbZ1Imm4=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

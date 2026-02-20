@@ -21,9 +21,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240826202546-f6391c0de4c7 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 )
-
-replace github.com/SCKelemen/wpt-test-gen => ../wpt-test-gen
-
-replace github.com/SCKelemen/text => ../text
-
-replace github.com/SCKelemen/unicode => ../unicode

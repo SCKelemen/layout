@@ -1,3 +1,6 @@
+//go:build wpt
+// +build wpt
+
 package examples
 
 import (

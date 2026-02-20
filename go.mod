@@ -1,18 +1,18 @@
 module github.com/SCKelemen/layout
 
-go 1.24.0
+go 1.25.4
 
 require (
-	github.com/SCKelemen/text v0.0.0-00010101000000-000000000000
-	github.com/SCKelemen/unicode v1.0.1-0.20251225190048-233be2b0d647
+	github.com/SCKelemen/text v1.1.0
+	github.com/SCKelemen/unicode v1.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/SCKelemen/units v0.0.0-20251215145938-c61f55703fef // indirect
+require github.com/SCKelemen/units v1.0.3 // indirect
 
 require (
 	cel.dev/expr v0.24.0 // indirect
-	github.com/SCKelemen/wpt-test-gen v0.0.0-00010101000000-000000000000
+	github.com/SCKelemen/wpt-test-gen v1.0.0
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect

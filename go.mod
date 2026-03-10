@@ -3,7 +3,7 @@ module github.com/SCKelemen/layout
 go 1.25.4
 
 require (
-	github.com/SCKelemen/text v1.1.2
+	github.com/SCKelemen/text v1.1.3
 	github.com/SCKelemen/unicode v1.1.1
 	gopkg.in/yaml.v3 v3.0.1
 )

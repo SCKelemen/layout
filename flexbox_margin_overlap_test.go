@@ -128,3 +128,62 @@ func TestFlexboxMarginAutoHeight(t *testing.T) {
 		}
 	}
 }
+
+// TestFlexboxMarginContainerHeightIncludesOuterMargins verifies that
+// a column flex container with auto height accounts for first/last child margins.
+func TestFlexboxMarginContainerHeightIncludesOuterMargins(t *testing.T) {
+	items := []*Node{
+		{
+			Style: Style{
+				Height: Px(20),
+				Margin: Spacing{
+					Top:    Px(20),
+					Right:  Px(10),
+					Bottom: Px(10),
+					Left:   Px(10),
+				},
+			},
+		},
+		{
+			Style: Style{
+				Height: Px(20),
+				Margin: Uniform(Px(10)),
+			},
+		},
+		{
+			Style: Style{
+				Height: Px(20),
+				Margin: Uniform(Px(10)),
+			},
+		},
+	}
+
+	root := VStack(items...)
+	root.Style.Width = Px(200)
+
+	constraints := Loose(200, Unbounded)
+	ctx := NewLayoutContext(1920, 1080, 16)
+	Layout(root, constraints, ctx)
+
+	// expected height:
+	// first top margin + all item heights + internal margin gaps + last bottom margin
+	expectedHeight := root.Children[0].Style.Margin.Top.Value
+	for i, child := range root.Children {
+		expectedHeight += child.Rect.Height
+		if i < len(root.Children)-1 {
+			next := root.Children[i+1]
+			expectedHeight += child.Style.Margin.Bottom.Value + next.Style.Margin.Top.Value
+		}
+	}
+	expectedHeight += root.Children[len(root.Children)-1].Style.Margin.Bottom.Value
+
+	if math.Abs(root.Rect.Height-expectedHeight) > 0.01 {
+		t.Errorf("Container height incorrect: expected %.2f, got %.2f", expectedHeight, root.Rect.Height)
+	}
+
+	// First item should start exactly at its top margin.
+	first := root.Children[0]
+	if math.Abs(first.Rect.Y-first.Style.Margin.Top.Value) > 0.01 {
+		t.Errorf("First item Y incorrect: expected %.2f, got %.2f", first.Style.Margin.Top.Value, first.Rect.Y)
+	}
+}

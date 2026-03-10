@@ -517,7 +517,7 @@ variant := root.CloneDeep().
 - [Common Gotchas](docs/gotchas.md) - Common pitfalls and how to avoid them ⚠️
 - [SVG Rendering](docs/svg-rendering.md) - Rendering layouts to SVG
 - [Limitations](docs/limitations.md) - Known limitations and design decisions
-- [WPT Sync](docs/wpt-sync.md) - Web Platform Tests integration and tracking
+- [WPT Integration](WPT_INTEGRATION.md) - Web Platform Tests integration and tracking
 
 ## Learning Resources
 
@@ -542,11 +542,11 @@ This library implements CSS specifications. For deeper understanding of layout c
 
 ## Testing & Quality
 
-- **321/321 tests passing (100%)** 🎉
+- Comprehensive automated test suites running in CI 🎉
 - Comprehensive CSS spec compliance
 - [Spec Compliance Status](SPEC_COMPLIANCE_STATUS.md)
 - [Specification Gaps](SPECIFICATION_GAPS.md)
-- Weekly [Web Platform Tests sync](.github/workflows/wpt-sync.yml) via CI
+- CI test workflow: [.github/workflows/test.yml](.github/workflows/test.yml)
 
 Run tests:
 ```bash
@@ -642,4 +642,3 @@ See [wpt-test-gen examples](https://github.com/SCKelemen/wpt-test-gen/tree/main/
 ### Example Test
 
 See [layout_wpt_example_test.go](layout_wpt_example_test.go) for complete examples of testing flexbox and grid layouts with CEL assertions.
-

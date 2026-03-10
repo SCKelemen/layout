@@ -177,9 +177,11 @@ jobs:
         go-version: ${{ matrix.go-version }}
 
     - name: Download dependencies
+      working-directory: layout
       run: go mod download
 
     - name: Run ${{ matrix.test-group.name }} tests
+      working-directory: layout
       continue-on-error: true
       run: |
         echo "Testing: ${{ matrix.test-group.name }} (non-blocking)"
@@ -257,4 +259,3 @@ jobs:
           exit 1
         fi
         echo "✅ All required tests passed!"
-

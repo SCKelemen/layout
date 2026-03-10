@@ -33,4 +33,8 @@ Thumbs.db
 test_examples/
 test_*.go
 
+# Local build artifacts
+/margins
+/examples/margins/margins
+/examples/serialize/main
 

@@ -110,3 +110,185 @@ func TestGridSpanningWithoutMinHeight(t *testing.T) {
 	// Rows should collapse to 0 (or minimal height from safeguards)
 	// This is correct CSS Grid behavior
 }
+
+func TestGridSpanningAutoRowsWithFollowingRow(t *testing.T) {
+	// Repro from manual script: spanning rows 0-2 plus an item in row 3.
+	root := &Node{
+		Style: Style{
+			Display: DisplayGrid,
+			GridTemplateColumns: []GridTrack{
+				FractionTrack(1),
+				FractionTrack(1),
+				FractionTrack(1),
+			},
+			GridTemplateRows: []GridTrack{
+				AutoTrack(),
+				AutoTrack(),
+				AutoTrack(),
+				AutoTrack(),
+			},
+			GridRowGap:    Px(8),
+			GridColumnGap: Px(8),
+			Width:         Px(1000),
+		},
+		Children: []*Node{
+			{
+				Style: Style{
+					GridRowStart:    0,
+					GridRowEnd:      3, // spans rows 0,1,2
+					GridColumnStart: 0,
+					GridColumnEnd:   1,
+					MinHeight:       Px(300),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    0,
+					GridRowEnd:      1,
+					GridColumnStart: 1,
+					GridColumnEnd:   2,
+					MinHeight:       Px(100),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    1,
+					GridRowEnd:      2,
+					GridColumnStart: 1,
+					GridColumnEnd:   2,
+					MinHeight:       Px(100),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    2,
+					GridRowEnd:      3,
+					GridColumnStart: 1,
+					GridColumnEnd:   2,
+					MinHeight:       Px(100),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    3,
+					GridRowEnd:      4,
+					GridColumnStart: 0,
+					GridColumnEnd:   3,
+					MinHeight:       Px(50),
+				},
+			},
+		},
+	}
+
+	constraints := Loose(1000, Unbounded)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
+
+	// Expected row heights: 100, 100, 100, 50 with 8px gaps.
+	// Total: 100 + 8 + 100 + 8 + 100 + 8 + 50 = 374
+	if math.Abs(root.Rect.Height-374.0) > 0.01 {
+		t.Errorf("Grid container height incorrect: expected 374.00, got %.2f", root.Rect.Height)
+	}
+
+	spanningItem := root.Children[0]
+	row3Item := root.Children[4]
+
+	// Spanning item fills rows 0-2 plus the two gaps between them.
+	if math.Abs(spanningItem.Rect.Height-316.0) > 0.01 {
+		t.Errorf("Spanning item height incorrect: expected 316.00, got %.2f", spanningItem.Rect.Height)
+	}
+
+	// Row 3 item should start after spanning item plus one row gap.
+	expectedRow3Y := 324.0
+	if math.Abs(row3Item.Rect.Y-expectedRow3Y) > 0.01 {
+		t.Errorf("Row 3 item Y incorrect: expected %.2f, got %.2f", expectedRow3Y, row3Item.Rect.Y)
+	}
+
+	gap := row3Item.Rect.Y - (spanningItem.Rect.Y + spanningItem.Rect.Height)
+	if math.Abs(gap-8.0) > 0.01 {
+		t.Errorf("Gap between spanning item and following row incorrect: expected 8.00, got %.2f", gap)
+	}
+}
+
+func TestGridSpanningExplicitHeightContributesToAutoRows(t *testing.T) {
+	// Repro from manual script: explicit Height (not MinHeight) on a spanning item.
+	root := &Node{
+		Style: Style{
+			Display: DisplayGrid,
+			GridTemplateColumns: []GridTrack{
+				FractionTrack(1),
+				FractionTrack(1),
+				FractionTrack(1),
+			},
+			GridTemplateRows: []GridTrack{
+				AutoTrack(),
+				AutoTrack(),
+				AutoTrack(),
+				AutoTrack(),
+			},
+			GridRowGap:    Px(8),
+			GridColumnGap: Px(8),
+			Width:         Px(1000),
+		},
+		Children: []*Node{
+			{
+				Style: Style{
+					GridRowStart:    0,
+					GridRowEnd:      1,
+					GridColumnStart: 0,
+					GridColumnEnd:   3,
+					Height:          Px(60),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    1,
+					GridRowEnd:      2,
+					GridColumnStart: 0,
+					GridColumnEnd:   1,
+					MinHeight:       Px(50),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    1,
+					GridRowEnd:      2,
+					GridColumnStart: 1,
+					GridColumnEnd:   2,
+					Height:          Px(50),
+					MinHeight:       Px(40),
+				},
+			},
+			{
+				Style: Style{
+					GridRowStart:    2,
+					GridRowEnd:      4, // spans rows 2 and 3
+					GridColumnStart: 0,
+					GridColumnEnd:   3,
+					Height:          Px(200),
+				},
+			},
+		},
+	}
+
+	constraints := Loose(1000, Unbounded)
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, constraints, ctx)
+
+	// Expected total:
+	// row0 60 + gap8 + row1 50 + gap8 + (row2+gap+row3)=200 => row2+row3=192
+	// plus gap between row2 and row3 already in 200
+	// container height = 60 + 8 + 50 + 8 + 200 = 326
+	if math.Abs(root.Rect.Height-326.0) > 0.01 {
+		t.Errorf("Grid container height incorrect: expected 326.00, got %.2f", root.Rect.Height)
+	}
+
+	spanningItem := root.Children[3]
+	if math.Abs(spanningItem.Rect.Height-200.0) > 0.01 {
+		t.Errorf("Spanning item height incorrect: expected 200.00, got %.2f", spanningItem.Rect.Height)
+	}
+
+	if math.Abs(spanningItem.Rect.Y-126.0) > 0.01 {
+		t.Errorf("Spanning item Y incorrect: expected 126.00, got %.2f", spanningItem.Rect.Y)
+	}
+}

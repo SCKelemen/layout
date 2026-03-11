@@ -12,7 +12,7 @@ require github.com/SCKelemen/units v1.1.0 // indirect
 
 require (
 	cel.dev/expr v0.24.0 // indirect
-	github.com/SCKelemen/wpt-test-gen v1.0.0
+	github.com/SCKelemen/wpt-test-gen v1.0.1
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect

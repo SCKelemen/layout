@@ -6,8 +6,8 @@ github.com/SCKelemen/unicode v1.1.1 h1:zfDNToPzJcuX8ayJhRipZZd09f+dJO/T4IvIk90d1
 github.com/SCKelemen/unicode v1.1.1/go.mod h1:TjSqvWpwZC7BTqAgCfnsweOaS1yIxY039Wubh7xC4G0=
 github.com/SCKelemen/units v1.1.0 h1:Udw9ZEbozOzKH1BbaUu+/NmFG08tn5ypECZEkAl0mU8=
 github.com/SCKelemen/units v1.1.0/go.mod h1:kgbJAQ+0m29oq171mOI4STRfOaTYij9rl9J4xOq1H7s=
-github.com/SCKelemen/wpt-test-gen v1.0.0 h1:1syOxWP0YfmP9zywnQ+uUrNLmIavBvaT39z3PrdIKTo=
-github.com/SCKelemen/wpt-test-gen v1.0.0/go.mod h1:sijt5DI2l3Cai5UpVt2jJj7Sowkj7mGe5phHbZ1Imm4=
+github.com/SCKelemen/wpt-test-gen v1.0.1 h1:0eWFgYe+guT7e1/C92mG7VZBEsxAqsfQxuqpYe35TBA=
+github.com/SCKelemen/wpt-test-gen v1.0.1/go.mod h1:K5Vd+rA6NHgM1jXLkJTWxfWJj6Y6YAwN7wjgIeTLer0=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=
 github.com/antlr4-go/antlr/v4 v4.13.0/go.mod h1:pfChB/xh/Unjila75QW7+VU4TSnWnnk9UTnmpPaOR2g=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

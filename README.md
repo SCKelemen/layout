@@ -566,58 +566,66 @@ This library integrates with [wpt-test-gen](https://github.com/SCKelemen/wpt-tes
 
 ```go
 import (
-    "testing"
-    "github.com/SCKelemen/layout"
-    "github.com/SCKelemen/wpt-test-gen/pkg/cel"
+	"testing"
+
+	"github.com/SCKelemen/layout"
+	"github.com/SCKelemen/wpt-test-gen/pkg/cel"
 )
 
 func TestFlexboxLayout(t *testing.T) {
-    // Build your layout
-    root := &layout.Node{
-        Style: layout.Style{
-            Display:        layout.DisplayFlex,
-            JustifyContent: layout.JustifyContentSpaceBetween,
-            Width:          600,
-            Height:         100,
-        },
-        Children: []*layout.Node{
-            {Style: layout.Style{Width: 100, Height: 50}},
-            {Style: layout.Style{Width: 100, Height: 50}},
-        },
-    }
+	// Build your layout
+	root := &layout.Node{
+		Style: layout.Style{
+			Display:        layout.DisplayFlex,
+			JustifyContent: layout.JustifyContentSpaceBetween,
+			Width:          layout.Px(600),
+			Height:         layout.Px(100),
+		},
+		Children: []*layout.Node{
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+		},
+	}
 
-    // Run layout
-    layout.Layout(root, layout.Tight(600, 100))
+	// Run layout
+	ctx := layout.NewLayoutContext(800, 600, 16)
+	layout.Layout(root, layout.Tight(600, 100), ctx)
 
-    // Create CEL environment
-    env, _ := cel.NewLayoutCELEnv(root)
+	// Create CEL environment
+	env, err := cel.NewLayoutCELEnv(root)
+	if err != nil {
+		t.Fatalf("failed to create CEL environment: %v", err)
+	}
 
-    // Define assertions using CEL expressions
-    assertions := []cel.CELAssertion{
-        {
-            Expression: "getX(child(root(), 0)) == 0.0",
-            Message:    "first-child-at-start",
-        },
-        {
-            Expression: "getRight(child(root(), 1)) == getWidth(root())",
-            Message:    "last-child-at-end",
-        },
-    }
+	// Define assertions using CEL expressions
+	assertions := []cel.CELAssertion{
+		{
+			Type:       "layout",
+			Expression: "getX(child(root(), 0)) == 0.0",
+			Message:    "first-child-at-start",
+		},
+		{
+			Type:       "layout",
+			Expression: "getRight(child(root(), 2)) == getWidth(root())",
+			Message:    "last-child-at-end",
+		},
+	}
 
-    // Evaluate assertions
-    results := env.EvaluateAll(assertions)
+	// Evaluate assertions
+	results := env.EvaluateAll(assertions)
 
-    for _, result := range results {
-        if !result.Passed {
-            t.Errorf("Assertion '%s' failed: %s", result.Assertion.Message, result.Error)
-        }
-    }
+	for _, result := range results {
+		if !result.Passed {
+			t.Errorf("Assertion '%s' failed: %s", result.Assertion.Message, result.Error)
+		}
+	}
 }
 ```
 
 ### Available CEL Functions
 
-- **Node access**: `root()`, `child(node, index)`, `parent(node)`
+- **Node access**: `root()`, `child(node, index)`, `childCount(node)`
 - **Position**: `getX(node)`, `getY(node)`, `getTop(node)`, `getLeft(node)`
 - **Size**: `getWidth(node)`, `getHeight(node)`
 - **Edges**: `getRight(node)`, `getBottom(node)`

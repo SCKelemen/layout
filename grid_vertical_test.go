@@ -13,46 +13,46 @@ func TestGridVerticalLR(t *testing.T) {
 	// 2 columns (which in vertical-lr control vertical positioning)
 	root := &Node{
 		Style: Style{
-			Display:            DisplayGrid,
-			GridTemplateRows:   []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			Display:             DisplayGrid,
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
 			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
-			Width:              Px(200),
-			Height:             Px(200),
-			WritingMode:        WritingModeVerticalLR,
+			Width:               Px(200),
+			Height:              Px(200),
+			WritingMode:         WritingModeVerticalLR,
 		},
 		Children: []*Node{
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   0,
-					GridRowEnd:     1,
+					Display:         DisplayBlock,
+					GridRowStart:    0,
+					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   0,
-					GridRowEnd:     1,
+					Display:         DisplayBlock,
+					GridRowStart:    0,
+					GridRowEnd:      1,
 					GridColumnStart: 1,
 					GridColumnEnd:   2,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   1,
-					GridRowEnd:     2,
+					Display:         DisplayBlock,
+					GridRowStart:    1,
+					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   1,
-					GridRowEnd:     2,
+					Display:         DisplayBlock,
+					GridRowStart:    1,
+					GridRowEnd:      2,
 					GridColumnStart: 1,
 					GridColumnEnd:   2,
 				},
@@ -109,8 +109,8 @@ func TestGridVerticalLR(t *testing.T) {
 	}
 
 	// Check sizes (should all be 100x50 in vertical mode, which is row x column size)
-	expectedWidth := 100.0  // Row size
-	expectedHeight := 50.0  // Column size
+	expectedWidth := 100.0 // Row size
+	expectedHeight := 50.0 // Column size
 	if child0.Rect.Width != expectedWidth || child0.Rect.Height != expectedHeight {
 		t.Errorf("Child 0 size: expected %.2fx%.2f, got %.2fx%.2f",
 			expectedWidth, expectedHeight, child0.Rect.Width, child0.Rect.Height)
@@ -136,36 +136,36 @@ func TestGridHorizontalTB(t *testing.T) {
 		Children: []*Node{
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   0,
-					GridRowEnd:     1,
+					Display:         DisplayBlock,
+					GridRowStart:    0,
+					GridRowEnd:      1,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   0,
-					GridRowEnd:     1,
+					Display:         DisplayBlock,
+					GridRowStart:    0,
+					GridRowEnd:      1,
 					GridColumnStart: 1,
 					GridColumnEnd:   2,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   1,
-					GridRowEnd:     2,
+					Display:         DisplayBlock,
+					GridRowStart:    1,
+					GridRowEnd:      2,
 					GridColumnStart: 0,
 					GridColumnEnd:   1,
 				},
 			},
 			{
 				Style: Style{
-					Display:        DisplayBlock,
-					GridRowStart:   1,
-					GridRowEnd:     2,
+					Display:         DisplayBlock,
+					GridRowStart:    1,
+					GridRowEnd:      2,
 					GridColumnStart: 1,
 					GridColumnEnd:   2,
 				},
@@ -225,7 +225,7 @@ func TestGridHorizontalTB(t *testing.T) {
 
 	// Check sizes (rows are stretched to 100 due to align-content: stretch)
 	expectedWidth := 100.0
-	expectedHeight := 100.0  // Stretched from 50 to 100
+	expectedHeight := 100.0 // Stretched from 50 to 100
 	if child0.Rect.Width != expectedWidth || child0.Rect.Height != expectedHeight {
 		t.Errorf("Child 0 size: expected %.2fx%.2f, got %.2fx%.2f",
 			expectedWidth, expectedHeight, child0.Rect.Width, child0.Rect.Height)

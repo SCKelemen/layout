@@ -23,10 +23,10 @@ type gridSetup struct {
 	columnGap float64
 
 	// Writing mode support (considering both grid structure and writing-mode)
-	writingMode     WritingMode
-	isRowBlockAxis  bool // True if rows run in block direction (horizontal-tb: false, vertical-lr: true)
-	blockAxisSize   float64 // Content size in block dimension
-	inlineAxisSize  float64 // Content size in inline dimension
+	writingMode    WritingMode
+	isRowBlockAxis bool    // True if rows run in block direction (horizontal-tb: false, vertical-lr: true)
+	blockAxisSize  float64 // Content size in block dimension
+	inlineAxisSize float64 // Content size in inline dimension
 }
 
 // gridDetermineContainerSize initializes the grid layout state and determines container dimensions.

@@ -585,10 +585,10 @@ type TextDecorationStyle int
 
 const (
 	TextDecorationStyleSolid  TextDecorationStyle = iota // Solid line (default)
-	TextDecorationStyleDouble                             // Double line
-	TextDecorationStyleDotted                             // Dotted line
-	TextDecorationStyleDashed                             // Dashed line
-	TextDecorationStyleWavy                               // Wavy line
+	TextDecorationStyleDouble                            // Double line
+	TextDecorationStyleDotted                            // Dotted line
+	TextDecorationStyleDashed                            // Dashed line
+	TextDecorationStyleWavy                              // Wavy line
 )
 
 // VerticalAlign represents the vertical-align CSS property for inline elements.

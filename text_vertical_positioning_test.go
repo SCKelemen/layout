@@ -16,7 +16,7 @@ func TestVerticalWritingModeLinePositioning(t *testing.T) {
 		text          string
 		maxInlineSize float64 // height for vertical modes
 		lineHeight    float64
-		minLines      int     // Minimum expected lines (text should wrap)
+		minLines      int // Minimum expected lines (text should wrap)
 		checkLine0X   float64
 		checkLine0Y   float64
 	}{
@@ -61,7 +61,7 @@ func TestVerticalWritingModeLinePositioning(t *testing.T) {
 			maxInlineSize: 50,
 			lineHeight:    20,
 			minLines:      2,
-			checkLine0X:   0, // First line at X=0
+			checkLine0X:   0,  // First line at X=0
 			checkLine0Y:   -1, // Y should be centered (computed based on line width)
 		},
 		{

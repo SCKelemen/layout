@@ -8,11 +8,11 @@ func TestTextMetricsAdapter(t *testing.T) {
 	adapter := NewTerminalTextMetrics()
 
 	tests := []struct {
-		name     string
-		text     string
-		style    TextStyle
-		wantMin  float64 // minimum expected width
-		wantMax  float64 // maximum expected width
+		name    string
+		text    string
+		style   TextStyle
+		wantMin float64 // minimum expected width
+		wantMax float64 // maximum expected width
 	}{
 		{
 			name: "ASCII text",

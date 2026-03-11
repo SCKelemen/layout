@@ -321,8 +321,8 @@ func TestGridVerticalRL(t *testing.T) {
 	}
 
 	// Check sizes (should all be 100x50 in vertical mode, which is row x column size)
-	expectedWidth := 100.0  // Row size
-	expectedHeight := 50.0  // Column size
+	expectedWidth := 100.0 // Row size
+	expectedHeight := 50.0 // Column size
 	if child0.Rect.Width != expectedWidth || child0.Rect.Height != expectedHeight {
 		t.Errorf("Child 0 size: expected %.2fx%.2f, got %.2fx%.2f",
 			expectedWidth, expectedHeight, child0.Rect.Width, child0.Rect.Height)

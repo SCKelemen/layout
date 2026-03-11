@@ -430,11 +430,11 @@ func TestNestedMixedWritingModesVerticalRL(t *testing.T) {
 	// Vertical-RL container with horizontal-tb child
 	root := &Node{
 		Style: Style{
-			Display:     DisplayFlex,
+			Display:       DisplayFlex,
 			FlexDirection: FlexDirectionColumn,
-			Width:       Px(300),
-			Height:      Px(200),
-			WritingMode: WritingModeVerticalRL,
+			Width:         Px(300),
+			Height:        Px(200),
+			WritingMode:   WritingModeVerticalRL,
 		},
 		Children: []*Node{
 			{

@@ -74,21 +74,21 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth float64, ctx *L
 			// Direction depends on whether blocks progress left-to-right or right-to-left
 			if writingMode.IsRightToLeft() {
 				// vertical-rl: blocks progress right-to-left
-				childMarginBlockStart = childMarginRight  // Start = right for vertical-rl
-				childMarginBlockEnd = childMarginLeft     // End = left for vertical-rl
+				childMarginBlockStart = childMarginRight // Start = right for vertical-rl
+				childMarginBlockEnd = childMarginLeft    // End = left for vertical-rl
 			} else {
 				// vertical-lr: blocks progress left-to-right
-				childMarginBlockStart = childMarginLeft   // Start = left for vertical-lr
-				childMarginBlockEnd = childMarginRight    // End = right for vertical-lr
+				childMarginBlockStart = childMarginLeft // Start = left for vertical-lr
+				childMarginBlockEnd = childMarginRight  // End = right for vertical-lr
 			}
-			childMarginInlineStart = childMarginTop   // Inline start = top
-			childMarginInlineEnd = childMarginBottom  // Inline end = bottom
+			childMarginInlineStart = childMarginTop  // Inline start = top
+			childMarginInlineEnd = childMarginBottom // Inline end = bottom
 		} else {
 			// Horizontal mode: block axis is vertical
-			childMarginBlockStart = childMarginTop     // Start = top
-			childMarginBlockEnd = childMarginBottom    // End = bottom
-			childMarginInlineStart = childMarginLeft   // Inline start = left
-			childMarginInlineEnd = childMarginRight    // Inline end = right
+			childMarginBlockStart = childMarginTop   // Start = top
+			childMarginBlockEnd = childMarginBottom  // End = bottom
+			childMarginInlineStart = childMarginLeft // Inline start = left
+			childMarginInlineEnd = childMarginRight  // Inline end = right
 		}
 
 		// Apply margin collapsing with previous sibling

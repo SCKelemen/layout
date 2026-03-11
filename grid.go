@@ -654,11 +654,11 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 				finalX = paddingLeft + borderLeft + contentWidth - itemY - itemHeight
 			} else {
 				// Vertical-LR: rows progress left-to-right
-				finalX = paddingLeft + borderLeft + itemY  // itemY becomes X
+				finalX = paddingLeft + borderLeft + itemY // itemY becomes X
 			}
-			finalY = paddingTop + borderTop + itemX    // itemX becomes Y
-			finalWidth = itemHeight                     // height becomes width
-			finalHeight = itemWidth                     // width becomes height
+			finalY = paddingTop + borderTop + itemX // itemX becomes Y
+			finalWidth = itemHeight                 // height becomes width
+			finalHeight = itemWidth                 // width becomes height
 		} else {
 			// Horizontal mode: columns control X, rows control Y (normal)
 			finalX = paddingLeft + borderLeft + itemX

@@ -195,6 +195,17 @@ type Style struct {
 	// Default: WritingModeHorizontalTB (zero value)
 	WritingMode WritingMode
 
+	// ContainerType establishes this node as a query container for CSS
+	// container queries. Default ContainerTypeNormal (zero value) means the
+	// node is not a query container.
+	// Spec: https://www.w3.org/TR/css-contain-3/#container-type
+	ContainerType ContainerType
+
+	// ContainerName assigns one or more container names to this node so it
+	// can be addressed by name in @container rules. Empty means no name.
+	// Spec: https://www.w3.org/TR/css-contain-3/#container-name
+	ContainerName ContainerName
+
 	// TextStyle contains text-specific properties (nil for non-text nodes).
 	// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
 	// Note: TextStyle.WritingMode is deprecated; use Style.WritingMode instead for inheritance.

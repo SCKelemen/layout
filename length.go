@@ -110,6 +110,29 @@ func Vmax(value float64) Length { return units.Vmax(value) }
 // Vmin creates a Length in vmin units (relative to smaller viewport dimension).
 func Vmin(value float64) Length { return units.Vmin(value) }
 
+// Container-query length constructors. These create container-relative
+// lengths (cq*) that resolve against the nearest query container when
+// passed to ResolveLengthInContext. See CSS Containment Module Level 3:
+// https://www.w3.org/TR/css-contain-3/#container-lengths
+
+// Cqw creates a Length in cqw units (1% of query container width).
+func Cqw(value float64) Length { return units.Cqw(value) }
+
+// Cqh creates a Length in cqh units (1% of query container height).
+func Cqh(value float64) Length { return units.Cqh(value) }
+
+// Cqi creates a Length in cqi units (1% of query container inline size).
+func Cqi(value float64) Length { return units.Cqi(value) }
+
+// Cqb creates a Length in cqb units (1% of query container block size).
+func Cqb(value float64) Length { return units.Cqb(value) }
+
+// Cqmin creates a Length in cqmin units (1% of the smaller of cqi and cqb).
+func Cqmin(value float64) Length { return units.Cqmin(value) }
+
+// Cqmax creates a Length in cqmax units (1% of the larger of cqi and cqb).
+func Cqmax(value float64) Length { return units.Cqmax(value) }
+
 // PxUnbounded is a pre-allocated unbounded pixel length for performance.
 // Equivalent to Px(math.MaxFloat64) but avoids repeated allocations.
 var PxUnbounded = Length{Value: math.MaxFloat64, Unit: Pixels}

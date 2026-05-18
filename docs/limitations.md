@@ -4,6 +4,30 @@ This document outlines known limitations and design decisions for the layout lib
 
 ## Known Limitations
 
+### Container Queries (`@container` at-rule)
+
+**Status**: The six container query length units (`cqw`, `cqh`, `cqi`, `cqb`,
+`cqmin`, `cqmax`) and the three properties (`container-type`,
+`container-name`, `container`) are implemented. See
+[CONTAINER_QUERIES.md](CONTAINER_QUERIES.md).
+
+**What's missing**:
+- `@container` at-rules (conditional styles applied based on a container's
+  size, style, or scroll-state queries).
+- Name-scoped queries (`@container <name> (...)`).
+
+These pieces are intentionally deferred; the unit and property work above
+unblocks downstream consumers that only need responsive sizing without
+conditional styling.
+
+### Container query resolution timing
+
+`cq*` units read the ancestor container's measured `Rect`. Layout resolves
+parents before children, so this gives correct results in the common case.
+There is no fixed-point iteration: a child whose `cq*`-derived size
+indirectly influences a parent that container-queries back is resolved
+with "last-wins" semantics across passes.
+
 ### Margin Support
 
 **Status**: ✅ **Margin is now fully supported** in Flexbox and Grid layouts!

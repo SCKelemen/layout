@@ -199,6 +199,22 @@ type Style struct {
 	// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
 	// Note: TextStyle.WritingMode is deprecated; use Style.WritingMode instead for inheritance.
 	TextStyle *TextStyle
+
+	// ContainerType establishes whether the element is a CSS query container,
+	// and which axes are queryable for descendants' container-relative units
+	// (cqw/cqh/cqi/cqb/cqmin/cqmax).
+	// Default: ContainerTypeNormal (zero value, not a query container).
+	// Based on CSS Containment Module Level 3:
+	// https://www.w3.org/TR/css-contain-3/#container-type
+	ContainerType ContainerType
+
+	// ContainerName is the list of identifiers that name this container for
+	// the (out-of-scope) `@container <name>` query syntax. The shorthand
+	// `container: <name> / <type>` also sets this field. Empty/nil means
+	// the container is anonymous (matches any unnamed `@container` query).
+	// Based on CSS Containment Module Level 3:
+	// https://www.w3.org/TR/css-contain-3/#container-name
+	ContainerName []string
 }
 
 // Spacing represents spacing on all sides using Length values

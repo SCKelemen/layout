@@ -6,12 +6,15 @@ This document outlines known limitations and design decisions for the layout lib
 
 ### Margin Support
 
-**Status**: ✅ **Margin is now fully supported** in Flexbox and Grid layouts!
+**Status**: ✅ **Margin is fully supported across all three layout systems.**
 
 **Implementation**:
-- **Flexbox**: Margins are accounted for in item positioning and spacing
-- **Grid**: Margins are applied within grid cells, reducing the available space for items
-- **Block**: Margin support is not yet implemented (use padding instead)
+- **Flexbox**: margins are accounted for in item positioning and spacing.
+- **Grid**: margins are applied within grid cells, reducing the available space
+  for items.
+- **Block**: margins are applied between siblings and between parent/first
+  child; adjacent vertical margins collapse using the CSS `max(margin1, margin2)`
+  rule. See `block_children.go` and `block_margin_collapsing_test.go`.
 
 **Usage**:
 ```go
@@ -23,15 +26,27 @@ item.Style.Margin = layout.Uniform(10) // 10px margin on all sides
 layout.Margin(item, 10)
 ```
 
-**Note**: Margins don't collapse in Flexbox or Grid (unlike block layout), which matches CSS behavior.
+**Note**: Margins do not collapse in Flexbox or Grid (only in block layout),
+which matches CSS behavior.
 
 ### Box-Sizing
 
-**Status**: The `BoxSizing` field exists but is not currently used in calculations.
+**Status**: ✅ **`box-sizing: content-box` and `box-sizing: border-box` are
+both implemented and tested.**
 
-**Current behavior**: All layouts treat sizing as `content-box` (width/height = content size only).
+**Implementation**:
+- `content-box` (the default) — `Style.Width` / `Style.Height` define the
+  content box; padding and border are added on top.
+- `border-box` — `Style.Width` / `Style.Height` include padding and border;
+  the content box shrinks accordingly. Min/max constraints follow the same
+  rule.
 
-**Impact**: If you need `border-box` behavior (width/height includes padding + border), you'll need to account for this manually.
+The conversion is handled by `convertToContentSize`,
+`convertFromContentSize`, and `convertMinMaxToContentSize` in `types.go`, and
+is invoked from `block_setup.go`, `flexbox_setup.go`, `grid_setup.go`,
+`grid.go`, and `text.go`. Test coverage lives in `box_sizing_test.go` (10
+passing tests covering content-box, border-box, auto sizing, min/max,
+aspect-ratio, and nested flex/grid items).
 
 ### Inline Layout
 
@@ -115,7 +130,8 @@ This library is **not** a full CSS implementation. It implements:
 - ✅ Core layout algorithms (Flexbox, Grid, Block)
 - ✅ Positioning (absolute, relative, fixed)
 - ✅ Transforms
-- ⚠️ Partial: Margin, box-sizing
+- ✅ Margin (with block-layout vertical margin collapsing)
+- ✅ Box-sizing (`content-box` and `border-box`)
 - ❌ Not implemented: Inline layout, table layout, multi-column text
 
 ### Use Case Compatibility
@@ -145,10 +161,10 @@ This library is **not** a full CSS implementation. It implements:
 ## Future Considerations
 
 Potential future additions (not currently planned):
-- Margin support in block layout
-- Box-sizing support
 - Improved sticky positioning
 - Text measurement helpers (separate from layout)
+- Inline formatting context
+- RTL / vertical writing modes
 
 If you need features that aren't implemented, please open an issue or contribute!
 

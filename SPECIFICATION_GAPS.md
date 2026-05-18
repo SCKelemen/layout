@@ -1,7 +1,13 @@
 # Specification Gaps and Remaining Work
 
-**Last Updated:** 2026-01-05
-**Overall Status:** 100% test coverage (355/355 passing) - All gaps verified/resolved 🎉
+**Last Updated:** 2026-01-19
+**Overall Status:** 853 / 853 tests passing, 1 skipped — all high- and medium-priority gaps verified or resolved.
+
+> The test count was previously reported as `355/355` and as `321/321` in
+> sibling documents. Both were stale; the figure above is the actual count
+> produced by `go test ./... -count=1 -v` against this commit (528 top-level
+> tests + 325 subtests = 853 passing). See `SPEC_COMPLIANCE_STATUS.md` for the
+> authoritative breakdown.
 
 This document identifies remaining gaps between the current implementation and CSS specifications, prioritized by impact and feasibility.
 
@@ -22,7 +28,7 @@ This document identifies remaining gaps between the current implementation and C
 8. ✅ **text-align-last** - Control last line alignment in justified text
 9. ✅ **text-justify** - Inter-word, inter-character, distribute, none
 
-**Test Coverage:** 17 new tests added, 355 total tests passing (100%)
+**Test Coverage:** 17 new tests added; total suite count is currently 853 tests passing, 1 skipped.
 
 **Spec References:**
 - §2: Text Direction (basic RTL)
@@ -82,7 +88,7 @@ if maxSize == SizeMinContent {
 
 ### 1. Grid Spanning with Margins ✅ **VERIFIED WORKING**
 
-**Location:** `grid_spanning_margin_test.go`, `test_user/grid_spanning_margin_*.go`
+**Location:** `grid_spanning_margin_test.go`
 
 **Status:** ✅ **NOT A BUG - Working correctly**
 
@@ -227,7 +233,7 @@ Expected gap: 10.00 (row gap)
 - ✅ Grid track intrinsic sizing - Fully implemented and working
 - ✅ Grid spanning with margins - Verified working correctly
 - ✅ Inter-character justification - Already implemented (see GAP_ANALYSIS.md)
-- ✅ All 355 tests passing (100% pass rate)
+- ✅ All 853 tests passing, 1 skipped
 
 **Remaining work:**
 - All remaining gaps are low priority / out of scope (vertical writing modes, full bidirectional algorithm, dictionary-based hyphenation, etc.)
@@ -246,16 +252,15 @@ Expected gap: 10.00 (row gap)
 
 ### Test Coverage
 
-- **Passing Tests:** 321/321 (100%) 🎉
-- **New Tests Added:** 102 tests in recent work
-- **Total Test Suite:** 321 tests
+- **Passing Tests:** 853 (with 1 skipped, 0 failing)
+- **Total Test Suite:** 528 top-level test functions, 325 named subtests
 - **WPT Tests:** 14 Web Platform Tests converted and passing
 
 ---
 
 ## 📝 Notes
 
-1. **Perfect Test Pass Rate:** All 321 tests passing, including all previously failing tests.
+1. **Test Pass Rate:** All 853 reported tests passing (1 skip, 0 failures).
 
 2. **Production Ready:** The 100% test pass rate and comprehensive feature coverage make this production-ready for Grid, Flexbox, Block, and Text layouts.
 
@@ -274,4 +279,4 @@ Expected gap: 10.00 (row gap)
 
 ---
 
-**Conclusion:** The layout engine has achieved perfect CSS specification compliance with 100% test pass rate (355/355 tests). All high and medium priority gaps have been resolved and verified working. All previously documented "gaps" (grid track intrinsic sizing and grid spanning margins) have been confirmed to be fully implemented and functioning correctly. Remaining gaps are exclusively low-priority features or explicitly out of scope for the current implementation.
+**Conclusion:** The layout engine has achieved full CSS specification compliance within the documented scope, with 853 tests passing (1 skipped, 0 failing). All high- and medium-priority gaps have been resolved and verified. All previously documented "gaps" (grid track intrinsic sizing and grid spanning margins) have been confirmed to be implemented and functioning correctly. Remaining gaps are exclusively low-priority features or explicitly out of scope for the current implementation.

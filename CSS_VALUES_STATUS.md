@@ -73,32 +73,56 @@ node := &Node{
 ### Special Units ✅
 - **`UnboundedUnit`** - Represents infinity for maximum sizes
 
+### Level 4 Font-Relative Aliases ✅
+The following Level 4 font-relative units are implemented as terminal-context
+aliases. See `length_l4.go` for the resolution rules and rationale:
+
+| Unit | Terminal-context meaning |
+| --- | --- |
+| `lh` | Line height of the element — resolves to one row (current font size) |
+| `rlh` | Root line height — resolves to one root row |
+| `ic` | CJK ideograph advance — resolves to two character cells |
+| `ric` | Root `ic` — two root character cells |
+| `cap` | Cap height — one row (collapses with `ex` in monospace terminals) |
+| `rcap` | Root cap height — one root row |
+| `rch` | Root `ch` — width of the reference character at root font size |
+| `rex` | Root `ex` — one root row |
+
+Spec: https://www.w3.org/TR/css-values-4/#font-relative-lengths
+
+### Level 4 Logical Viewport Units ✅
+| Unit | Terminal-context meaning |
+| --- | --- |
+| `vi` | 1% of the viewport inline size; aliased to `vw` for horizontal-tb (simplification) |
+| `vb` | 1% of the viewport block size; aliased to `vh` for horizontal-tb (simplification) |
+
+When the resolver gains a writing-mode parameter, `vi`/`vb` should swap for
+vertical writing modes. The current behavior matches the default
+horizontal-tb mode.
+
+### Level 4 Small / Large / Dynamic Viewport Variants ✅
+Terminals have no UI chrome that can hide or reveal, so the
+`sv*`, `lv*`, and `dv*` families are exact aliases for their base
+viewport counterparts (`vw`, `vh`, `vi`, `vb`, `vmin`, `vmax`):
+
+- Small: `svw`, `svh`, `svi`, `svb`, `svmin`, `svmax`
+- Large: `lvw`, `lvh`, `lvi`, `lvb`, `lvmin`, `lvmax`
+- Dynamic: `dvw`, `dvh`, `dvi`, `dvb`, `dvmin`, `dvmax`
+
+Spec: https://www.w3.org/TR/css-values-4/#viewport-relative-lengths
+
+### String Parser ✅
+`layout.ParseLength("<number><unit>")` parses CSS-style length tokens with
+case-insensitive unit matching for every implemented unit (absolute, font
+relative, viewport, and all the Level 4 aliases above).
+
 ## Not Yet Implemented
 
-### Relative Font Units (CSS Level 4)
-These units require additional text metrics:
-
-- **`ex`** - x-height of the font
-- **`cap`** - Cap height of the font
-- **`ic`** - Width of ideographic character (水)
-- **`lh`** - Line height of the element
-- **`rlh`** - Line height of the root element
-
-### Logical Viewport Units (CSS Level 4)
-These units depend on writing mode:
-
-- **`vi`** - 1% of viewport size in inline axis
-- **`vb`** - 1% of viewport size in block axis
-
-### Dynamic Viewport Units (CSS Level 5)
-These units account for dynamic browser UI:
-
-- **`dvh`**, **`dvw`**, **`dvmin`**, **`dvmax`** - Dynamic viewport units
-- **`svh`**, **`svw`**, **`svmin`**, **`svmax`** - Small viewport units
-- **`lvh`**, **`lvw`**, **`lvmin`**, **`lvmax`** - Large viewport units
+### Font-Relative Units Still Pending
+- **`ex`** - x-height of the font (not in the L4 alias set; `rex` is implemented but resolves to one root row in terminal context)
 
 ### Container Query Units (CSS Container Queries)
-These require container query context:
+These require container query context (tracked separately):
 
 - **`cqw`**, **`cqh`** - Container query width/height
 - **`cqi`**, **`cqb`** - Container query inline/block
@@ -139,17 +163,17 @@ Comprehensive test suites cover:
 ## Future Enhancements
 
 ### Priority: High
-1. **`ex` unit** - Requires x-height measurement from font metrics
-2. **`lh` / `rlh` units** - Requires line height calculation
-3. **Logical viewport units** (`vi`, `vb`) - Requires writing mode support
-
-### Priority: Medium
-4. **`cap` unit** - Capital letter height measurement
-5. **`ic` unit** - Ideographic character width measurement
-6. **Dynamic viewport units** - Browser UI-aware measurements
+1. **`ex` unit** - Requires x-height measurement from font metrics (the alias
+   `rex` is implemented; a per-element `ex` would refine `cap`/`rex` once
+   font metrics are tracked).
+2. **Writing-mode-aware `vi`/`vb`** - Thread element WritingMode through
+   `ResolveLength` so vertical writing modes swap inline/block axes.
+3. **`lh`/`rlh` refinement** - Honor an explicit line-height when one is
+   set on the element (the current resolution uses font size, which matches
+   the terminal cell grid).
 
 ### Priority: Low
-7. **Container query units** - Full container query implementation
+4. **Container query units** - Full container query implementation
 
 ## References
 

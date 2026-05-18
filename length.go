@@ -123,6 +123,10 @@ func (u LengthUnit) String() string {
 	case UnboundedUnit:
 		return "unbounded"
 	default:
+		// Fall through to L4 unit names (lh, ic, vi, sv*/lv*/dv* variants).
+		if s := stringL4(u); s != "" {
+			return s
+		}
 		return "unknown"
 	}
 }
@@ -239,6 +243,13 @@ func UnboundedLength() Length {
 //   - Vmin: (value / 100) * min(ctx.ViewportWidth, ctx.ViewportHeight)
 //   - UnboundedUnit: returns math.MaxFloat64
 func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float64 {
+	// Level 4 unit aliases (lh, rlh, ic, ric, cap, rcap, rch, rex, vi, vb,
+	// and the small/large/dynamic viewport variants). Handled in a separate
+	// helper so this switch stays focused on the original unit set; see
+	// length_l4.go for the terminal-context resolution rules.
+	if v, ok := resolveL4(l, ctx, currentFontSize); ok {
+		return v
+	}
 	switch l.Unit {
 	case Pixels:
 		return l.Value

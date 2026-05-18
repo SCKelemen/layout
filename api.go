@@ -63,16 +63,18 @@ func ZStack(children ...*Node) *Node {
 	// Make all children absolutely positioned
 	for _, child := range children {
 		child.Style.Position = PositionAbsolute
-		// Default to top-left if not specified
-		// Check if Left/Top are unset (zero value Length has Value=0, Unit=Pixels)
-		// We consider it unset if it's the zero value (Px(0) is explicitly set, so we check Unit)
-		// For now, we'll check if Value is 0 and assume it's unset (this is a heuristic)
-		// A better approach would be to use a sentinel value, but for backward compatibility
-		// we'll use this check. In practice, Px(0) is a valid position.
-		if child.Style.Left.Value == 0 && child.Style.Left.Unit == 0 {
+		// Default to top-left if not specified.
+		// We treat a Length whose Unit is the zero-value (empty string, since
+		// LengthUnit is a typed string per units L4) as "unset" and default it
+		// to Px(0). Px(0) itself has Unit=="px" and is therefore preserved.
+		//
+		// Prior to the units migration this check compared Unit == 0 because
+		// LengthUnit was an int with Pixels = iota = 0. After the migration the
+		// zero value of LengthUnit is "", so we check for that explicitly.
+		if child.Style.Left.Value == 0 && child.Style.Left.Unit == "" {
 			child.Style.Left = Px(0)
 		}
-		if child.Style.Top.Value == 0 && child.Style.Top.Unit == 0 {
+		if child.Style.Top.Value == 0 && child.Style.Top.Unit == "" {
 			child.Style.Top = Px(0)
 		}
 	}

@@ -135,8 +135,6 @@ func flexboxAlignmentMainAxis(
 		}
 	}
 
-	// DEBUG
-	// fmt.Printf("DEBUG lineMainSize: %.2f, contentAreaStart: %.2f\n", lineMainSize, contentAreaStart)
 	return lineMainSize
 }
 

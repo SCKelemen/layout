@@ -129,99 +129,78 @@ func UnboundedLength() Length {
 //
 // Returns the resolved length in pixels.
 //
-// Resolution rules:
-//   - Pixels: returned as-is
-//   - Absolute units: converted using CSS reference pixel (1in = 96px)
-//   - Pt: 1pt = 1/72 inch = 96/72 px ≈ 1.333px
-//   - Pc: 1pc = 12pt = 16px
-//   - In: 1in = 96px
-//   - Cm: 1cm = 96/2.54 px ≈ 37.795px
-//   - Mm: 1mm = 96/25.4 px ≈ 3.7795px
-//   - Q: 1Q = 96/101.6 px ≈ 0.945px
-//   - Em: multiplied by currentFontSize
-//   - Rem: multiplied by ctx.RootFontSize
-//   - Ch: multiplied by the width of ctx.ChReferenceChar
-//   - Vh: (value / 100) * ctx.ViewportHeight
-//   - Vw: (value / 100) * ctx.ViewportWidth
-//   - Vmax: (value / 100) * max(ctx.ViewportWidth, ctx.ViewportHeight)
-//   - Vmin: (value / 100) * min(ctx.ViewportWidth, ctx.ViewportHeight)
-//   - UnboundedUnit: returns math.MaxFloat64
+// Most of the unit math is delegated to github.com/SCKelemen/units via
+// units.Length.Resolve, which provides resolvers for the full CSS L4 unit
+// set (absolute, font-relative, viewport-relative, container-relative).
+// Two pieces of behavior remain layout-specific:
 //
-// NOTE: Phase 1 of the units<->layout migration intentionally keeps this
-// function body identical to the pre-migration implementation so that no
-// behavior changes during the type-system swap. Phase 2 will replace this
-// body with a call to units.Length.Resolve once the units resolver has
-// equivalent semantics.
+//   - UnboundedUnit short-circuits to math.MaxFloat64. It is a layout-only
+//     sentinel; the units package has no concept of it.
+//   - Unknown / unsupported units (e.g. cq*, vi/vb when the corresponding
+//     context fields are unset) preserve the pre-migration default-case
+//     behavior of returning l.Value unchanged.
+//
+// For ancestor-aware container query resolution (cq*), use
+// ResolveLengthInContext, which is the only path that populates
+// units.Context.ContainerWidth / ContainerHeight.
 func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float64 {
-	switch l.Unit {
-	case Pixels:
-		return l.Value
-
-	// Absolute length units (based on CSS reference pixel: 1in = 96px)
-	case PtUnit:
-		// 1pt = 1/72 inch
-		return l.Value * (96.0 / 72.0)
-
-	case PcUnit:
-		// 1pc = 12pt = 1/6 inch
-		return l.Value * 16.0
-
-	case InUnit:
-		// 1in = 96px (CSS reference pixel)
-		return l.Value * 96.0
-
-	case CmUnit:
-		// 1cm = 1/2.54 inch
-		return l.Value * (96.0 / 2.54)
-
-	case MmUnit:
-		// 1mm = 1/25.4 inch
-		return l.Value * (96.0 / 25.4)
-
-	case QUnit:
-		// 1Q = 1/40 cm = 1/101.6 inch
-		return l.Value * (96.0 / 101.6)
-
-	// Relative font units
-	case EmUnit:
-		// Relative to current element's font size
-		return l.Value * currentFontSize
-
-	case RemUnit:
-		// Relative to root font size
-		return l.Value * ctx.RootFontSize
-
-	case ChUnit:
-		// Measure the reference character width
-		charWidth := measureCharWidth(ctx.ChReferenceChar, currentFontSize, ctx.TextMetrics)
-		return l.Value * charWidth
-
-	// Viewport units
-	case VhUnit:
-		// 1vh = 1% of viewport height
-		return (l.Value / 100.0) * ctx.ViewportHeight
-
-	case VwUnit:
-		// 1vw = 1% of viewport width
-		return (l.Value / 100.0) * ctx.ViewportWidth
-
-	case VmaxUnit:
-		// 1vmax = 1% of larger viewport dimension
-		maxDimension := math.Max(ctx.ViewportWidth, ctx.ViewportHeight)
-		return (l.Value / 100.0) * maxDimension
-
-	case VminUnit:
-		// 1vmin = 1% of smaller viewport dimension
-		minDimension := math.Min(ctx.ViewportWidth, ctx.ViewportHeight)
-		return (l.Value / 100.0) * minDimension
-
-	case UnboundedUnit:
-		// Unbounded length resolves to infinity
+	// Layout-specific sentinel: not in CSS, units pkg doesn't know it.
+	if l.Unit == UnboundedUnit {
 		return math.MaxFloat64
+	}
 
-	default:
-		// Unknown unit, return value as-is
+	uctx := buildUnitsContext(ctx, currentFontSize)
+	resolved, err := l.Resolve(uctx)
+	if err != nil {
+		// Resolution failure (unknown unit, missing context field).
+		// Preserve pre-migration default-case behavior: "return value as-is".
 		return l.Value
+	}
+	return resolved.Value
+}
+
+// buildUnitsContext maps a layout-side LayoutContext (plus the current
+// element's font size) onto a units.Context.
+//
+// The mapping reflects layout's terminal-cell-grid simplifications:
+//
+//   - ex (x-height), cap (cap-height), and lh (line-height) all collapse
+//     to the current font size — terminals do not provide distinct font
+//     metrics for these.
+//   - rlh (root line-height) collapses to the root font size for the same
+//     reason.
+//   - ic (CJK ideograph advance) is set to 2 * ch on the assumption that
+//     full-width CJK glyphs occupy two terminal cells.
+//
+// ContainerWidth and ContainerHeight are intentionally left zero here.
+// They are populated only by ResolveLengthInContext, which has the
+// NodeContext required to walk ancestors and find a query container.
+//
+// A nil LayoutContext is accepted and produces a minimal units.Context
+// populated only with currentFontSize. This matches the pre-migration
+// behavior of ResolveLength, which short-circuited the absolute units
+// (Pixels, Pt, Pc, In, Cm, Mm, Q) without touching ctx and would only
+// panic on nil ctx for relative units. After delegation, relative units
+// against a nil context cleanly fail in units.Length.Resolve and fall
+// back to l.Value via the error path in ResolveLength.
+func buildUnitsContext(ctx *LayoutContext, currentFontSize float64) *units.Context {
+	if ctx == nil {
+		return &units.Context{FontSize: currentFontSize}
+	}
+	chWidth := measureCharWidth(ctx.ChReferenceChar, currentFontSize, ctx.TextMetrics)
+	return &units.Context{
+		FontSize:       currentFontSize,
+		RootFontSize:   ctx.RootFontSize,
+		XHeight:        currentFontSize,
+		CapHeight:      currentFontSize,
+		ChWidth:        chWidth,
+		IcWidth:        chWidth * 2,
+		LineHeight:     currentFontSize,
+		RootLineHeight: ctx.RootFontSize,
+		ViewportWidth:  ctx.ViewportWidth,
+		ViewportHeight: ctx.ViewportHeight,
+		// ContainerWidth / ContainerHeight left zero; populated by
+		// ResolveLengthInContext when a NodeContext is available.
 	}
 }
 

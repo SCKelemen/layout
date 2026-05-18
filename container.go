@@ -325,6 +325,11 @@ func ResolveLengthInContext(l Length, ctx *LayoutContext, currentFontSize float6
 	translated := Length{Value: l.Value, Unit: resolveUnit}
 	resolved, err := translated.Resolve(uctx)
 	if err != nil {
+		if l.IsContainerRelative() {
+			// No container size available; cq* resolves to 0.
+			return 0
+		}
+		// Non-container fallback (preserves pre-fix behavior for absolute/viewport units).
 		return l.Value
 	}
 	return resolved.Value

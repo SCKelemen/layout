@@ -340,6 +340,31 @@ func TestResolveLengthInContext_NonContainerUnit(t *testing.T) {
 	}
 }
 
+func TestResolveLengthInContextCqZeroContainerReturnsZero(t *testing.T) {
+	// Container with zero width — cqw should resolve to 0, not raw l.Value.
+	leaf := containerTree(
+		containerNodeSpec{rect: Rect{Width: 0, Height: 0}},
+		containerNodeSpec{rect: Rect{Width: 0, Height: 0}, containerType: ContainerTypeSize},
+		containerNodeSpec{rect: Rect{Width: 0, Height: 0}},
+	)
+	ctx := NewLayoutContext(0, 0, 16) // also zero viewport, so no fallback can save it
+
+	got := ResolveLengthInContext(Cqw(50), ctx, 16, leaf)
+	if got != 0 {
+		t.Fatalf("Cqw(50) with zero-size container expected 0, got %v", got)
+	}
+
+	got = ResolveLengthInContext(Cqh(50), ctx, 16, leaf)
+	if got != 0 {
+		t.Fatalf("Cqh(50) with zero-size container expected 0, got %v", got)
+	}
+
+	got = ResolveLengthInContext(Cqmin(50), ctx, 16, leaf)
+	if got != 0 {
+		t.Fatalf("Cqmin(50) with zero-size container expected 0, got %v", got)
+	}
+}
+
 func TestResolveLengthInContext_VerticalWritingMode(t *testing.T) {
 	// Vertical-RL container: cqi maps to height, cqb maps to width.
 	ctx := NewLayoutContext(1920, 1080, 16)

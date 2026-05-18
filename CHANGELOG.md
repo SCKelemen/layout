@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.2.1] - 2025-07-11
+
+Patch release fixing one MEDIUM bug in `ResolveLengthInContext` caught by an external bug-hunt sweep.
+
+### Fixed
+
+- `ResolveLengthInContext` now returns `0` for container-relative units (`cqw`, `cqh`, `cqi`, `cqb`, `cqmin`, `cqmax`) when no container size is available, instead of returning the raw `l.Value` as a `float64`. Previously, `Cqw(50)` with a zero-size container returned `50.0` — neither pixels nor a meaningful percentage. Non-container units (absolute, viewport, font-relative) are unaffected.
+
+### Tests
+
+- New `TestResolveLengthInContextCqZeroContainerReturnsZero` guards the fix across `cqw`, `cqh`, and `cqmin`.
+
 ## [1.2.0] - 2026-05-18
 
 ### Added

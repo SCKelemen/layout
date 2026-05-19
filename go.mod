@@ -8,7 +8,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/SCKelemen/units v1.2.0
+require github.com/SCKelemen/units v1.2.1
 
 require (
 	cel.dev/expr v0.24.0 // indirect

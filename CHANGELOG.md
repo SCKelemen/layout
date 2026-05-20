@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.3.0] - 2026-05-20
+
+### Changed
+
+- `github.com/SCKelemen/text` bumped from `v1.1.3` to `v1.2.0` (`unicode/v6` migration).
+- `github.com/SCKelemen/unicode` replaced with `github.com/SCKelemen/unicode/v6` (`v6.2.0`). Brings v6 performance improvements (ASCII fast paths, memory optimization, rule-based state machines) to layout's text measurement and line breaking.
+- `github.com/SCKelemen/units` bumped from `v1.2.0` to `v1.2.1`.
+
+### Note
+
+Pure dependency migration. No source-level API changes.
+
 ## [v1.2.1] - 2025-07-11
 
 Patch release fixing one MEDIUM bug in `ResolveLengthInContext` caught by an external bug-hunt sweep.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/SCKelemen/unicode/uax50"
+	"github.com/SCKelemen/unicode/v6/uax50"
 )
 
 // TextMetricsProvider abstracts text measurement.

@@ -1,11 +1,11 @@
 cel.dev/expr v0.24.0 h1:56OvJKSH3hDGL0ml5uSxZmz3/3Pq4tJ+fb1unVLAFcY=
 cel.dev/expr v0.24.0/go.mod h1:hLPLo1W4QUmuYdA72RBX06QTs6MXw941piREPl3Yfiw=
-github.com/SCKelemen/text v1.1.3 h1:L8tL8IJo+F6eZVov0BHwpzXw+LTDi2OrpOVYanSDy04=
-github.com/SCKelemen/text v1.1.3/go.mod h1:d5I3EII4tPIeMvRwMzzY2ZabZYJEhrFDM9/cBjr0cVY=
-github.com/SCKelemen/unicode v1.1.1 h1:zfDNToPzJcuX8ayJhRipZZd09f+dJO/T4IvIk90d13k=
-github.com/SCKelemen/unicode v1.1.1/go.mod h1:TjSqvWpwZC7BTqAgCfnsweOaS1yIxY039Wubh7xC4G0=
-github.com/SCKelemen/units v1.2.0 h1:YS4qfNRrwbTA/YyCMCpXsmQbuhfgzyjqlWuaSvOHa34=
-github.com/SCKelemen/units v1.2.0/go.mod h1:kgbJAQ+0m29oq171mOI4STRfOaTYij9rl9J4xOq1H7s=
+github.com/SCKelemen/text v1.2.0 h1:vP+CmmQN9k0F6kF3Nzjd08r+5gfSKMmkM7HJOQojY/4=
+github.com/SCKelemen/text v1.2.0/go.mod h1:ErYskoMJmr0dvHLZAENO5UOj32NCS+HbWE0/sMFSwDc=
+github.com/SCKelemen/unicode/v6 v6.2.0 h1:E/i39vZQgN275s0DW8uVKtgBIUjiGvugDfDmw4vLqJM=
+github.com/SCKelemen/unicode/v6 v6.2.0/go.mod h1:o2ycPy2R5EoDxPhZlyYD/34YEH8g700jbNcA6pixUSs=
+github.com/SCKelemen/units v1.2.1 h1:+0oTQfNEzftHLe+6Y1TAJazJuZR/rRS2keAn9UJsmyo=
+github.com/SCKelemen/units v1.2.1/go.mod h1:kgbJAQ+0m29oq171mOI4STRfOaTYij9rl9J4xOq1H7s=
 github.com/SCKelemen/wpt-test-gen v1.0.1 h1:0eWFgYe+guT7e1/C92mG7VZBEsxAqsfQxuqpYe35TBA=
 github.com/SCKelemen/wpt-test-gen v1.0.1/go.mod h1:K5Vd+rA6NHgM1jXLkJTWxfWJj6Y6YAwN7wjgIeTLer0=
 github.com/antlr4-go/antlr/v4 v4.13.0 h1:lxCg3LAv+EUK6t1i0y1V6/SLeUi0eKEKdhQAlS8TVTI=

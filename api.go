@@ -281,8 +281,12 @@ const (
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment
 func DistributeNodes(nodes []*Node, direction DistributeDirection) {
-	if len(nodes) < 3 {
-		// Need at least 3 nodes to distribute (first and last stay fixed)
+	// Guard against division-by-zero in the spacing calculation below
+	// (spacing = totalSpace / float64(len(nodes)-1) would divide by zero
+	// when len(nodes) == 1). With fewer than 2 nodes there is nothing to
+	// distribute; with exactly 2 nodes the first and last stay fixed and
+	// there are no middle nodes to space out, so this is also a no-op.
+	if len(nodes) < 2 {
 		return
 	}
 
@@ -311,6 +315,12 @@ func DistributeNodes(nodes []*Node, direction DistributeDirection) {
 				}
 			}
 		}
+	}
+
+	// With exactly 2 nodes, there are no middle nodes to redistribute;
+	// the first and last stay fixed, so we can return early.
+	if len(nodes) < 3 {
+		return
 	}
 
 	// Get the first and last positions (these stay fixed)

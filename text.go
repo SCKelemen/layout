@@ -44,34 +44,29 @@ func (a *approxMetrics) Measure(text string, style TextStyle) (advance, ascent, 
 
 // Package-level provider.
 //
-// textMetrics is an atomic.Value holding a textMetricsBox. Using
-// atomic.Value lets us safely swap the provider while concurrent goroutines
+// textMetrics is an atomic.Pointer to a textMetricsHolder. Using
+// atomic.Pointer lets us safely swap the provider while concurrent goroutines
 // are reading it during layout. All reads must go through getTextMetrics.
 //
-// The provider interface is wrapped in a fixed concrete struct because
-// atomic.Value requires every stored value to have the exact same concrete
-// type. Different TextMetricsProvider implementations have different
-// concrete types, so storing the interface directly would panic with
-// "store of inconsistently typed value into Value" on the first call to
-// SetTextMetricsProvider with a non-default provider.
-var textMetrics atomic.Value
+// atomic.Pointer needs a concrete pointee type, so the
+// TextMetricsProvider interface is wrapped in textMetricsHolder.
+var textMetrics atomic.Pointer[textMetricsHolder]
 
-// textMetricsBox is the fixed concrete type stored inside textMetrics.
-type textMetricsBox struct {
-	p TextMetricsProvider
+type textMetricsHolder struct {
+	provider TextMetricsProvider
 }
 
 func init() {
 	// Install the default approximate metrics so getTextMetrics never
 	// returns a nil provider, even before SetTextMetricsProvider is
 	// called.
-	textMetrics.Store(textMetricsBox{p: &approxMetrics{}})
+	textMetrics.Store(&textMetricsHolder{provider: &approxMetrics{}})
 }
 
 // getTextMetrics returns the currently installed TextMetricsProvider.
 // It performs a single atomic load and is safe for concurrent use.
 func getTextMetrics() TextMetricsProvider {
-	return textMetrics.Load().(textMetricsBox).p
+	return textMetrics.Load().provider
 }
 
 // SetTextMetricsProvider installs a custom text measurement provider.
@@ -82,7 +77,7 @@ func getTextMetrics() TextMetricsProvider {
 //
 // Thread safety: SetTextMetricsProvider is safe to call concurrently with
 // other calls to itself and with concurrent layout operations. The
-// provider is stored in an atomic.Value, so readers always observe a
+// provider is stored in an atomic.Pointer, so readers always observe a
 // fully-initialized provider value.
 //
 // Even though installation is concurrency-safe, most callers should set
@@ -95,10 +90,11 @@ func getTextMetrics() TextMetricsProvider {
 //
 // This avoids the subtle situation where two concurrent layouts may use
 // different providers and produce mismatched measurements.
-func SetTextMetricsProvider(p TextMetricsProvider) {
-	if p != nil {
-		textMetrics.Store(textMetricsBox{p: p})
+func SetTextMetricsProvider(provider TextMetricsProvider) {
+	if provider == nil {
+		return
 	}
+	textMetrics.Store(&textMetricsHolder{provider: provider})
 }
 
 // LayoutText lays out text within a node, computing its Size and internal line boxes.

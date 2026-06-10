@@ -3,6 +3,7 @@ package layout
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // High-level API helpers inspired by SwiftUI and Flutter.
@@ -296,25 +297,16 @@ func DistributeNodes(nodes []*Node, direction DistributeDirection) {
 		indices[i] = i
 	}
 
-	// Sort indices by position
+	// Sort indices by position along the chosen axis using sort.Slice
+	// (O(n log n)) rather than an in-place nested-loop sort (O(n^2)).
 	if direction == DistributeHorizontal {
-		// Sort by X coordinate
-		for i := 0; i < len(indices)-1; i++ {
-			for j := i + 1; j < len(indices); j++ {
-				if nodes[indices[i]].Rect.X > nodes[indices[j]].Rect.X {
-					indices[i], indices[j] = indices[j], indices[i]
-				}
-			}
-		}
+		sort.Slice(indices, func(i, j int) bool {
+			return nodes[indices[i]].Rect.X < nodes[indices[j]].Rect.X
+		})
 	} else {
-		// Sort by Y coordinate
-		for i := 0; i < len(indices)-1; i++ {
-			for j := i + 1; j < len(indices); j++ {
-				if nodes[indices[i]].Rect.Y > nodes[indices[j]].Rect.Y {
-					indices[i], indices[j] = indices[j], indices[i]
-				}
-			}
-		}
+		sort.Slice(indices, func(i, j int) bool {
+			return nodes[indices[i]].Rect.Y < nodes[indices[j]].Rect.Y
+		})
 	}
 
 	// With exactly 2 nodes, there are no middle nodes to redistribute;

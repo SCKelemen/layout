@@ -2,6 +2,7 @@ package layout
 
 import (
 	"strings"
+	"sync/atomic"
 	"unicode"
 
 	"github.com/SCKelemen/unicode/v6/uax50"
@@ -41,19 +42,59 @@ func (a *approxMetrics) Measure(text string, style TextStyle) (advance, ascent, 
 	return advance, ascent, descent
 }
 
-// Package-level provider
-var textMetrics TextMetricsProvider = &approxMetrics{}
-
-// SetTextMetricsProvider allows users to plug in their own measurement.
+// Package-level provider.
 //
-// Thread Safety: This function modifies a package-level variable. For concurrent
-// use, set the provider once at initialization time and do not change it during
-// layout operations. If you need to change providers concurrently, use external
-// synchronization.
-func SetTextMetricsProvider(p TextMetricsProvider) {
-	if p != nil {
-		textMetrics = p
+// textMetrics is an atomic.Pointer to a textMetricsHolder. Using
+// atomic.Pointer lets us safely swap the provider while concurrent goroutines
+// are reading it during layout. All reads must go through getTextMetrics.
+//
+// atomic.Pointer needs a concrete pointee type, so the
+// TextMetricsProvider interface is wrapped in textMetricsHolder.
+var textMetrics atomic.Pointer[textMetricsHolder]
+
+type textMetricsHolder struct {
+	provider TextMetricsProvider
+}
+
+func init() {
+	// Install the default approximate metrics so getTextMetrics never
+	// returns a nil provider, even before SetTextMetricsProvider is
+	// called.
+	textMetrics.Store(&textMetricsHolder{provider: &approxMetrics{}})
+}
+
+// getTextMetrics returns the currently installed TextMetricsProvider.
+// It performs a single atomic load and is safe for concurrent use.
+func getTextMetrics() TextMetricsProvider {
+	return textMetrics.Load().provider
+}
+
+// SetTextMetricsProvider installs a custom text measurement provider.
+//
+// The provider is consulted by the layout engine whenever it needs to
+// measure a run of text (advance width, ascent, descent). Passing a nil
+// provider is a no-op; the previously installed provider remains active.
+//
+// Thread safety: SetTextMetricsProvider is safe to call concurrently with
+// other calls to itself and with concurrent layout operations. The
+// provider is stored in an atomic.Pointer, so readers always observe a
+// fully-initialized provider value.
+//
+// Even though installation is concurrency-safe, most callers should set
+// the provider exactly once at program startup, for example from an
+// init() function:
+//
+//	func init() {
+//	    layout.SetTextMetricsProvider(myMetrics)
+//	}
+//
+// This avoids the subtle situation where two concurrent layouts may use
+// different providers and produce mismatched measurements.
+func SetTextMetricsProvider(provider TextMetricsProvider) {
+	if provider == nil {
+		return
 	}
+	textMetrics.Store(&textMetricsHolder{provider: provider})
 }
 
 // LayoutText lays out text within a node, computing its Size and internal line boxes.
@@ -144,7 +185,7 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// 2.6. Apply text-transform (§6)
 	processedText = applyTextTransform(processedText, style.TextTransform)
 
-	// 3. Perform line breaking (§4) with textMetrics.Measure
+	// 3. Perform line breaking (§4) with getTextMetrics().Measure
 	lines := breakIntoLines(processedText, contentWidth, *style)
 
 	// 3.5. Apply text-overflow if needed (ellipsis truncation)
@@ -488,7 +529,7 @@ func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style
 				runes := []rune(firstBox.Text)
 				if isOpeningPunctuation(runes[0]) {
 					// Measure the punctuation character
-					punctWidth, _, _ := textMetrics.Measure(string(runes[0]), style)
+					punctWidth, _, _ := getTextMetrics().Measure(string(runes[0]), style)
 					// Hang it by moving line start position
 					line.OffsetX -= punctWidth
 					line.Width += punctWidth
@@ -503,7 +544,7 @@ func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style
 				runes := []rune(lastBox.Text)
 				if isClosingPunctuation(runes[len(runes)-1]) {
 					// Measure the punctuation character
-					punctWidth, _, _ := textMetrics.Measure(string(runes[len(runes)-1]), style)
+					punctWidth, _, _ := getTextMetrics().Measure(string(runes[len(runes)-1]), style)
 					// Hang it by extending line width beyond container
 					line.Width -= punctWidth
 				}
@@ -627,7 +668,7 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []
 		if hasTrailingSpace {
 			// Strip trailing space and measure it separately
 			wordText = segment[:len(segment)-1]
-			spaceWidth, _, _ = textMetrics.Measure(" ", style)
+			spaceWidth, _, _ = getTextMetrics().Measure(" ", style)
 			if style.WordSpacing != -1 {
 				spaceWidth += style.WordSpacing
 			}
@@ -639,7 +680,7 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []
 		}
 
 		// Measure the word (without trailing space)
-		wordWidth, ascent, descent := textMetrics.Measure(wordText, style)
+		wordWidth, ascent, descent := getTextMetrics().Measure(wordText, style)
 
 		// Check if we need to break BEFORE adding this word
 		effectiveLineWidth := currentWidth
@@ -698,7 +739,7 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) []
 						lastWordHadTrailingSpace = false
 					}
 
-					pieceWidth, ascent, descent := textMetrics.Measure(piece, style)
+					pieceWidth, ascent, descent := getTextMetrics().Measure(piece, style)
 					current.Boxes = append(current.Boxes, newInlineBox(piece, pieceWidth, ascent, descent, style.WritingMode))
 					currentWidth += pieceWidth
 				}
@@ -774,7 +815,7 @@ func breakIntoLinesPre(text string, maxInlineSize float64, style TextStyle) []Te
 
 		// Measure the entire line text (preserving all spaces)
 		// Text-indent affects alignment, not intrinsic width, so handle in positionLines()
-		advance, ascent, descent := textMetrics.Measure(lineText, style)
+		advance, ascent, descent := getTextMetrics().Measure(lineText, style)
 		line.Boxes = append(line.Boxes, newInlineBox(lineText, advance, ascent, descent, style.WritingMode))
 		line.Width = advance
 		lines = append(lines, line)
@@ -816,7 +857,7 @@ func breakIntoLinesPreWrap(text string, maxInlineSize float64, style TextStyle) 
 // maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
 func wrapSegment(segment string, maxInlineSize float64, style TextStyle) []TextLine {
 	// If unlimited inline size or segment fits, return as single line
-	segmentWidth, ascent, descent := textMetrics.Measure(segment, style)
+	segmentWidth, ascent, descent := getTextMetrics().Measure(segment, style)
 
 	if maxInlineSize >= Unbounded || segmentWidth <= maxInlineSize {
 		return []TextLine{{
@@ -858,7 +899,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 
 			if wordEnd > wordStart {
 				word := string(runes[wordStart:wordEnd])
-				wordWidth, ascent, descent := textMetrics.Measure(word, style)
+				wordWidth, ascent, descent := getTextMetrics().Measure(word, style)
 
 				// Check if adding this word would exceed maxInlineSize
 				if currentWidth > 0 && currentWidth+wordWidth > maxInlineSize {
@@ -876,7 +917,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 
 			// If current char is a space, add it
 			if runes[i] == ' ' {
-				spaceWidth, ascent, descent := textMetrics.Measure(" ", style)
+				spaceWidth, ascent, descent := getTextMetrics().Measure(" ", style)
 
 				// Check if space fits on current line
 				if currentWidth+spaceWidth > maxInlineSize && currentWidth > 0 {
@@ -917,7 +958,7 @@ func breakWordToFit(word string, maxInlineSize float64, style TextStyle) []strin
 
 	for _, r := range runes {
 		charStr := string(r)
-		charWidth, _, _ := textMetrics.Measure(charStr, style)
+		charWidth, _, _ := getTextMetrics().Measure(charStr, style)
 
 		if currentWidth+charWidth > maxInlineSize && currentPiece.Len() > 0 {
 			// Finish current piece
@@ -946,7 +987,7 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 
 	// Measure ellipsis width
 	ellipsisText := "..."
-	ellipsisWidth, ellipsisAscent, ellipsisDescent := textMetrics.Measure(ellipsisText, style)
+	ellipsisWidth, ellipsisAscent, ellipsisDescent := getTextMetrics().Measure(ellipsisText, style)
 
 	// Process each line that overflows
 	for i := range lines {
@@ -985,7 +1026,7 @@ func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle) 
 					// Try to fit part of this box
 					truncatedText := truncateTextToWidth(box.Text, remainingWidth, style)
 					if truncatedText != "" {
-						truncWidth, truncAscent, truncDesc := textMetrics.Measure(truncatedText, style)
+						truncWidth, truncAscent, truncDesc := getTextMetrics().Measure(truncatedText, style)
 						truncatedBoxes = append(truncatedBoxes, newInlineBox(truncatedText, truncWidth, truncAscent, truncDesc, style.WritingMode))
 						currentWidth += truncWidth
 					}
@@ -1019,7 +1060,7 @@ func truncateTextToWidth(text string, maxInlineSize float64, style TextStyle) st
 	for left <= right {
 		mid := (left + right) / 2
 		candidate := string(runes[:mid])
-		width, _, _ := textMetrics.Measure(candidate, style)
+		width, _, _ := getTextMetrics().Measure(candidate, style)
 
 		if width <= maxInlineSize {
 			result = candidate

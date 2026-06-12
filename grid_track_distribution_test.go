@@ -195,16 +195,15 @@ func TestGridAlignContentStretch(t *testing.T) {
 		t.Errorf("Second item should be at Y=100, got %v", container.Children[1].Rect.Y)
 	}
 
-	// Rows are stretched, but items with explicit heights should NOT stretch
-	// However, the current implementation stretches them to fill the row
-	// This appears to be the grid's align-items=stretch applying to stretched rows
-	// For now, we'll accept this behavior and document it
-	// TODO: Consider if items with explicit size should resist stretch
-	if container.Children[0].Rect.Height < 50 {
-		t.Errorf("First item height should be at least 50, got %v", container.Children[0].Rect.Height)
+	// Rows are stretched to fill the container, but items with an explicit
+	// height must NOT stretch: per CSS Box Alignment Level 3 §6.2, stretch is a
+	// no-op when the axis size is definite, so each item keeps its 50px height.
+	// https://www.w3.org/TR/css-align-3/#stretch-alignment
+	if container.Children[0].Rect.Height != 50 {
+		t.Errorf("First item height should remain 50, got %v", container.Children[0].Rect.Height)
 	}
-	if container.Children[1].Rect.Height < 50 {
-		t.Errorf("Second item height should be at least 50, got %v", container.Children[1].Rect.Height)
+	if container.Children[1].Rect.Height != 50 {
+		t.Errorf("Second item height should remain 50, got %v", container.Children[1].Rect.Height)
 	}
 }
 

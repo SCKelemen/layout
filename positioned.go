@@ -250,6 +250,9 @@ func findPositionedAncestor(node *Node, root *Node) *Node {
 // 1. Normal flow layout
 // 2. Positioned elements layout
 func LayoutWithPositioning(root *Node, constraints Constraints, viewportRect Rect, ctx *LayoutContext) Size {
+	if root == nil {
+		return Size{}
+	}
 	// First pass: normal flow layout
 	size := Layout(root, constraints, ctx)
 

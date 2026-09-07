@@ -12,7 +12,7 @@ package layout
 // (absolute, relative, fixed, sticky), use LayoutWithPositioning instead.
 //
 // After calling Layout, each node's Rect field will contain the computed
-// position and size.
+// position and size. A nil root has no layout and yields a zero Size.
 //
 // Based on CSS specifications:
 // - CSS Display Module Level 3: Display types and layout modes
@@ -30,6 +30,9 @@ package layout
 // - https://www.w3.org/TR/css-text-3/
 // - https://www.w3.org/TR/css-values-4/
 func Layout(root *Node, constraints Constraints, ctx *LayoutContext) Size {
+	if root == nil {
+		return Size{}
+	}
 	switch root.Style.Display {
 	case DisplayFlex:
 		return LayoutFlexbox(root, constraints, ctx)
@@ -49,17 +52,33 @@ func Layout(root *Node, constraints Constraints, ctx *LayoutContext) Size {
 // viewport or font configuration.
 //
 // The default context uses:
-// - Viewport size from constraints
-// - Root font size of 16 points
+// - Viewport size from constraints (MaxWidth x MaxHeight)
+// - Root font size of 16px
 // - Default text metrics provider
 // - Reference character '0' for ch units
+//
+// An unbounded constraint (MaxWidth or MaxHeight >= Unbounded, as produced by
+// Unconstrained) is not a viewport size: the corresponding viewport dimension
+// is 0, so vw/vh/vmin/vmax lengths resolve to 0 on that axis instead of
+// producing values near math.MaxFloat64. Callers that need viewport-relative
+// units together with unbounded constraints must use Layout with a
+// LayoutContext carrying the real viewport size.
 //
 // For more control over unit resolution, use Layout with a custom LayoutContext.
 func LayoutSimple(root *Node, constraints Constraints) Size {
 	ctx := NewLayoutContext(
-		constraints.MaxWidth,
-		constraints.MaxHeight,
+		finiteViewportSize(constraints.MaxWidth),
+		finiteViewportSize(constraints.MaxHeight),
 		16.0, // default root font size
 	)
 	return Layout(root, constraints, ctx)
+}
+
+// finiteViewportSize returns a constraint bound usable as a viewport size:
+// 0 when the bound is indefinite (>= Unbounded), NaN, or negative.
+func finiteViewportSize(bound float64) float64 {
+	if bound != bound || bound < 0 || bound >= Unbounded {
+		return 0
+	}
+	return bound
 }

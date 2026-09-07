@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Block layout: aspect ratio under an indefinite available width no longer produces `math.MaxFloat64` sizes.** An auto-sized block with `AspectRatio` laid out with an unbounded width (`Unconstrained()`, a flex container with an indefinite height, or any descendant of a vertical writing mode, whose children receive an unbounded `MaxWidth`) transferred `MaxFloat64` through the ratio and stored ~1.8e308 x 9e307 in `Rect`. An available size `>= Unbounded` is now treated as no available size (css-sizing-4 §5.1: only a definite size transfers through the ratio), so the box sizes from the other axis or from its content (0 when empty). A negative explicit `Width`/`Height` (illegal per CSS 2.1 §10.2) combined with an aspect ratio no longer yields `NaN`; it is treated as `auto`. As a last line of defense, `LayoutBlock` maps a `NaN` size to 0 and an infinite size to `Unbounded` before writing `Rect`.
+- **`LayoutSimple` with unbounded constraints:** the viewport passed to the default `LayoutContext` was `MaxFloat64`, so `Vw(50)` resolved to ~9e307. An unbounded `MaxWidth`/`MaxHeight` now yields a 0 viewport dimension, and viewport-relative units (`vw`, `vh`, `vmin`, `vmax`, `sv*`/`lv*`/`dv*`) resolve to 0 when the context has no viewport size on that axis (previously the raw value leaked through as pixels, e.g. `Vw(50)` became 50px). Callers that need viewport units together with unbounded constraints should use `Layout` with a `LayoutContext` carrying the real viewport size.
+- **`Layout(nil, ...)` and `LayoutWithPositioning(nil, ...)` return a zero `Size`** instead of panicking on a nil root.
+
+### Changed
+
+- **`ResolveLength` fast path for unset lengths:** the zero-value `Length` (`Unit == ""`) returns 0 without building a units context or going through the units package's allocating error path; the ch reference glyph is measured only for `ch`/`rch`/`ic`/`ric`, not on every resolution. Results are unchanged (`BenchmarkResolveLengthUnset` covers the hot path).
+- Documentation: font sizes and `RootFontSize` are in pixels (previous comments said "points"); the CSS default `medium` is 16px.
+
 ## [v1.4.0] - 2026-09-07
 
 Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).

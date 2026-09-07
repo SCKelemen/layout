@@ -22,12 +22,12 @@ import (
 //     delegates pixel resolution to units.Length.Resolve.
 //
 // The cq* length unit *constants* themselves live in
-// github.com/SCKelemen/units and are re-exported through Phase 1's
-// aliasing. This file only adds the layout-tree-aware resolution that
+// github.com/SCKelemen/units (Length is an alias of units.Length, see
+// length.go). This file only adds the layout-tree-aware resolution that
 // the units package cannot provide.
 //
 // The `@container` at-rule (size queries, style queries) is out of
-// scope; this commit only adds the property model and unit resolution.
+// scope; only the property model and unit resolution are implemented.
 
 // ContainerType is the CSS `container-type` property.
 //
@@ -277,7 +277,7 @@ func ResolveLengthInContext(l Length, ctx *LayoutContext, currentFontSize float6
 		return ResolveLength(l, ctx, currentFontSize)
 	}
 
-	uctx := buildUnitsContext(ctx, currentFontSize)
+	uctx := buildUnitsContext(ctx, currentFontSize, l.Unit)
 	resolveUnit := l.Unit
 
 	// Inline-axis container (accepts size OR inline-size).

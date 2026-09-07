@@ -56,6 +56,9 @@
 - **Over-constrained absolutely positioned boxes follow the containing block's direction** (CSS 2.1 §10.3.7): with `left`, `width`, and `right` all set, `right` is ignored when the containing block is `ltr` and `left` when it is `rtl`; the box's own `Direction` no longer decides. **Descendants of an absolutely positioned box are laid out again against its used size** when that differs from the size the flow pass gave it, so an `abs{Width: 300}` inside a 200px parent no longer leaves 200px-wide children.
 - `Style.Direction` and `Style.WritingMode` docs now state that the engine does not inherit them; set them on each node whose layout depends on them.
 
+- **Logical and small/large/dynamic viewport units resolve** (`vi`, `vb`, `sv*`, `lv*`, `dv*`): they previously fell through to 0 even with a viewport. Layout has one viewport, so every variant maps to it; the inline axis is the width and the block axis the height.
+- **`InlineBox.Orientations` follow the resolved writing mode** (`Style.WritingMode` first, then the legacy `TextStyle.WritingMode`); previously only the legacy field was consulted, so a node using `Style.WritingMode` got vertical geometry but no per-glyph orientations.
+
 ## [v1.4.0] - 2026-09-07
 
 Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).

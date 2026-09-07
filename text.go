@@ -165,6 +165,11 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	if direction == DirectionLTR && style.Direction != DirectionLTR {
 		direction = style.Direction
 	}
+	// Write the resolved values back into the local copy so every helper that
+	// reads style.WritingMode / style.Direction (box orientations, alignment)
+	// sees the same resolution as the sizing code below.
+	style.WritingMode = writingMode
+	style.Direction = direction
 
 	// Measure with the context's provider when it has one (LayoutContext.
 	// WithTextMetrics), otherwise the package-level provider.

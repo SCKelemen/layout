@@ -192,6 +192,17 @@ func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float6
 	if l.Unit == UnboundedUnit {
 		return math.MaxFloat64
 	}
+	// Viewport-relative units are resolved here so that the logical (vi, vb)
+	// and small/large/dynamic (sv*, lv*, dv*) variants work: layout has a
+	// single viewport with no dynamic toolbars, so every variant maps to the
+	// same size, and inline/block map to width/height (horizontal-tb).
+	// https://www.w3.org/TR/css-values-4/#viewport-relative-lengths
+	if l.IsViewportRelative() {
+		if ctx == nil {
+			return 0
+		}
+		return resolveViewportLength(l, ctx.ViewportWidth, ctx.ViewportHeight)
+	}
 
 	uctx := buildUnitsContext(ctx, currentFontSize, l.Unit)
 	resolved, err := l.Resolve(uctx)
@@ -293,4 +304,26 @@ func measureCharWidth(char rune, fontSize float64, metrics TextMetricsProvider) 
 	// Measure a single character
 	width, _, _ := metrics.Measure(string(char), style)
 	return width
+}
+
+// resolveViewportLength resolves a viewport-relative length against the given
+// viewport. A zero viewport dimension yields 0 (the size is unknown), never the
+// raw value. vmin/vmax pick the smaller/larger dimension; the inline axis is
+// the width and the block axis the height (horizontal-tb writing mode).
+func resolveViewportLength(l Length, viewportWidth, viewportHeight float64) float64 {
+	var base float64
+	switch l.Unit {
+	case units.VW, units.VI, units.SVW, units.SVI, units.LVW, units.LVI, units.DVW, units.DVI:
+		base = viewportWidth
+	case units.VH, units.VB, units.SVH, units.SVB, units.LVH, units.LVB, units.DVH, units.DVB:
+		base = viewportHeight
+	case units.VMIN, units.SVMIN, units.LVMIN, units.DVMIN:
+		base = math.Min(viewportWidth, viewportHeight)
+	case units.VMAX, units.SVMAX, units.LVMAX, units.DVMAX:
+		base = math.Max(viewportWidth, viewportHeight)
+	}
+	if base <= 0 || base >= math.MaxFloat64 {
+		return 0
+	}
+	return l.Value * base / 100
 }

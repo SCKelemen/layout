@@ -31,30 +31,30 @@ jobs:
             pattern: 'Box|Constraints|Padding|Margin|Border'
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         path: layout
 
     - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/wpt-test-gen
         path: wpt-test-gen
 
     - name: Checkout text library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/text
         path: text
 
     - name: Checkout unicode library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/unicode
         path: unicode
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
 
@@ -79,30 +79,30 @@ jobs:
         go-version: ['1.25']
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         path: layout
 
     - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/wpt-test-gen
         path: wpt-test-gen
 
     - name: Checkout text library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/text
         path: text
 
     - name: Checkout unicode library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/unicode
         path: unicode
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
 
@@ -149,30 +149,30 @@ jobs:
             pattern: 'FlowRoot|Contents|InlineFlex|InlineGrid'
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         path: layout
 
     - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/wpt-test-gen
         path: wpt-test-gen
 
     - name: Checkout text library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/text
         path: text
 
     - name: Checkout unicode library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/unicode
         path: unicode
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
 
@@ -193,30 +193,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         path: layout
 
     - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/wpt-test-gen
         path: wpt-test-gen
 
     - name: Checkout text library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/text
         path: text
 
     - name: Checkout unicode library dependency
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         repository: SCKelemen/unicode
         path: unicode
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: '1.25'
 

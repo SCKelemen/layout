@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `TextLine.EndsWithForcedBreak` and `InlineBox.SpaceAfter` are populated by `LayoutText`: `EndsWithForcedBreak` is true for lines ending at a preserved newline and for the last line of the text (both are aligned with `text-align-last` when justifying, css-text-3 §7.1) and false for soft wraps; `SpaceAfter` is true when an inter-word space follows the box on its line (false for the last box of a line, whose trailing space is removed). The text layout code's private parallel metadata slices were removed in favor of these fields.
+
 ### Changed
 
 - **Direction resolution:** text layout reads `Style.Direction` first and falls back to `TextStyle.Direction`, the same way `WritingMode` is resolved. `text-align: start` (`TextAlignDefault`) therefore resolves to the right in RTL when either field is set.
@@ -16,7 +20,6 @@
 
 ### Fixed
 
-- `TextLine.EndsWithForcedBreak` and `InlineBox.SpaceAfter` are populated by `LayoutText`: `EndsWithForcedBreak` is true for lines ending at a preserved newline and for the last line of the text (both are aligned with `text-align-last` when justifying, css-text-3 §7.1) and false for soft wraps; `SpaceAfter` is true when an inter-word space follows the box on its line (false for the last box of a line, whose trailing space is removed). The text layout code's private parallel metadata slices were removed in favor of these fields.
 - **Text layout honors `LayoutContext.TextMetrics`.** `LayoutText`, every line breaker (`breakIntoLines*`, `wrapSegmentPreserveSpaces`, `breakWordToFit`), `text-overflow` truncation, `hanging-punctuation`, and the text branches of `CalculateIntrinsicWidth` now measure with `ctx.TextMetrics` when it is set (`ctx.WithTextMetrics(...)`), falling back to the package-level provider otherwise (and for a nil context). Previously only `ch` unit resolution used the context provider; all text measurement went through the global one.
 - **Preserved tabs advance to tab stops** in `white-space: pre` and `pre-wrap` (css-text-3 §3.1.1): a tab now shifts to the next multiple of `TabSize` (`<= 0` means 8) times the advance of a space, measured from the start of the line, instead of being measured as a single glyph. `"a\tb"` with 6px glyphs and the default tab size is 54px (6 + shift to 48 + 6), not 18px. The tab character is kept in the box text for renderers. Intrinsic max-content sizing of `pre`/`pre-wrap` text uses the same measurement.
 - **`text-indent` with end alignment** (css-text-3 §7.2.1): the indent is a margin on the start edge of the first line box only, so right-aligned text stays flush with the end edge (200px box, indent 20, 50px word: `OffsetX` 150, previously 130). `text-align-last: right` on the first line behaves the same way. In RTL the start edge is the right edge, so the indent shortens the line there instead. Center alignment is unchanged.

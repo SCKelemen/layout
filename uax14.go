@@ -237,26 +237,6 @@ func isMandatoryBreakClass(cls BreakClass) bool {
 	return cls == ClassBK || cls == ClassCR || cls == ClassLF || cls == ClassNL
 }
 
-// getBreakAction returns the break action between two adjacent character
-// classes with no intervening spaces. It is a thin wrapper over the pair
-// rules used by findLineBreakOpportunities; BreakIndirect is never returned
-// because the space state is resolved by the caller.
-func getBreakAction(before, after BreakClass) BreakAction {
-	if isMandatoryBreakClass(before) {
-		if before == ClassCR && after == ClassLF {
-			return BreakProhibited // LB5: CR × LF
-		}
-		return BreakMandatory
-	}
-	if isMandatoryBreakClass(after) {
-		return BreakProhibited // LB6
-	}
-	if pairBreakAllowed(before, after, false, ClassXX) {
-		return BreakDirect
-	}
-	return BreakProhibited
-}
-
 // isOneOf reports whether cls is in the given set.
 func isOneOf(cls BreakClass, set ...BreakClass) bool {
 	for _, c := range set {

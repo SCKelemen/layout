@@ -190,8 +190,12 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// convertToContentSize's isWidth flag selects which padding/border sum to
 	// subtract; the inline axis is the physical width only in horizontal modes.
 	inlineIsWidth := !isVertical
-	hasExplicitInline := inlinePx > 0
-	hasExplicitBlock := blockPx > 0
+	// A size that resolves to the Unbounded sentinel (for example
+	// PxUnbounded, or a percentage of an unbounded container) is not a usable
+	// explicit size: aligning lines against it would yield offsets on the
+	// order of math.MaxFloat64. Treat it as auto, like an unset size.
+	hasExplicitInline := inlinePx > 0 && inlinePx < Unbounded
+	hasExplicitBlock := blockPx > 0 && blockPx < Unbounded
 
 	minInlineContent := convertMinMaxToContentSize(minInlinePx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, inlineIsWidth)
 	maxInlineContent := convertMinMaxToContentSize(maxInlinePx, node.Style.BoxSizing, horizontalPaddingBorder, verticalPaddingBorder, inlineIsWidth)
@@ -1455,10 +1459,12 @@ func resolveLineHeight(lineHeight float64, fontSize float64) float64 {
 // Text creates a new text node with the given text and optional style.
 // The node will have DisplayInlineText set automatically.
 func Text(text string, style ...Style) *Node {
+	// Width and Height are intentionally left as the zero-value Length
+	// (Unit == ""), which the library treats as auto. Px(0) is an explicit
+	// zero size for block, grid, and positioned layout, so seeding it here
+	// would collapse a Text() node used as a grid or flex item to 0x0.
 	baseStyle := Style{
 		Display: DisplayInlineText,
-		Width:   Px(0), // auto (Px(0) is treated as auto when resolved)
-		Height:  Px(0), // auto
 		TextStyle: &TextStyle{
 			FontSize:   16,
 			TextAlign:  TextAlignDefault,

@@ -373,14 +373,14 @@ func calculateGridMinContentWidth(node *Node, constraints Constraints, ctx *Layo
 		return 0
 	}
 
+	currentFontSize := getCurrentFontSize(node, ctx)
 	totalWidth := 0.0
 	for i, track := range node.Style.GridTemplateColumns {
-		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMinContent, ctx, 16.0)
+		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMinContent, ctx, currentFontSize)
 		totalWidth += trackSize
 	}
 
 	// Add gaps
-	currentFontSize := getCurrentFontSize(node, ctx)
 	gap := node.Style.GridGap
 	if node.Style.GridColumnGap.Value > 0 {
 		gap = node.Style.GridColumnGap
@@ -398,14 +398,14 @@ func calculateGridMaxContentWidth(node *Node, constraints Constraints, ctx *Layo
 		return 0
 	}
 
+	currentFontSize := getCurrentFontSize(node, ctx)
 	totalWidth := 0.0
 	for i, track := range node.Style.GridTemplateColumns {
-		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMaxContent, ctx, 16.0)
+		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMaxContent, ctx, currentFontSize)
 		totalWidth += trackSize
 	}
 
 	// Add gaps
-	currentFontSize := getCurrentFontSize(node, ctx)
 	gap := node.Style.GridGap
 	if node.Style.GridColumnGap.Value > 0 {
 		gap = node.Style.GridColumnGap

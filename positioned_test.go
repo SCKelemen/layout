@@ -152,7 +152,15 @@ func TestPositionFixed(t *testing.T) {
 }
 
 func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
-	// Test absolute positioning with both left and right (constrains width)
+	// Absolute positioning with left, width, and right all set is
+	// over-constrained. CSS 2.1 §10.3.7: "If the values are over-constrained,
+	// ignore the value for 'left' (in case 'direction' of the containing block
+	// is 'rtl') or 'right' (in case 'direction' is 'ltr')". The explicit width
+	// is kept (overflowing the containing block) and the box sits at left.
+	// https://www.w3.org/TR/CSS21/visudet.html#abs-non-replaced-width
+	//
+	// Previously the engine clamped the width to the space between the
+	// offsets (400 - 50 - 50 = 300), which is the rule for width: auto only.
 	root := &Node{
 		Style: Style{
 			Width:  Px(400),
@@ -178,9 +186,31 @@ func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
 	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 
 	child := root.Children[0]
-	// Width should be constrained: 400 - 50 - 50 = 300
-	expectedWidth := 300.0
-	if math.Abs(child.Rect.Width-expectedWidth) > 1.0 {
-		t.Errorf("Expected width %.2f, got %.2f", expectedWidth, child.Rect.Width)
+	// Explicit width wins; right is ignored (ltr).
+	if child.Rect.Width != 500 {
+		t.Errorf("Expected explicit width 500 to be kept, got %.2f", child.Rect.Width)
+	}
+	if child.Rect.X != 50 {
+		t.Errorf("Expected X=50 (left honored, right ignored), got %.2f", child.Rect.X)
+	}
+
+	// direction: rtl on the containing block ignores left instead
+	// (CSS 2.1 §10.3.7 uses the containing block's direction):
+	// X = 400 - 50 - 500 = -150.
+	root.Style.Direction = DirectionRTL
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
+	if child.Rect.Width != 500 {
+		t.Errorf("rtl: expected explicit width 500 to be kept, got %.2f", child.Rect.Width)
+	}
+	if child.Rect.X != -150 {
+		t.Errorf("rtl: expected X=-150 (right honored, left ignored), got %.2f", child.Rect.X)
+	}
+
+	// With width: auto the box spans the space between the offsets.
+	child.Style.Direction = DirectionLTR
+	child.Style.Width = Length{}
+	LayoutWithPositioning(root, constraints, root.Rect, ctx)
+	if child.Rect.Width != 300 || child.Rect.X != 50 {
+		t.Errorf("auto width: expected X=50 W=300, got X=%.2f W=%.2f", child.Rect.X, child.Rect.Width)
 	}
 }

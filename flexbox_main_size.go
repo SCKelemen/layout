@@ -112,23 +112,49 @@ func flexboxDetermineMainSize(line []*flexItem, mainSize float64, hasExplicitMai
 	// freezes at least one item, so len(line)+1 iterations always suffice.
 	for iteration := 0; iteration <= len(line); iteration++ {
 		// 4a: check for flexible items.
-		sumFactors := 0.0
-		sumScaledShrink := 0.0
+		//
+		// Free space is distributed in proportion to the factors, so scaling
+		// every unfrozen factor by the same constant does not change the
+		// result. When the largest factor is huge (e.g. 1e308) the sums below
+		// would overflow to +Inf and every share would become NaN, so the
+		// factors are normalized by the largest one first. The §9.7 step 4b
+		// "sum of flex factors less than one" rule is unaffected: after
+		// normalization the largest factor is exactly 1, so the sum is >= 1
+		// whenever the scale is applied.
 		unfrozen := 0
+		maxFactor := 0.0
 		for _, item := range line {
 			if item.frozen {
 				continue
 			}
 			unfrozen++
+			factor := item.flexShrink
 			if growing {
-				sumFactors += item.flexGrow
-			} else {
-				sumFactors += item.flexShrink
-				sumScaledShrink += item.flexShrink * item.baseSize
+				factor = item.flexGrow
+			}
+			if factor > maxFactor {
+				maxFactor = factor
 			}
 		}
 		if unfrozen == 0 {
 			return
+		}
+		factorScale := 1.0
+		if maxFactor > 1e100 {
+			factorScale = 1 / maxFactor
+		}
+		sumFactors := 0.0
+		sumScaledShrink := 0.0
+		for _, item := range line {
+			if item.frozen {
+				continue
+			}
+			if growing {
+				sumFactors += item.flexGrow * factorScale
+			} else {
+				sumFactors += item.flexShrink * factorScale
+				sumScaledShrink += item.flexShrink * factorScale * item.baseSize
+			}
 		}
 
 		// 4b: calculate the remaining free space. If the sum of the unfrozen
@@ -147,12 +173,14 @@ func flexboxDetermineMainSize(line []*flexItem, mainSize float64, hasExplicitMai
 			if item.frozen {
 				continue
 			}
+			// The ratio is formed before multiplying by the free space so that
+			// a large factor times a large free space cannot overflow.
 			target := item.baseSize
 			if remaining > 0 && growing && sumFactors > 0 {
-				target += remaining * item.flexGrow / sumFactors
+				target += remaining * (item.flexGrow * factorScale / sumFactors)
 			} else if remaining < 0 && !growing && sumScaledShrink > 0 {
-				scaledShrink := item.flexShrink * item.baseSize
-				target -= math.Abs(remaining) * scaledShrink / sumScaledShrink
+				scaledShrink := item.flexShrink * factorScale * item.baseSize
+				target -= math.Abs(remaining) * (scaledShrink / sumScaledShrink)
 			}
 			item.mainSize = target
 		}

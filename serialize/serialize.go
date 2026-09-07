@@ -30,7 +30,23 @@ const (
 	// the legacy bare number math.MaxFloat64 (see legacyNumberLength), and
 	// math.MaxFloat64 in Rect fields (see checkRect).
 	MaxNumericValue = 1e12
+	// MaxRepeatCount is the largest integer repetition count accepted for a
+	// repeat() track pattern (gridTemplateRowsRepeat / gridTemplateColumnsRepeat).
+	MaxRepeatCount = 10000
+	// MaxRepeatTracks is the largest number of tracks a single repeat()
+	// pattern may expand to: count × len(tracks) for an integer count, and
+	// len(tracks) for auto-fill / auto-fit (which repeat at least once). It
+	// matches the layout engine's per-axis track cap, so an accepted pattern
+	// is never truncated by layout.
+	MaxRepeatTracks = 10000
+	// MaxRepeats is the maximum number of repeat() patterns in one axis
+	// (the length of gridTemplateRowsRepeat / gridTemplateColumnsRepeat).
+	MaxRepeats = 100
 )
+
+// ErrNullInput is returned by FromJSON and FromYAML when the document is a
+// bare null (or, for YAML, empty), which has no layout meaning.
+var ErrNullInput = errors.New("serialize: input is null")
 
 // ErrLimitExceeded is wrapped by errors returned when the input exceeds
 // MaxTreeDepth or MaxChildren.
@@ -79,6 +95,9 @@ type StyleJSON struct {
 	GridColumnEnd       int                    `json:"gridColumnEnd,omitempty" yaml:"gridColumnEnd,omitempty"`
 	GridTemplateAreas   *GridTemplateAreasJSON `json:"gridTemplateAreas,omitempty" yaml:"gridTemplateAreas,omitempty"`
 	GridArea            string                 `json:"gridArea,omitempty" yaml:"gridArea,omitempty"`
+	// Repeat patterns appended after the explicit tracks; see RepeatJSON.
+	GridTemplateRowsRepeat    []RepeatJSON `json:"gridTemplateRowsRepeat,omitempty" yaml:"gridTemplateRowsRepeat,omitempty"`
+	GridTemplateColumnsRepeat []RepeatJSON `json:"gridTemplateColumnsRepeat,omitempty" yaml:"gridTemplateColumnsRepeat,omitempty"`
 
 	// Sizing
 	Width            LengthJSON `json:"width,omitempty" yaml:"width,omitempty"`
@@ -112,8 +131,9 @@ type StyleJSON struct {
 	// Transform
 	Transform *TransformJSON `json:"transform,omitempty" yaml:"transform,omitempty"`
 
-	// Writing mode and container queries
+	// Writing mode, direction, and container queries
 	WritingMode   string   `json:"writingMode,omitempty" yaml:"writingMode,omitempty"`
+	Direction     string   `json:"direction,omitempty" yaml:"direction,omitempty"`
 	ContainerType string   `json:"containerType,omitempty" yaml:"containerType,omitempty"`
 	ContainerName []string `json:"containerName,omitempty" yaml:"containerName,omitempty"`
 
@@ -172,6 +192,26 @@ type TrackJSON struct {
 	MaxSize  LengthJSON `json:"maxSize,omitempty" yaml:"maxSize,omitempty"`
 	Fraction float64    `json:"fraction,omitempty" yaml:"fraction,omitempty"`
 }
+
+// RepeatJSON is the wire form of layout.RepeatTrack, the repeat() notation of
+// CSS Grid (https://www.w3.org/TR/css-grid-1/#repeat-notation).
+//
+// Count is either an integer repetition count in [1, MaxRepeatCount], written
+// as a JSON/YAML number, or one of the keywords "auto-fill" / "auto-fit",
+// written as a string. Tracks is the pattern to repeat and must hold at least
+// one track; the expansion (Count × len(Tracks), or len(Tracks) for the
+// keywords) may not exceed MaxRepeatTracks, and an axis may list at most
+// MaxRepeats patterns.
+type RepeatJSON struct {
+	Count  any         `json:"count" yaml:"count"`
+	Tracks []TrackJSON `json:"tracks,omitempty" yaml:"tracks,omitempty"`
+}
+
+// Repeat-count keywords.
+const (
+	repeatAutoFill = "auto-fill"
+	repeatAutoFit  = "auto-fit"
+)
 
 // SpacingJSON represents a serializable version of layout.Spacing
 type SpacingJSON struct {
@@ -256,14 +296,18 @@ func ToJSON(node *layout.Node) ([]byte, error) {
 }
 
 // FromJSON converts JSON bytes to a layout.Node.
-// It returns an error for malformed JSON, non-finite or absurd numbers,
-// unknown enum keywords, or trees exceeding MaxTreeDepth/MaxChildren.
+// It returns an error for malformed JSON, a bare null document
+// (ErrNullInput), non-finite or absurd numbers, unknown enum keywords, or
+// trees exceeding MaxTreeDepth/MaxChildren.
 func FromJSON(data []byte) (*layout.Node, error) {
-	var nodeJSON NodeJSON
+	var nodeJSON *NodeJSON
 	if err := json.Unmarshal(data, &nodeJSON); err != nil {
 		return nil, err
 	}
-	return jsonToNode(&nodeJSON)
+	if nodeJSON == nil {
+		return nil, ErrNullInput
+	}
+	return jsonToNode(nodeJSON)
 }
 
 // =============================================================================
@@ -281,6 +325,9 @@ func encodeNode(node *layout.Node, path string, depth int) (*NodeJSON, error) {
 	}
 	if depth > MaxTreeDepth {
 		return nil, fmt.Errorf("%w: %s: depth exceeds %d", ErrLimitExceeded, path, MaxTreeDepth)
+	}
+	if len(node.Children) > MaxChildren {
+		return nil, fmt.Errorf("%w: %s: %d children exceeds %d", ErrLimitExceeded, path, len(node.Children), MaxChildren)
 	}
 
 	style, err := styleToJSON(&node.Style, path+".style")
@@ -321,15 +368,15 @@ func styleToJSON(s *layout.Style, path string) (StyleJSON, error) {
 	e := &encoder{path: path}
 
 	sj := StyleJSON{
-		Display:        e.enum(displayEnum, int(s.Display)),
-		FlexDirection:  e.enum(flexDirectionEnum, int(s.FlexDirection)),
-		FlexWrap:       e.enum(flexWrapEnum, int(s.FlexWrap)),
-		JustifyContent: e.enum(justifyContentEnum, int(s.JustifyContent)),
-		AlignItems:     e.enum(alignItemsEnum, int(s.AlignItems)),
-		AlignContent:   e.enum(alignContentEnum, int(s.AlignContent)),
-		AlignSelf:      e.enum(alignItemsEnum, int(s.AlignSelf)),
-		JustifyItems:   e.enum(justifyItemsEnum, int(s.JustifyItems)),
-		JustifySelf:    e.enum(justifyItemsEnum, int(s.JustifySelf)),
+		Display:        encodeEnum(e, "display", s.Display, layout.ParseDisplay),
+		FlexDirection:  encodeEnum(e, "flexDirection", s.FlexDirection, layout.ParseFlexDirection),
+		FlexWrap:       encodeEnum(e, "flexWrap", s.FlexWrap, layout.ParseFlexWrap),
+		JustifyContent: encodeEnum(e, "justifyContent", s.JustifyContent, layout.ParseJustifyContent),
+		AlignItems:     encodeEnum(e, "alignItems", s.AlignItems, layout.ParseAlignItems),
+		AlignContent:   encodeEnum(e, "alignContent", s.AlignContent, layout.ParseAlignContent),
+		AlignSelf:      encodeEnum(e, "alignSelf", s.AlignSelf, layout.ParseAlignItems),
+		JustifyItems:   encodeEnum(e, "justifyItems", s.JustifyItems, layout.ParseJustifyItems),
+		JustifySelf:    encodeEnum(e, "justifySelf", s.JustifySelf, layout.ParseJustifyItems),
 		FlexGrow:       e.float("flexGrow", s.FlexGrow),
 		FlexShrink:     e.float("flexShrink", s.FlexShrink),
 		FlexBasis:      e.length("flexBasis", s.FlexBasis),
@@ -338,7 +385,7 @@ func styleToJSON(s *layout.Style, path string) (StyleJSON, error) {
 		FlexColumnGap:  e.length("flexColumnGap", s.FlexColumnGap),
 		Order:          s.Order,
 
-		GridAutoFlow:    e.enum(gridAutoFlowEnum, int(s.GridAutoFlow)),
+		GridAutoFlow:    encodeEnum(e, "gridAutoFlow", s.GridAutoFlow, layout.ParseGridAutoFlow),
 		GridGap:         e.length("gridGap", s.GridGap),
 		GridRowGap:      e.length("gridRowGap", s.GridRowGap),
 		GridColumnGap:   e.length("gridColumnGap", s.GridColumnGap),
@@ -355,22 +402,23 @@ func styleToJSON(s *layout.Style, path string) (StyleJSON, error) {
 		MaxWidth:         e.length("maxWidth", s.MaxWidth),
 		MaxHeight:        e.length("maxHeight", s.MaxHeight),
 		AspectRatio:      e.float("aspectRatio", s.AspectRatio),
-		WidthSizing:      e.enum(intrinsicSizeEnum, int(s.WidthSizing)),
-		HeightSizing:     e.enum(intrinsicSizeEnum, int(s.HeightSizing)),
+		WidthSizing:      encodeEnum(e, "widthSizing", s.WidthSizing, layout.ParseIntrinsicSize),
+		HeightSizing:     encodeEnum(e, "heightSizing", s.HeightSizing, layout.ParseIntrinsicSize),
 		FitContentWidth:  e.length("fitContentWidth", s.FitContentWidth),
 		FitContentHeight: e.length("fitContentHeight", s.FitContentHeight),
 
-		BoxSizing: e.enum(boxSizingEnum, int(s.BoxSizing)),
+		BoxSizing: encodeEnum(e, "boxSizing", s.BoxSizing, layout.ParseBoxSizing),
 
-		Position: e.enum(positionEnum, int(s.Position)),
+		Position: encodeEnum(e, "position", s.Position, layout.ParsePosition),
 		Top:      e.length("top", s.Top),
 		Right:    e.length("right", s.Right),
 		Bottom:   e.length("bottom", s.Bottom),
 		Left:     e.length("left", s.Left),
 		ZIndex:   s.ZIndex,
 
-		WritingMode:   e.enum(writingModeEnum, int(s.WritingMode)),
-		ContainerType: e.enum(containerTypeEnum, int(s.ContainerType)),
+		WritingMode:   encodeEnum(e, "writingMode", s.WritingMode, layout.ParseWritingMode),
+		Direction:     encodeEnum(e, "direction", s.Direction, layout.ParseDirection),
+		ContainerType: encodeEnum(e, "containerType", s.ContainerType, layout.ParseContainerType),
 	}
 
 	// Struct-typed fields are pointers so that omitempty can drop them.
@@ -396,18 +444,10 @@ func styleToJSON(s *layout.Style, path string) (StyleJSON, error) {
 		sj.GridAutoColumns = &t
 	}
 
-	if len(s.GridTemplateRows) > 0 {
-		sj.GridTemplateRows = make([]TrackJSON, len(s.GridTemplateRows))
-		for i := range s.GridTemplateRows {
-			sj.GridTemplateRows[i] = e.track(fmt.Sprintf("gridTemplateRows[%d]", i), &s.GridTemplateRows[i])
-		}
-	}
-	if len(s.GridTemplateColumns) > 0 {
-		sj.GridTemplateColumns = make([]TrackJSON, len(s.GridTemplateColumns))
-		for i := range s.GridTemplateColumns {
-			sj.GridTemplateColumns[i] = e.track(fmt.Sprintf("gridTemplateColumns[%d]", i), &s.GridTemplateColumns[i])
-		}
-	}
+	sj.GridTemplateRows = e.tracks("gridTemplateRows", s.GridTemplateRows)
+	sj.GridTemplateColumns = e.tracks("gridTemplateColumns", s.GridTemplateColumns)
+	sj.GridTemplateRowsRepeat = e.repeats("gridTemplateRowsRepeat", s.GridTemplateRowsRepeat)
+	sj.GridTemplateColumnsRepeat = e.repeats("gridTemplateColumnsRepeat", s.GridTemplateColumnsRepeat)
 	if s.GridTemplateAreas != nil {
 		sj.GridTemplateAreas = gridTemplateAreasToJSON(s.GridTemplateAreas)
 	}
@@ -434,10 +474,24 @@ func (e *encoder) fail(err error) {
 	}
 }
 
-func (e *encoder) enum(t *enumTable, v int) string {
-	s, err := t.name(v)
-	if err != nil {
-		e.fail(fmt.Errorf("%s.%s: %w", e.path, t.kind, err))
+// cssEnum is satisfied by every layout enum that has a String method and a
+// matching Parse function in enums.go.
+type cssEnum interface {
+	~int
+	String() string
+}
+
+// encodeEnum formats v with its String method. The zero value is written as
+// the empty string so omitempty drops it. A value outside the enum's range
+// formats as "Kind(n)", which its Parse function rejects; that round trip is
+// how an unknown value is detected and reported.
+func encodeEnum[T cssEnum](e *encoder, field string, v T, parse func(string) (T, error)) string {
+	if v == 0 {
+		return ""
+	}
+	s := v.String()
+	if _, err := parse(s); err != nil {
+		e.fail(fmt.Errorf("%s.%s: unknown value %d", e.path, field, int(v)))
 	}
 	return s
 }
@@ -480,6 +534,76 @@ func (e *encoder) track(field string, t *layout.GridTrack) TrackJSON {
 	}
 }
 
+// tracks encodes a track list, applying the MaxChildren cap that decoding
+// enforces so an encoded tree always reads back.
+func (e *encoder) tracks(field string, ts []layout.GridTrack) []TrackJSON {
+	if len(ts) == 0 {
+		return nil
+	}
+	if len(ts) > MaxChildren {
+		e.fail(fmt.Errorf("%w: %s.%s: %d tracks exceeds %d", ErrLimitExceeded, e.path, field, len(ts), MaxChildren))
+		return nil
+	}
+	out := make([]TrackJSON, len(ts))
+	for i := range ts {
+		out[i] = e.track(fmt.Sprintf("%s[%d]", field, i), &ts[i])
+	}
+	return out
+}
+
+// repeats encodes repeat() patterns. See RepeatJSON for the wire form.
+func (e *encoder) repeats(field string, rs []layout.RepeatTrack) []RepeatJSON {
+	if len(rs) == 0 {
+		return nil
+	}
+	if len(rs) > MaxRepeats {
+		e.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, e.path, field, len(rs), MaxRepeats))
+		return nil
+	}
+	out := make([]RepeatJSON, len(rs))
+	for i, r := range rs {
+		item := fmt.Sprintf("%s[%d]", field, i)
+		var count any
+		switch {
+		case r.Count == layout.RepeatCountAutoFill:
+			count = repeatAutoFill
+		case r.Count == layout.RepeatCountAutoFit:
+			count = repeatAutoFit
+		case r.Count >= 1 && r.Count <= MaxRepeatCount:
+			count = r.Count
+		default:
+			e.fail(fmt.Errorf("%s.%s.count: %d is not in [1, %d], auto-fill, or auto-fit", e.path, item, r.Count, MaxRepeatCount))
+		}
+		if len(r.Tracks) == 0 {
+			e.fail(fmt.Errorf("%s.%s.tracks: repeat() needs at least one track", e.path, item))
+		}
+		if err := checkRepeatTracks(r.Count, len(r.Tracks)); err != nil {
+			e.fail(fmt.Errorf("%w: %s.%s: %v", ErrLimitExceeded, e.path, item, err))
+		}
+		out[i] = RepeatJSON{Count: count, Tracks: e.tracks(item+".tracks", r.Tracks)}
+	}
+	return out
+}
+
+// checkRepeatTracks enforces MaxRepeatTracks on one repeat() pattern: an
+// integer count expands to count × tracks tracks; auto-fill / auto-fit
+// (negative counts) expand to at least one repetition, so only the pattern
+// length is bounded. An out-of-range count is reported separately by the
+// caller and is not counted here.
+func checkRepeatTracks(count, tracks int) error {
+	switch {
+	case count < 0:
+		if tracks > MaxRepeatTracks {
+			return fmt.Errorf("auto-repeat pattern of %d tracks exceeds %d tracks", tracks, MaxRepeatTracks)
+		}
+	case count >= 1 && count <= MaxRepeatCount:
+		if tracks > MaxRepeatTracks/count {
+			return fmt.Errorf("repeat(%d) of %d tracks expands to %d tracks, exceeds %d", count, tracks, count*tracks, MaxRepeatTracks)
+		}
+	}
+	return nil
+}
+
 func (e *encoder) textStyle(ts *layout.TextStyle) *TextStyleJSON {
 	saved := e.path
 	e.path += ".textStyle"
@@ -492,31 +616,31 @@ func (e *encoder) textStyle(ts *layout.TextStyle) *TextStyleJSON {
 		e.fail(fmt.Errorf("%s.textDecoration: %d out of range [0, %d]", e.path, ts.TextDecoration, maxTextDecoration))
 	}
 	return &TextStyleJSON{
-		TextAlign:           e.enum(textAlignEnum, int(ts.TextAlign)),
-		TextAlignLast:       e.enum(textAlignLastEnum, int(ts.TextAlignLast)),
-		TextJustify:         e.enum(textJustifyEnum, int(ts.TextJustify)),
+		TextAlign:           encodeEnum(e, "textAlign", ts.TextAlign, layout.ParseTextAlign),
+		TextAlignLast:       encodeEnum(e, "textAlignLast", ts.TextAlignLast, layout.ParseTextAlignLast),
+		TextJustify:         encodeEnum(e, "textJustify", ts.TextJustify, layout.ParseTextJustify),
 		LineHeight:          e.float("lineHeight", ts.LineHeight),
 		WordSpacing:         e.float("wordSpacing", ts.WordSpacing),
 		LetterSpacing:       e.float("letterSpacing", ts.LetterSpacing),
 		TextIndent:          e.float("textIndent", ts.TextIndent),
-		WhiteSpace:          e.enum(whiteSpaceEnum, int(ts.WhiteSpace)),
-		OverflowWrap:        e.enum(overflowWrapEnum, int(ts.OverflowWrap)),
-		WordBreak:           e.enum(wordBreakEnum, int(ts.WordBreak)),
-		TextOverflow:        e.enum(textOverflowEnum, int(ts.TextOverflow)),
-		TextTransform:       e.enum(textTransformEnum, int(ts.TextTransform)),
-		Hyphens:             e.enum(hyphensEnum, int(ts.Hyphens)),
-		HangingPunctuation:  e.enum(hangingPunctuationEnum, int(ts.HangingPunctuation)),
+		WhiteSpace:          encodeEnum(e, "whiteSpace", ts.WhiteSpace, layout.ParseWhiteSpace),
+		OverflowWrap:        encodeEnum(e, "overflowWrap", ts.OverflowWrap, layout.ParseOverflowWrap),
+		WordBreak:           encodeEnum(e, "wordBreak", ts.WordBreak, layout.ParseWordBreak),
+		TextOverflow:        encodeEnum(e, "textOverflow", ts.TextOverflow, layout.ParseTextOverflow),
+		TextTransform:       encodeEnum(e, "textTransform", ts.TextTransform, layout.ParseTextTransform),
+		Hyphens:             encodeEnum(e, "hyphens", ts.Hyphens, layout.ParseHyphens),
+		HangingPunctuation:  encodeEnum(e, "hangingPunctuation", ts.HangingPunctuation, layout.ParseHangingPunctuation),
 		TabSize:             e.float("tabSize", ts.TabSize),
 		FontSize:            e.float("fontSize", ts.FontSize),
 		FontFamily:          ts.FontFamily,
 		FontWeight:          int(ts.FontWeight),
-		FontStyle:           e.enum(fontStyleEnum, int(ts.FontStyle)),
+		FontStyle:           encodeEnum(e, "fontStyle", ts.FontStyle, layout.ParseFontStyle),
 		TextDecoration:      int(ts.TextDecoration),
-		TextDecorationStyle: e.enum(textDecorationStyleEnum, int(ts.TextDecorationStyle)),
+		TextDecorationStyle: encodeEnum(e, "textDecorationStyle", ts.TextDecorationStyle, layout.ParseTextDecorationStyle),
 		TextDecorationColor: ts.TextDecorationColor,
-		VerticalAlign:       e.enum(verticalAlignEnum, int(ts.VerticalAlign)),
-		WritingMode:         e.enum(writingModeEnum, int(ts.WritingMode)),
-		Direction:           e.enum(directionEnum, int(ts.Direction)),
+		VerticalAlign:       encodeEnum(e, "verticalAlign", ts.VerticalAlign, layout.ParseVerticalAlign),
+		WritingMode:         encodeEnum(e, "writingMode", ts.WritingMode, layout.ParseWritingMode),
+		Direction:           encodeEnum(e, "direction", ts.Direction, layout.ParseDirection),
 	}
 }
 
@@ -631,15 +755,15 @@ func jsonToStyle(sj *StyleJSON, path string) (layout.Style, error) {
 	d := &decoder{path: path}
 
 	s := layout.Style{
-		Display:        layout.Display(d.enum(displayEnum, sj.Display)),
-		FlexDirection:  layout.FlexDirection(d.enum(flexDirectionEnum, sj.FlexDirection)),
-		FlexWrap:       layout.FlexWrap(d.enum(flexWrapEnum, sj.FlexWrap)),
-		JustifyContent: layout.JustifyContent(d.enum(justifyContentEnum, sj.JustifyContent)),
-		AlignItems:     layout.AlignItems(d.enum(alignItemsEnum, sj.AlignItems)),
-		AlignContent:   layout.AlignContent(d.enum(alignContentEnum, sj.AlignContent)),
-		AlignSelf:      layout.AlignItems(d.enum(alignItemsEnum, sj.AlignSelf)),
-		JustifyItems:   layout.JustifyItems(d.enum(justifyItemsEnum, sj.JustifyItems)),
-		JustifySelf:    layout.JustifyItems(d.enum(justifyItemsEnum, sj.JustifySelf)),
+		Display:        decodeEnum(d, "display", sj.Display, layout.ParseDisplay),
+		FlexDirection:  decodeEnum(d, "flexDirection", sj.FlexDirection, layout.ParseFlexDirection),
+		FlexWrap:       decodeEnum(d, "flexWrap", sj.FlexWrap, layout.ParseFlexWrap),
+		JustifyContent: decodeEnum(d, "justifyContent", sj.JustifyContent, layout.ParseJustifyContent),
+		AlignItems:     decodeEnum(d, "alignItems", sj.AlignItems, layout.ParseAlignItems),
+		AlignContent:   decodeEnum(d, "alignContent", sj.AlignContent, layout.ParseAlignContent),
+		AlignSelf:      decodeEnum(d, "alignSelf", sj.AlignSelf, layout.ParseAlignItems),
+		JustifyItems:   decodeEnum(d, "justifyItems", sj.JustifyItems, layout.ParseJustifyItems),
+		JustifySelf:    decodeEnum(d, "justifySelf", sj.JustifySelf, layout.ParseJustifyItems),
 		FlexGrow:       d.float("flexGrow", sj.FlexGrow),
 		FlexShrink:     d.float("flexShrink", sj.FlexShrink),
 		FlexBasis:      d.length("flexBasis", sj.FlexBasis),
@@ -648,7 +772,7 @@ func jsonToStyle(sj *StyleJSON, path string) (layout.Style, error) {
 		FlexColumnGap:  d.length("flexColumnGap", sj.FlexColumnGap),
 		Order:          sj.Order,
 
-		GridAutoFlow:    layout.GridAutoFlow(d.enum(gridAutoFlowEnum, sj.GridAutoFlow)),
+		GridAutoFlow:    decodeEnum(d, "gridAutoFlow", sj.GridAutoFlow, layout.ParseGridAutoFlow),
 		GridGap:         d.length("gridGap", sj.GridGap),
 		GridRowGap:      d.length("gridRowGap", sj.GridRowGap),
 		GridColumnGap:   d.length("gridColumnGap", sj.GridColumnGap),
@@ -665,22 +789,23 @@ func jsonToStyle(sj *StyleJSON, path string) (layout.Style, error) {
 		MaxWidth:         d.length("maxWidth", sj.MaxWidth),
 		MaxHeight:        d.length("maxHeight", sj.MaxHeight),
 		AspectRatio:      d.float("aspectRatio", sj.AspectRatio),
-		WidthSizing:      layout.IntrinsicSize(d.enum(intrinsicSizeEnum, sj.WidthSizing)),
-		HeightSizing:     layout.IntrinsicSize(d.enum(intrinsicSizeEnum, sj.HeightSizing)),
+		WidthSizing:      decodeEnum(d, "widthSizing", sj.WidthSizing, layout.ParseIntrinsicSize),
+		HeightSizing:     decodeEnum(d, "heightSizing", sj.HeightSizing, layout.ParseIntrinsicSize),
 		FitContentWidth:  d.length("fitContentWidth", sj.FitContentWidth),
 		FitContentHeight: d.length("fitContentHeight", sj.FitContentHeight),
 
-		BoxSizing: layout.BoxSizing(d.enum(boxSizingEnum, sj.BoxSizing)),
+		BoxSizing: decodeEnum(d, "boxSizing", sj.BoxSizing, layout.ParseBoxSizing),
 
-		Position: layout.Position(d.enum(positionEnum, sj.Position)),
+		Position: decodeEnum(d, "position", sj.Position, layout.ParsePosition),
 		Top:      d.length("top", sj.Top),
 		Right:    d.length("right", sj.Right),
 		Bottom:   d.length("bottom", sj.Bottom),
 		Left:     d.length("left", sj.Left),
 		ZIndex:   sj.ZIndex,
 
-		WritingMode:   layout.WritingMode(d.enum(writingModeEnum, sj.WritingMode)),
-		ContainerType: layout.ContainerType(d.enum(containerTypeEnum, sj.ContainerType)),
+		WritingMode:   decodeEnum(d, "writingMode", sj.WritingMode, layout.ParseWritingMode),
+		Direction:     decodeEnum(d, "direction", sj.Direction, layout.ParseDirection),
+		ContainerType: decodeEnum(d, "containerType", sj.ContainerType, layout.ParseContainerType),
 	}
 
 	if sj.Padding != nil {
@@ -707,21 +832,10 @@ func jsonToStyle(sj *StyleJSON, path string) (layout.Style, error) {
 		s.GridAutoColumns = d.track("gridAutoColumns", sj.GridAutoColumns)
 	}
 
-	if len(sj.GridTemplateRows) > MaxChildren || len(sj.GridTemplateColumns) > MaxChildren {
-		return s, fmt.Errorf("%w: %s: more than %d grid tracks", ErrLimitExceeded, path, MaxChildren)
-	}
-	if len(sj.GridTemplateRows) > 0 {
-		s.GridTemplateRows = make([]layout.GridTrack, len(sj.GridTemplateRows))
-		for i := range sj.GridTemplateRows {
-			s.GridTemplateRows[i] = d.track(fmt.Sprintf("gridTemplateRows[%d]", i), &sj.GridTemplateRows[i])
-		}
-	}
-	if len(sj.GridTemplateColumns) > 0 {
-		s.GridTemplateColumns = make([]layout.GridTrack, len(sj.GridTemplateColumns))
-		for i := range sj.GridTemplateColumns {
-			s.GridTemplateColumns[i] = d.track(fmt.Sprintf("gridTemplateColumns[%d]", i), &sj.GridTemplateColumns[i])
-		}
-	}
+	s.GridTemplateRows = d.tracks("gridTemplateRows", sj.GridTemplateRows)
+	s.GridTemplateColumns = d.tracks("gridTemplateColumns", sj.GridTemplateColumns)
+	s.GridTemplateRowsRepeat = d.repeats("gridTemplateRowsRepeat", sj.GridTemplateRowsRepeat)
+	s.GridTemplateColumnsRepeat = d.repeats("gridTemplateColumnsRepeat", sj.GridTemplateColumnsRepeat)
 	if sj.GridTemplateAreas != nil {
 		s.GridTemplateAreas = d.gridTemplateAreas(sj.GridTemplateAreas)
 	}
@@ -747,10 +861,16 @@ func (d *decoder) fail(err error) {
 	}
 }
 
-func (d *decoder) enum(t *enumTable, s string) int {
-	v, err := t.value(s)
+// decodeEnum parses a keyword with the enum's Parse function. The empty
+// string (field omitted) is the zero value; every other string must be a
+// known keyword or alias.
+func decodeEnum[T cssEnum](d *decoder, field string, s string, parse func(string) (T, error)) T {
+	if s == "" {
+		return 0
+	}
+	v, err := parse(s)
 	if err != nil {
-		d.fail(fmt.Errorf("%s.%s: %w", d.path, t.kind, err))
+		d.fail(fmt.Errorf("%s.%s: %w", d.path, field, err))
 	}
 	return v
 }
@@ -793,6 +913,91 @@ func (d *decoder) track(field string, tj *TrackJSON) layout.GridTrack {
 	}
 }
 
+// tracks decodes a track list, capped at MaxChildren entries.
+func (d *decoder) tracks(field string, tjs []TrackJSON) []layout.GridTrack {
+	if len(tjs) == 0 {
+		return nil
+	}
+	if len(tjs) > MaxChildren {
+		d.fail(fmt.Errorf("%w: %s.%s: %d tracks exceeds %d", ErrLimitExceeded, d.path, field, len(tjs), MaxChildren))
+		return nil
+	}
+	out := make([]layout.GridTrack, len(tjs))
+	for i := range tjs {
+		out[i] = d.track(fmt.Sprintf("%s[%d]", field, i), &tjs[i])
+	}
+	return out
+}
+
+// repeats decodes repeat() patterns. The count must be an integer in
+// [1, MaxRepeatCount] or one of the keywords "auto-fill" / "auto-fit", every
+// pattern needs at least one track, a pattern may expand to at most
+// MaxRepeatTracks tracks, and an axis may hold at most MaxRepeats patterns.
+func (d *decoder) repeats(field string, rjs []RepeatJSON) []layout.RepeatTrack {
+	if len(rjs) == 0 {
+		return nil
+	}
+	if len(rjs) > MaxRepeats {
+		d.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, d.path, field, len(rjs), MaxRepeats))
+		return nil
+	}
+	out := make([]layout.RepeatTrack, len(rjs))
+	for i, rj := range rjs {
+		item := fmt.Sprintf("%s[%d]", field, i)
+		count, err := parseRepeatCount(rj.Count)
+		if err != nil {
+			d.fail(fmt.Errorf("%s.%s.count: %w", d.path, item, err))
+		}
+		if len(rj.Tracks) == 0 {
+			d.fail(fmt.Errorf("%s.%s.tracks: repeat() needs at least one track", d.path, item))
+		}
+		if err := checkRepeatTracks(count, len(rj.Tracks)); err != nil {
+			d.fail(fmt.Errorf("%w: %s.%s: %v", ErrLimitExceeded, d.path, item, err))
+			continue
+		}
+		out[i] = layout.RepeatTrack{Count: count, Tracks: d.tracks(item+".tracks", rj.Tracks)}
+	}
+	return out
+}
+
+// parseRepeatCount interprets the untyped count of a RepeatJSON. JSON
+// delivers numbers as float64; YAML delivers integers as int (or uint64 when
+// they overflow int64) and floats as float64; both deliver keywords as string.
+func parseRepeatCount(v any) (int, error) {
+	switch c := v.(type) {
+	case nil:
+		return 0, fmt.Errorf("missing (expected 1..%d, %q, or %q)", MaxRepeatCount, repeatAutoFill, repeatAutoFit)
+	case string:
+		switch c {
+		case repeatAutoFill:
+			return layout.RepeatCountAutoFill, nil
+		case repeatAutoFit:
+			return layout.RepeatCountAutoFit, nil
+		}
+		return 0, fmt.Errorf("unknown keyword %q (expected 1..%d, %q, or %q)", c, MaxRepeatCount, repeatAutoFill, repeatAutoFit)
+	case float64:
+		if math.IsNaN(c) || math.IsInf(c, 0) || c != math.Trunc(c) {
+			return 0, fmt.Errorf("%v is not an integer", c)
+		}
+		return checkRepeatCount(c)
+	case int:
+		return checkRepeatCount(float64(c))
+	case int64:
+		return checkRepeatCount(float64(c))
+	case uint64:
+		return checkRepeatCount(float64(c))
+	default:
+		return 0, fmt.Errorf("unexpected %T (expected a number or a keyword)", v)
+	}
+}
+
+func checkRepeatCount(c float64) (int, error) {
+	if c < 1 || c > MaxRepeatCount {
+		return 0, fmt.Errorf("%v is not in [1, %d]", c, MaxRepeatCount)
+	}
+	return int(c), nil
+}
+
 func (d *decoder) gridTemplateAreas(gj *GridTemplateAreasJSON) *layout.GridTemplateAreas {
 	field := d.path + ".gridTemplateAreas"
 	if gj.Rows < 0 || gj.Cols < 0 || gj.Rows > MaxChildren || gj.Cols > MaxChildren {
@@ -830,31 +1035,31 @@ func (d *decoder) textStyle(tj *TextStyleJSON) *layout.TextStyle {
 		d.fail(fmt.Errorf("%s.textDecoration: %d out of range [0, %d]", d.path, tj.TextDecoration, maxTextDecoration))
 	}
 	return &layout.TextStyle{
-		TextAlign:           layout.TextAlign(d.enum(textAlignEnum, tj.TextAlign)),
-		TextAlignLast:       layout.TextAlignLast(d.enum(textAlignLastEnum, tj.TextAlignLast)),
-		TextJustify:         layout.TextJustify(d.enum(textJustifyEnum, tj.TextJustify)),
+		TextAlign:           decodeEnum(d, "textAlign", tj.TextAlign, layout.ParseTextAlign),
+		TextAlignLast:       decodeEnum(d, "textAlignLast", tj.TextAlignLast, layout.ParseTextAlignLast),
+		TextJustify:         decodeEnum(d, "textJustify", tj.TextJustify, layout.ParseTextJustify),
 		LineHeight:          d.float("lineHeight", tj.LineHeight),
 		WordSpacing:         d.float("wordSpacing", tj.WordSpacing),
 		LetterSpacing:       d.float("letterSpacing", tj.LetterSpacing),
 		TextIndent:          d.float("textIndent", tj.TextIndent),
-		WhiteSpace:          layout.WhiteSpace(d.enum(whiteSpaceEnum, tj.WhiteSpace)),
-		OverflowWrap:        layout.OverflowWrap(d.enum(overflowWrapEnum, tj.OverflowWrap)),
-		WordBreak:           layout.WordBreak(d.enum(wordBreakEnum, tj.WordBreak)),
-		TextOverflow:        layout.TextOverflow(d.enum(textOverflowEnum, tj.TextOverflow)),
-		TextTransform:       layout.TextTransform(d.enum(textTransformEnum, tj.TextTransform)),
-		Hyphens:             layout.Hyphens(d.enum(hyphensEnum, tj.Hyphens)),
-		HangingPunctuation:  layout.HangingPunctuation(d.enum(hangingPunctuationEnum, tj.HangingPunctuation)),
+		WhiteSpace:          decodeEnum(d, "whiteSpace", tj.WhiteSpace, layout.ParseWhiteSpace),
+		OverflowWrap:        decodeEnum(d, "overflowWrap", tj.OverflowWrap, layout.ParseOverflowWrap),
+		WordBreak:           decodeEnum(d, "wordBreak", tj.WordBreak, layout.ParseWordBreak),
+		TextOverflow:        decodeEnum(d, "textOverflow", tj.TextOverflow, layout.ParseTextOverflow),
+		TextTransform:       decodeEnum(d, "textTransform", tj.TextTransform, layout.ParseTextTransform),
+		Hyphens:             decodeEnum(d, "hyphens", tj.Hyphens, layout.ParseHyphens),
+		HangingPunctuation:  decodeEnum(d, "hangingPunctuation", tj.HangingPunctuation, layout.ParseHangingPunctuation),
 		TabSize:             d.float("tabSize", tj.TabSize),
 		FontSize:            d.float("fontSize", tj.FontSize),
 		FontFamily:          tj.FontFamily,
 		FontWeight:          layout.FontWeight(tj.FontWeight),
-		FontStyle:           layout.FontStyle(d.enum(fontStyleEnum, tj.FontStyle)),
+		FontStyle:           decodeEnum(d, "fontStyle", tj.FontStyle, layout.ParseFontStyle),
 		TextDecoration:      layout.TextDecoration(tj.TextDecoration),
-		TextDecorationStyle: layout.TextDecorationStyle(d.enum(textDecorationStyleEnum, tj.TextDecorationStyle)),
+		TextDecorationStyle: decodeEnum(d, "textDecorationStyle", tj.TextDecorationStyle, layout.ParseTextDecorationStyle),
 		TextDecorationColor: tj.TextDecorationColor,
-		VerticalAlign:       layout.VerticalAlign(d.enum(verticalAlignEnum, tj.VerticalAlign)),
-		WritingMode:         layout.WritingMode(d.enum(writingModeEnum, tj.WritingMode)),
-		Direction:           layout.Direction(d.enum(directionEnum, tj.Direction)),
+		VerticalAlign:       decodeEnum(d, "verticalAlign", tj.VerticalAlign, layout.ParseVerticalAlign),
+		WritingMode:         decodeEnum(d, "writingMode", tj.WritingMode, layout.ParseWritingMode),
+		Direction:           decodeEnum(d, "direction", tj.Direction, layout.ParseDirection),
 	}
 }
 
@@ -952,225 +1157,13 @@ func checkRect(path string, r *layout.Rect) error {
 }
 
 // =============================================================================
-// Enum tables
+// Numeric bounds
 // =============================================================================
 
-// Bounds for the two TextStyle enums that are serialized numerically.
+// Enum keywords come from the String/Parse pairs in the layout package
+// (enums.go); see encodeEnum/decodeEnum. Bounds for the two TextStyle enums
+// that are serialized numerically:
 const (
 	maxFontWeight     = 1000 // CSS Fonts Level 4 font-weight range is [1, 1000]
 	maxTextDecoration = int(layout.TextDecorationUnderline | layout.TextDecorationOverline | layout.TextDecorationLineThrough)
-)
-
-// enumTable maps an integer enum to CSS keyword strings and back.
-// The zero value maps to the empty string on output (omitted) and the
-// empty string maps to zero on input; every other string must be known.
-type enumTable struct {
-	kind   string
-	names  map[int]string
-	values map[string]int
-}
-
-func newEnum(kind string, entries map[string]int) *enumTable {
-	t := &enumTable{kind: kind, names: make(map[int]string, len(entries)), values: entries}
-	for name, v := range entries {
-		t.names[v] = name
-	}
-	return t
-}
-
-func (t *enumTable) name(v int) (string, error) {
-	if v == 0 {
-		return "", nil
-	}
-	s, ok := t.names[v]
-	if !ok {
-		return "", fmt.Errorf("unknown %s value %d", t.kind, v)
-	}
-	return s, nil
-}
-
-func (t *enumTable) value(s string) (int, error) {
-	if s == "" {
-		return 0, nil
-	}
-	v, ok := t.values[s]
-	if !ok {
-		return 0, fmt.Errorf("unknown %s %q", t.kind, s)
-	}
-	return v, nil
-}
-
-var (
-	displayEnum = newEnum("display", map[string]int{
-		"block":       int(layout.DisplayBlock),
-		"flex":        int(layout.DisplayFlex),
-		"grid":        int(layout.DisplayGrid),
-		"inline-text": int(layout.DisplayInlineText),
-		"none":        int(layout.DisplayNone),
-	})
-	flexDirectionEnum = newEnum("flexDirection", map[string]int{
-		"row":            int(layout.FlexDirectionRow),
-		"row-reverse":    int(layout.FlexDirectionRowReverse),
-		"column":         int(layout.FlexDirectionColumn),
-		"column-reverse": int(layout.FlexDirectionColumnReverse),
-	})
-	flexWrapEnum = newEnum("flexWrap", map[string]int{
-		"nowrap":       int(layout.FlexWrapNoWrap),
-		"wrap":         int(layout.FlexWrapWrap),
-		"wrap-reverse": int(layout.FlexWrapWrapReverse),
-	})
-	justifyContentEnum = newEnum("justifyContent", map[string]int{
-		"flex-start":    int(layout.JustifyContentFlexStart),
-		"flex-end":      int(layout.JustifyContentFlexEnd),
-		"center":        int(layout.JustifyContentCenter),
-		"space-between": int(layout.JustifyContentSpaceBetween),
-		"space-around":  int(layout.JustifyContentSpaceAround),
-		"space-evenly":  int(layout.JustifyContentSpaceEvenly),
-	})
-	alignItemsEnum = newEnum("alignItems", map[string]int{
-		"stretch":    int(layout.AlignItemsStretch),
-		"flex-start": int(layout.AlignItemsFlexStart),
-		"flex-end":   int(layout.AlignItemsFlexEnd),
-		"center":     int(layout.AlignItemsCenter),
-		"baseline":   int(layout.AlignItemsBaseline),
-	})
-	justifyItemsEnum = newEnum("justifyItems", map[string]int{
-		"stretch": int(layout.JustifyItemsStretch),
-		"start":   int(layout.JustifyItemsStart),
-		"end":     int(layout.JustifyItemsEnd),
-		"center":  int(layout.JustifyItemsCenter),
-	})
-	alignContentEnum = newEnum("alignContent", map[string]int{
-		"stretch":       int(layout.AlignContentStretch),
-		"flex-start":    int(layout.AlignContentFlexStart),
-		"flex-end":      int(layout.AlignContentFlexEnd),
-		"center":        int(layout.AlignContentCenter),
-		"space-between": int(layout.AlignContentSpaceBetween),
-		"space-around":  int(layout.AlignContentSpaceAround),
-	})
-	gridAutoFlowEnum = newEnum("gridAutoFlow", map[string]int{
-		"row":          int(layout.GridAutoFlowRow),
-		"column":       int(layout.GridAutoFlowColumn),
-		"row-dense":    int(layout.GridAutoFlowRowDense),
-		"column-dense": int(layout.GridAutoFlowColumnDense),
-	})
-	boxSizingEnum = newEnum("boxSizing", map[string]int{
-		"content-box": int(layout.BoxSizingContentBox),
-		"border-box":  int(layout.BoxSizingBorderBox),
-	})
-	positionEnum = newEnum("position", map[string]int{
-		"static":   int(layout.PositionStatic),
-		"relative": int(layout.PositionRelative),
-		"absolute": int(layout.PositionAbsolute),
-		"fixed":    int(layout.PositionFixed),
-		"sticky":   int(layout.PositionSticky),
-	})
-	intrinsicSizeEnum = newEnum("intrinsicSize", map[string]int{
-		"none":        int(layout.IntrinsicSizeNone),
-		"min-content": int(layout.IntrinsicSizeMinContent),
-		"max-content": int(layout.IntrinsicSizeMaxContent),
-		"fit-content": int(layout.IntrinsicSizeFitContent),
-	})
-	writingModeEnum = newEnum("writingMode", map[string]int{
-		"horizontal-tb": int(layout.WritingModeHorizontalTB),
-		"vertical-rl":   int(layout.WritingModeVerticalRL),
-		"vertical-lr":   int(layout.WritingModeVerticalLR),
-		"sideways-rl":   int(layout.WritingModeSidewaysRL),
-		"sideways-lr":   int(layout.WritingModeSidewaysLR),
-	})
-	containerTypeEnum = newEnum("containerType", map[string]int{
-		"normal":      int(layout.ContainerTypeNormal),
-		"size":        int(layout.ContainerTypeSize),
-		"inline-size": int(layout.ContainerTypeInlineSize),
-	})
-	directionEnum = newEnum("direction", map[string]int{
-		"ltr": int(layout.DirectionLTR),
-		"rtl": int(layout.DirectionRTL),
-	})
-
-	// TextStyle enums
-	textAlignEnum = newEnum("textAlign", map[string]int{
-		"start":   int(layout.TextAlignDefault),
-		"left":    int(layout.TextAlignLeft),
-		"right":   int(layout.TextAlignRight),
-		"center":  int(layout.TextAlignCenter),
-		"justify": int(layout.TextAlignJustify),
-	})
-	textAlignLastEnum = newEnum("textAlignLast", map[string]int{
-		"auto":    int(layout.TextAlignLastAuto),
-		"left":    int(layout.TextAlignLastLeft),
-		"right":   int(layout.TextAlignLastRight),
-		"center":  int(layout.TextAlignLastCenter),
-		"justify": int(layout.TextAlignLastJustify),
-	})
-	textJustifyEnum = newEnum("textJustify", map[string]int{
-		"auto":            int(layout.TextJustifyAuto),
-		"inter-word":      int(layout.TextJustifyInterWord),
-		"inter-character": int(layout.TextJustifyInterCharacter),
-		"distribute":      int(layout.TextJustifyDistribute),
-		"none":            int(layout.TextJustifyNone),
-	})
-	whiteSpaceEnum = newEnum("whiteSpace", map[string]int{
-		"normal":   int(layout.WhiteSpaceNormal),
-		"nowrap":   int(layout.WhiteSpaceNowrap),
-		"pre":      int(layout.WhiteSpacePre),
-		"pre-wrap": int(layout.WhiteSpacePreWrap),
-		"pre-line": int(layout.WhiteSpacePreLine),
-	})
-	overflowWrapEnum = newEnum("overflowWrap", map[string]int{
-		"normal":     int(layout.OverflowWrapNormal),
-		"break-word": int(layout.OverflowWrapBreakWord),
-		"anywhere":   int(layout.OverflowWrapAnywhere),
-	})
-	wordBreakEnum = newEnum("wordBreak", map[string]int{
-		"normal":    int(layout.WordBreakNormal),
-		"break-all": int(layout.WordBreakBreakAll),
-		"keep-all":  int(layout.WordBreakKeepAll),
-	})
-	textOverflowEnum = newEnum("textOverflow", map[string]int{
-		"clip":     int(layout.TextOverflowClip),
-		"ellipsis": int(layout.TextOverflowEllipsis),
-	})
-	textTransformEnum = newEnum("textTransform", map[string]int{
-		"none":           int(layout.TextTransformNone),
-		"uppercase":      int(layout.TextTransformUppercase),
-		"lowercase":      int(layout.TextTransformLowercase),
-		"capitalize":     int(layout.TextTransformCapitalize),
-		"full-width":     int(layout.TextTransformFullWidth),
-		"full-size-kana": int(layout.TextTransformFullSizeKana),
-	})
-	hyphensEnum = newEnum("hyphens", map[string]int{
-		"none":   int(layout.HyphensNone),
-		"manual": int(layout.HyphensManual),
-		"auto":   int(layout.HyphensAuto),
-	})
-	hangingPunctuationEnum = newEnum("hangingPunctuation", map[string]int{
-		"none":      int(layout.HangingPunctuationNone),
-		"first":     int(layout.HangingPunctuationFirst),
-		"last":      int(layout.HangingPunctuationLast),
-		"force-end": int(layout.HangingPunctuationForceEnd),
-		"allow-end": int(layout.HangingPunctuationAllowEnd),
-	})
-	fontStyleEnum = newEnum("fontStyle", map[string]int{
-		"normal":  int(layout.FontStyleNormal),
-		"italic":  int(layout.FontStyleItalic),
-		"oblique": int(layout.FontStyleOblique),
-	})
-	textDecorationStyleEnum = newEnum("textDecorationStyle", map[string]int{
-		"solid":  int(layout.TextDecorationStyleSolid),
-		"double": int(layout.TextDecorationStyleDouble),
-		"dotted": int(layout.TextDecorationStyleDotted),
-		"dashed": int(layout.TextDecorationStyleDashed),
-		"wavy":   int(layout.TextDecorationStyleWavy),
-	})
-	verticalAlignEnum = newEnum("verticalAlign", map[string]int{
-		"baseline":    int(layout.VerticalAlignBaseline),
-		"sub":         int(layout.VerticalAlignSub),
-		"super":       int(layout.VerticalAlignSuper),
-		"text-top":    int(layout.VerticalAlignTextTop),
-		"text-bottom": int(layout.VerticalAlignTextBottom),
-		"middle":      int(layout.VerticalAlignMiddle),
-		"top":         int(layout.VerticalAlignTop),
-		"bottom":      int(layout.VerticalAlignBottom),
-	})
 )

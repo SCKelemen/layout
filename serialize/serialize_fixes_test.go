@@ -33,6 +33,7 @@ func TestLengthRoundTripPreservesUnits(t *testing.T) {
 		layout.Em(2), layout.Rem(1.25), layout.Ch(3), layout.Vh(50), layout.Vw(33.5),
 		layout.Vmin(1), layout.Vmax(2), layout.Pt(12), layout.Cm(2.54), layout.Mm(10), layout.In(1), layout.Q(4),
 		layout.Cqw(10), layout.Cqh(10), layout.Cqi(10), layout.Cqb(10), layout.Cqmin(10), layout.Cqmax(10),
+		//lint:ignore SA1019 the deprecated sentinels must keep round-tripping for existing documents
 		layout.Px(layout.SizeMinContent), layout.Px(layout.SizeMaxContent), layout.Px(layout.SizeFitContent),
 	}
 	for _, want := range cases {
@@ -411,10 +412,11 @@ func TestFromJSONRejectsUnknownEnums(t *testing.T) {
 		`{"style":{"flexDirection":"diagonal"}}`,
 		`{"style":{"flexWrap":"maybe"}}`,
 		`{"style":{"justifyContent":"left"}}`,
-		`{"style":{"alignItems":"start"}}`,
+		`{"style":{"alignItems":"middle"}}`,
 		`{"style":{"alignSelf":"middle"}}`,
-		`{"style":{"alignContent":"space-evenly"}}`,
+		`{"style":{"alignContent":"space-out"}}`,
 		`{"style":{"justifyItems":"flex-start"}}`,
+		`{"style":{"direction":"ttb"}}`,
 		`{"style":{"justifySelf":"baseline"}}`,
 		`{"style":{"gridAutoFlow":"dense"}}`,
 		`{"style":{"boxSizing":"padding-box"}}`,

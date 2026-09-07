@@ -8,10 +8,13 @@ import (
 
 // Length represents a CSS <length> value with its unit.
 //
-// As of Phase 1 of the units<->layout migration, Length is a type alias for
-// github.com/SCKelemen/units.Length so layout shares the canonical type
-// defined in the units package. This makes layout-side and units-side
-// Length values trivially interoperable.
+// Length is a type alias for github.com/SCKelemen/units.Length, so layout
+// shares the canonical type defined in the units package and layout-side and
+// units-side Length values are interchangeable.
+//
+// The zero value (Unit == "") means the length was never set. Block, flex,
+// grid, and positioned layout read an unset size or offset as the CSS initial
+// value "auto"; an explicit Px(0) is a real zero.
 //
 // Length values can be absolute (px) or relative (em, rem, ch, vh, vw, ...).
 // Relative units are resolved to pixels during layout using a LayoutContext.
@@ -23,16 +26,14 @@ type Length = units.Length
 // LengthUnit identifies the unit type of a Length value.
 //
 // LengthUnit is a type alias for github.com/SCKelemen/units.LengthUnit, which
-// is defined as `type LengthUnit string` per the CSS Values L4 spec. Layout's
-// historic int/iota-based LengthUnit has been replaced by the canonical
-// units.LengthUnit.
+// is defined as `type LengthUnit string` following the CSS Values L4 unit
+// names (https://www.w3.org/TR/css-values-4/#lengths).
 type LengthUnit = units.LengthUnit
 
-// Layout's historic named unit constants. These are preserved as re-exports
-// of the corresponding github.com/SCKelemen/units constants so existing
-// layout consumers (e.g. layout.Pixels, layout.EmUnit, ...) keep compiling.
+// Named unit constants, re-exported from github.com/SCKelemen/units so that
+// layout consumers can refer to them as layout.Pixels, layout.EmUnit, and so on.
 //
-// UnboundedUnit remains a layout-specific sentinel value with no CSS L4
+// UnboundedUnit is a layout-specific sentinel value with no CSS L4
 // equivalent; it is used as the upper bound for unconstrained layout passes.
 const (
 	// Absolute length units (CSS reference pixel: 1in = 96px).
@@ -148,15 +149,19 @@ func UnboundedLength() Length {
 // Parameters:
 //   - l: The Length to resolve
 //   - ctx: LayoutContext containing viewport size, root font size, and text metrics
-//   - currentFontSize: The current element's font size in points (for em unit resolution)
+//   - currentFontSize: The current element's font size in pixels (for em unit resolution)
 //
 // Returns the resolved length in pixels.
 //
 // Most of the unit math is delegated to github.com/SCKelemen/units via
 // units.Length.Resolve, which provides resolvers for the full CSS L4 unit
 // set (absolute, font-relative, viewport-relative, container-relative).
-// Two pieces of behavior remain layout-specific:
+// A few pieces of behavior remain layout-specific:
 //
+//   - The zero value (Unit == "", an unset length) resolves to 0 without
+//     consulting the units package. Layout resolves unset margins, paddings,
+//     borders, and offsets many times per node, and the units package
+//     reports an unset unit through its (allocating) error path.
 //   - UnboundedUnit short-circuits to math.MaxFloat64. It is a layout-only
 //     sentinel; the units package has no concept of it.
 //   - Container-relative units (cqw, cqh, cqi, cqb, cqmin, cqmax) resolve to
@@ -165,6 +170,9 @@ func UnboundedLength() Length {
 //     applies when no container size is available, so a cq* value is never
 //     misread as pixels. CSS Containment Level 3 §5.4:
 //     https://www.w3.org/TR/css-contain-3/#container-lengths
+//   - Viewport-relative units (vw, vh, vmin, vmax, and the sv*/lv*/dv*
+//     variants) resolve to 0 when the context has no viewport size (nil
+//     ctx, or a zero ViewportWidth/ViewportHeight), for the same reason.
 //   - Other unknown / unsupported units (e.g. vi/vb when the corresponding
 //     context fields are unset) preserve the pre-migration default-case
 //     behavior of returning l.Value unchanged.
@@ -173,17 +181,38 @@ func UnboundedLength() Length {
 // ResolveLengthInContext, which is the only path that populates
 // units.Context.ContainerWidth / ContainerHeight.
 func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float64 {
+	// Empty unit: the Go zero value (unset, Value 0) or a hand-built unit-less
+	// literal such as Length{Value: 100}. The units package resolves an empty
+	// unit as pixels, so return the value directly; this keeps the hot unset
+	// path allocation-free and leaves unit-less literals meaning px.
+	if l.Unit == "" {
+		return l.Value
+	}
 	// Layout-specific sentinel: not in CSS, units pkg doesn't know it.
 	if l.Unit == UnboundedUnit {
 		return math.MaxFloat64
 	}
+	// Viewport-relative units are resolved here so that the logical (vi, vb)
+	// and small/large/dynamic (sv*, lv*, dv*) variants work: layout has a
+	// single viewport with no dynamic toolbars, so every variant maps to the
+	// same size, and inline/block map to width/height (horizontal-tb).
+	// https://www.w3.org/TR/css-values-4/#viewport-relative-lengths
+	if l.IsViewportRelative() {
+		if ctx == nil {
+			return 0
+		}
+		return resolveViewportLength(l, ctx.ViewportWidth, ctx.ViewportHeight)
+	}
 
-	uctx := buildUnitsContext(ctx, currentFontSize)
+	uctx := buildUnitsContext(ctx, currentFontSize, l.Unit)
 	resolved, err := l.Resolve(uctx)
 	if err != nil {
-		if l.IsContainerRelative() {
-			// No query container size is known on this path; a raw cq* value
-			// is a percentage of an unknown size, not pixels.
+		if l.IsContainerRelative() || l.IsViewportRelative() {
+			// No query container size (cq*) or no viewport size (vw, vh, ...)
+			// is known on this path; a raw percentage of an unknown size is
+			// not pixels. A LayoutContext with a zero viewport, as built by
+			// LayoutSimple for an unbounded constraint, lands here.
+			// https://www.w3.org/TR/css-values-4/#viewport-relative-lengths
 			return 0
 		}
 		// Resolution failure (unknown unit, missing context field).
@@ -211,17 +240,24 @@ func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float6
 // NodeContext required to walk ancestors and find a query container.
 //
 // A nil LayoutContext is accepted and produces a minimal units.Context
-// populated only with currentFontSize. This matches the pre-migration
-// behavior of ResolveLength, which short-circuited the absolute units
-// (Pixels, Pt, Pc, In, Cm, Mm, Q) without touching ctx and would only
-// panic on nil ctx for relative units. After delegation, relative units
-// against a nil context cleanly fail in units.Length.Resolve and fall
-// back to l.Value via the error path in ResolveLength.
-func buildUnitsContext(ctx *LayoutContext, currentFontSize float64) *units.Context {
+// populated only with currentFontSize: absolute units resolve without a
+// context, while relative units against a nil context cleanly fail in
+// units.Length.Resolve and fall back to l.Value via the error path in
+// ResolveLength.
+//
+// unit is the unit about to be resolved. The ch reference glyph is measured
+// through the TextMetricsProvider only when unit actually depends on it
+// (ch, rch, ic, ric); every other unit leaves ChWidth/IcWidth zero, which the
+// units package never reads for those units. This avoids a text measurement
+// on every px/em/rem resolution.
+func buildUnitsContext(ctx *LayoutContext, currentFontSize float64, unit LengthUnit) *units.Context {
 	if ctx == nil {
 		return &units.Context{FontSize: currentFontSize}
 	}
-	chWidth := measureCharWidth(ctx.ChReferenceChar, currentFontSize, ctx.TextMetrics)
+	var chWidth float64
+	if unitNeedsChWidth(unit) {
+		chWidth = measureCharWidth(ctx.ChReferenceChar, currentFontSize, ctx.TextMetrics)
+	}
 	return &units.Context{
 		FontSize:       currentFontSize,
 		RootFontSize:   ctx.RootFontSize,
@@ -238,9 +274,22 @@ func buildUnitsContext(ctx *LayoutContext, currentFontSize float64) *units.Conte
 	}
 }
 
+// unitNeedsChWidth reports whether resolving unit reads units.Context.ChWidth
+// or IcWidth: the "0" advance units ch/rch and the CJK water ideograph
+// advance units ic/ric (CSS Values L4 §6.1.1,
+// https://www.w3.org/TR/css-values-4/#font-relative-lengths).
+func unitNeedsChWidth(unit LengthUnit) bool {
+	switch unit {
+	case units.CH, units.RCH, units.IC, units.RIC:
+		return true
+	default:
+		return false
+	}
+}
+
 // measureCharWidth estimates the width of a character using text metrics.
-// For now, uses monospace approximation via TextMetricsProvider.
-// Can be swapped for true text measurement (HarfBuzz, FreeType) in the future.
+// With a nil provider it uses a monospace approximation; callers can supply
+// a real shaper (HarfBuzz, FreeType) through LayoutContext.TextMetrics.
 func measureCharWidth(char rune, fontSize float64, metrics TextMetricsProvider) float64 {
 	if metrics == nil {
 		// Fallback: monospace approximation (60% of font size)
@@ -255,4 +304,26 @@ func measureCharWidth(char rune, fontSize float64, metrics TextMetricsProvider) 
 	// Measure a single character
 	width, _, _ := metrics.Measure(string(char), style)
 	return width
+}
+
+// resolveViewportLength resolves a viewport-relative length against the given
+// viewport. A zero viewport dimension yields 0 (the size is unknown), never the
+// raw value. vmin/vmax pick the smaller/larger dimension; the inline axis is
+// the width and the block axis the height (horizontal-tb writing mode).
+func resolveViewportLength(l Length, viewportWidth, viewportHeight float64) float64 {
+	var base float64
+	switch l.Unit {
+	case units.VW, units.VI, units.SVW, units.SVI, units.LVW, units.LVI, units.DVW, units.DVI:
+		base = viewportWidth
+	case units.VH, units.VB, units.SVH, units.SVB, units.LVH, units.LVB, units.DVH, units.DVB:
+		base = viewportHeight
+	case units.VMIN:
+		base = math.Min(viewportWidth, viewportHeight)
+	case units.VMAX:
+		base = math.Max(viewportWidth, viewportHeight)
+	}
+	if base <= 0 || base >= math.MaxFloat64 {
+		return 0
+	}
+	return l.Value * base / 100
 }

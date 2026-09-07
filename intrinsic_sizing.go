@@ -285,30 +285,52 @@ func calculateFlexIntrinsicWidth(node *Node, sizingType IntrinsicSize, ctx *Layo
 }
 
 // textIntrinsicStyle returns the TextStyle used to measure a text node,
-// defaulting to the same style LayoutText applies when none is set.
-func textIntrinsicStyle(node *Node) TextStyle {
-	if node.Style.TextStyle != nil {
-		return *node.Style.TextStyle
-	}
-	return TextStyle{
-		FontSize:   16,
+// defaulting to the same style LayoutText applies when none is set. An unset
+// FontSize falls back to the root font size, as in LayoutText.
+func textIntrinsicStyle(node *Node, ctx *LayoutContext) TextStyle {
+	style := TextStyle{
 		TextAlign:  TextAlignDefault,
 		LineHeight: 0,
 		WhiteSpace: WhiteSpaceNormal,
 		Direction:  DirectionLTR,
 	}
+	if node.Style.TextStyle != nil {
+		style = *node.Style.TextStyle
+	}
+	if style.FontSize <= 0 {
+		style.FontSize = rootFontSizeOrDefault(ctx)
+	}
+	return style
 }
 
 // textIntrinsicContent applies the same text preprocessing as LayoutText
 // (tab expansion, white-space normalization, text-transform) so intrinsic
-// measurements match the laid-out text.
+// measurements match the laid-out text. Soft hyphens (U+00AD) are removed:
+// they are invisible unless a line breaks at one, and intrinsic sizes never
+// include the hyphen rendered at a break.
+// https://www.w3.org/TR/css-text-3/#hyphens-property
 func textIntrinsicContent(node *Node, style TextStyle) string {
 	text := node.Text
 	if style.WhiteSpace == WhiteSpaceNormal || style.WhiteSpace == WhiteSpaceNowrap {
 		text = expandTabs(text, style.TabSize)
 	}
 	text = preprocessText(text, style.WhiteSpace)
+	text = strings.ReplaceAll(text, softHyphen, "")
 	return applyTextTransform(text, style.TextTransform)
+}
+
+// measureIntrinsicRun measures a run of text for intrinsic sizing with the
+// same rules LayoutText uses: preserved tabs (pre, pre-wrap) advance to tab
+// stops instead of being counted as glyphs.
+// https://www.w3.org/TR/css-text-3/#tab-size-property
+func measureIntrinsicRun(run string, style TextStyle, metrics TextMetricsProvider) float64 {
+	var width float64
+	if style.WhiteSpace == WhiteSpacePre || style.WhiteSpace == WhiteSpacePreWrap {
+		width, _, _ = measureWithTabs(run, style, metrics, 0)
+	} else {
+		width, _, _ = metrics.Measure(run, style)
+	}
+	return width
 }
 
 // calculateTextMaxContentWidth returns the max-content width of a text node:
@@ -319,16 +341,17 @@ func textIntrinsicContent(node *Node, style TextStyle) string {
 // forced line breaks (preserved newlines) still split lines.
 // https://www.w3.org/TR/css-sizing-3/#max-content
 func calculateTextMaxContentWidth(node *Node, ctx *LayoutContext) float64 {
-	style := textIntrinsicStyle(node)
+	style := textIntrinsicStyle(node, ctx)
 	text := textIntrinsicContent(node, style)
-	metrics := getTextMetrics()
+	// Same provider as LayoutText: the context's when set, else the global.
+	metrics := textMetricsFor(ctx)
 
 	maxLine := 0.0
 	for _, line := range strings.Split(text, "\n") {
 		if line == "" {
 			continue
 		}
-		width, _, _ := metrics.Measure(line, style)
+		width := measureIntrinsicRun(line, style, metrics)
 		if width > maxLine {
 			maxLine = width
 		}
@@ -347,16 +370,17 @@ func calculateTextMaxContentWidth(node *Node, ctx *LayoutContext) float64 {
 // min-content size equals the max-content size.
 // https://www.w3.org/TR/css-sizing-3/#min-content
 func calculateTextMinContentWidth(node *Node, ctx *LayoutContext) float64 {
-	style := textIntrinsicStyle(node)
+	style := textIntrinsicStyle(node, ctx)
 	if style.WhiteSpace == WhiteSpaceNowrap || style.WhiteSpace == WhiteSpacePre {
 		return calculateTextMaxContentWidth(node, ctx)
 	}
 	text := textIntrinsicContent(node, style)
-	metrics := getTextMetrics()
+	// Same provider as LayoutText: the context's when set, else the global.
+	metrics := textMetricsFor(ctx)
 
 	maxWord := 0.0
 	for _, word := range splitIntoWords(text) {
-		width, _, _ := metrics.Measure(word, style)
+		width := measureIntrinsicRun(word, style, metrics)
 		if width > maxWord {
 			maxWord = width
 		}

@@ -75,7 +75,14 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childCrossMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 		} else {
-			// Main axis is vertical (always top-to-bottom for now)
+			// Main axis is vertical. It progresses top-to-bottom in every
+			// case that produces a vertical main axis: the block axis of
+			// horizontal-tb (column direction) and the inline axis of the
+			// vertical writing modes (row direction), which all flow top to
+			// bottom (CSS Writing Modes Level 3 §2, §3). The *-reverse
+			// directions are handled by flexboxAlignmentMainAxis reversing the
+			// line, not by swapping margins here.
+			// https://www.w3.org/TR/css-writing-modes-3/#block-flow
 			childMainMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childMainMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)
@@ -109,7 +116,7 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 				itemAlign = child.Style.AlignSelf
 			}
 			isMultiLine := node.Style.FlexWrap != FlexWrapNoWrap
-			if itemAlign != AlignItemsStretch || child.Style.Height.Value > 0 || isMultiLine {
+			if itemAlign != AlignItemsStretch || flexIsSetLength(child.Style.Height) || isMultiLine {
 				childCrossSize = Unbounded
 			}
 		}
@@ -131,25 +138,25 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 		// https://www.w3.org/TR/css-flexbox-1/#algo-main-item
 		childSize := Layout(child, childConstraints, ctx)
 
+		// Fall back to the explicit (set, non-negative) dimension when the
+		// measured size is 0 or Unbounded, which happens when the child's own
+		// layout algorithm cannot size it from the measurement constraints.
 		if setup.isMainHorizontal {
 			item.mainSize = childSize.Width
 			item.crossSize = childSize.Height
-			// Use explicit dimensions if measured size is 0 or Unbounded
-			// This handles cases where LayoutBlock returns 0 or Unbounded for items with explicit dimensions
-			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Width.Value >= 0 {
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && flexIsSetLength(child.Style.Width) {
 				item.mainSize = ResolveLength(child.Style.Width, ctx, childFontSize)
 			}
-			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Height.Value >= 0 {
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && flexIsSetLength(child.Style.Height) {
 				item.crossSize = ResolveLength(child.Style.Height, ctx, childFontSize)
 			}
 		} else {
 			item.mainSize = childSize.Height
 			item.crossSize = childSize.Width
-			// Use explicit dimensions if measured size is 0 or Unbounded
-			if (item.mainSize == 0 || item.mainSize >= Unbounded) && child.Style.Height.Value >= 0 {
+			if (item.mainSize == 0 || item.mainSize >= Unbounded) && flexIsSetLength(child.Style.Height) {
 				item.mainSize = ResolveLength(child.Style.Height, ctx, childFontSize)
 			}
-			if (item.crossSize == 0 || item.crossSize >= Unbounded) && child.Style.Width.Value >= 0 {
+			if (item.crossSize == 0 || item.crossSize >= Unbounded) && flexIsSetLength(child.Style.Width) {
 				item.crossSize = ResolveLength(child.Style.Width, ctx, childFontSize)
 			}
 		}
@@ -160,12 +167,13 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 		item.measuredHeight = child.Rect.Height
 
 		// §9.4 step 11: align-self: stretch only applies when the item's cross
-		// size is auto. Remember whether it is explicit.
+		// size is auto. Remember whether it is explicit; Px(0) is an explicit
+		// zero cross size, not auto (see flexIsSetLength).
 		// https://www.w3.org/TR/css-flexbox-1/#algo-stretch
 		if setup.isMainHorizontal {
-			item.hasExplicitCrossSize = child.Style.Height.Value > 0
+			item.hasExplicitCrossSize = flexIsSetLength(child.Style.Height)
 		} else {
-			item.hasExplicitCrossSize = child.Style.Width.Value > 0
+			item.hasExplicitCrossSize = flexIsSetLength(child.Style.Width)
 		}
 
 		// Resolve the item's min/max main size (§9.7 clamps to these).
@@ -188,42 +196,28 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			}
 		}
 
-		// Store the measured size as a fallback
-		measuredMainSize := item.mainSize
-
-		// Get flex properties
-		item.flexGrow = child.Style.FlexGrow
-		if item.flexGrow == 0 {
-			item.flexGrow = 0
-		}
-		item.flexShrink = child.Style.FlexShrink
+		// Flex factors. An invalid (NaN, infinite or negative) factor is treated
+		// as unset; for flex-shrink the unset value is the initial value 1
+		// (CSS Flexbox §7.2.2).
+		item.flexGrow = flexSanitizeFactor(child.Style.FlexGrow)
+		item.flexShrink = flexSanitizeFactor(child.Style.FlexShrink)
 		if item.flexShrink == 0 {
 			item.flexShrink = 1 // Default shrink factor
 		}
-		item.flexBasis = ResolveLength(child.Style.FlexBasis, ctx, childFontSize)
-		if item.flexBasis < 0 {
-			item.flexBasis = item.mainSize // auto means use main size
-		}
 
+		// §9.2 step 3: flex base size. A set flex-basis (including Px(0)) is
+		// used directly; unset or negative means auto, which resolves to the
+		// item's main size property when definite and to its content size
+		// otherwise. item.mainSize already holds that value: the child was
+		// measured above and an explicit main size property was substituted
+		// when the measurement could not size it.
+		// https://www.w3.org/TR/css-flexbox-1/#algo-main-item
+		if flexIsSetLength(child.Style.FlexBasis) {
+			item.flexBasis = ResolveLength(child.Style.FlexBasis, ctx, childFontSize)
+		} else {
+			item.flexBasis = item.mainSize
+		}
 		item.baseSize = item.flexBasis
-
-		// Ensure baseSize is never 0 if we have a measured size or explicit width/height
-		if item.baseSize == 0 {
-			if measuredMainSize > 0 {
-				item.baseSize = measuredMainSize
-				item.flexBasis = measuredMainSize
-			} else if setup.isMainHorizontal && child.Style.Width.Value >= 0 {
-				// Use explicit width for baseSize
-				resolvedWidth := ResolveLength(child.Style.Width, ctx, childFontSize)
-				item.baseSize = resolvedWidth
-				item.flexBasis = resolvedWidth
-			} else if !setup.isMainHorizontal && child.Style.Height.Value >= 0 {
-				// Use explicit height for baseSize
-				resolvedHeight := ResolveLength(child.Style.Height, ctx, childFontSize)
-				item.baseSize = resolvedHeight
-				item.flexBasis = resolvedHeight
-			}
-		}
 		// §9.3 step 3: hypothetical main size, used for line breaking (§9.3 step 5).
 		item.hypotheticalMainSize = clampFlexMainSize(item, item.baseSize)
 		flexItems = append(flexItems, item)

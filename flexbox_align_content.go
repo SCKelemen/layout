@@ -76,6 +76,28 @@ func flexboxAlignWithAlignContent(
 					}
 				}
 			}
+		case AlignContentSpaceEvenly:
+			// Lines are evenly distributed so that the spacing between any two
+			// adjacent lines, before the first line, and after the last line is
+			// the same (CSS Box Alignment Level 3 §6.2). With negative free
+			// space the fallback alignment is center (css-align-3 §6.1.3).
+			// https://www.w3.org/TR/css-align-3/#valdef-align-content-space-evenly
+			// https://www.w3.org/TR/css-align-3/#distribution-values
+			if len(lines) > 0 {
+				spaceEvenly := freeCrossSpace / float64(len(lines)+1)
+				currentOffset := spaceEvenly
+				if freeCrossSpace < 0 {
+					spaceEvenly = 0
+					currentOffset = freeCrossSpace / 2
+				}
+				for i := range lines {
+					lineOffsets[i] = currentOffset
+					currentOffset += lineCrossSizes[i]
+					if i < len(lines)-1 {
+						currentOffset += rowGap + spaceEvenly
+					}
+				}
+			}
 		case AlignContentStretch:
 			// Distribute free space equally to each line
 			if freeCrossSpace > 0 && len(lines) > 0 {
@@ -89,8 +111,8 @@ func flexboxAlignWithAlignContent(
 			startOffset = 0
 		}
 
-		// Calculate line offsets for non-space-between/space-around
-		if alignContent != AlignContentSpaceBetween && alignContent != AlignContentSpaceAround {
+		// Calculate line offsets for the values that were not distributed above
+		if alignContent != AlignContentSpaceBetween && alignContent != AlignContentSpaceAround && alignContent != AlignContentSpaceEvenly {
 			currentOffset := startOffset
 			for i := range lines {
 				lineOffsets[i] = currentOffset

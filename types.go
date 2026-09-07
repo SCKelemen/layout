@@ -128,10 +128,10 @@ type Style struct {
 	AlignSelf      AlignItems // Per-item cross-axis alignment override (0 = use parent's AlignItems)
 	FlexGrow       float64    // Flex grow factor (unitless)
 	FlexShrink     float64    // Flex shrink factor (unitless)
-	FlexBasis      Length     // Initial main size (use Px(0) with WidthSizing/HeightSizing for auto)
+	FlexBasis      Length     // Initial main size. Unset (zero value) means auto; Px(0) is a real zero basis.
 	FlexGap        Length     // Gap between flex items (use Px(0) for no gap)
-	FlexRowGap     Length     // Row gap (cross-axis gap, use Px(0) to fall back to FlexGap)
-	FlexColumnGap  Length     // Column gap (main-axis gap, use Px(0) to fall back to FlexGap)
+	FlexRowGap     Length     // Gap between flex lines in a row container, or between items in a column container (css-align-3 §8.3). Unset falls back to FlexGap.
+	FlexColumnGap  Length     // Gap between items in a row container, or between flex lines in a column container. Unset falls back to FlexGap.
 	Order          int        // Visual order (default: 0). Items are ordered by ascending order value.
 
 	// Grid properties
@@ -148,9 +148,16 @@ type Style struct {
 	GridColumnStart     int                // -1 means auto
 	GridColumnEnd       int                // -1 means auto
 	GridTemplateAreas   *GridTemplateAreas // Named grid areas (nil means not set)
-	GridArea            string             // Name of the grid area this item should be placed in (empty means not set)
-	JustifyItems        JustifyItems       // Alignment along inline (row) axis. Default: Stretch
-	JustifySelf         JustifyItems       // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
+	// GridTemplateRowsRepeat and GridTemplateColumnsRepeat hold repeat()
+	// patterns that are expanded against the available size before layout
+	// (auto-fill / auto-fit, or a fixed repetition count). Expanded tracks are
+	// appended after GridTemplateRows / GridTemplateColumns.
+	// Spec: https://www.w3.org/TR/css-grid-1/#repeat-notation
+	GridTemplateRowsRepeat    []RepeatTrack
+	GridTemplateColumnsRepeat []RepeatTrack
+	GridArea                  string       // Name of the grid area this item should be placed in (empty means not set)
+	JustifyItems              JustifyItems // Alignment along inline (row) axis. Default: Stretch
+	JustifySelf               JustifyItems // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
 	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
 	// For Grid: Default is Stretch, but Start for items with aspect-ratio
 	// AlignSelf (defined in Flexbox section) also works for Grid items
@@ -180,7 +187,7 @@ type Style struct {
 
 	// Positioning
 	Position Position
-	Top      Length // Positioning offset (use Px(0) for zero, check for auto via separate logic)
+	Top      Length // Positioning offset. Unset (zero value) means auto; Px(0) is a real zero offset.
 	Right    Length // Positioning offset
 	Bottom   Length // Positioning offset
 	Left     Length // Positioning offset
@@ -190,7 +197,8 @@ type Style struct {
 	Transform Transform
 
 	// WritingMode controls the block flow direction for layout containers.
-	// Inherited property that applies to all elements (block, flex, grid, text).
+	// Applies to all node kinds (block, flex, grid, text) but is not inherited
+	// by the layout engine: set it on every node that should flow vertically.
 	// Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/
 	// Default: WritingModeHorizontalTB (zero value)
 	WritingMode WritingMode
@@ -205,6 +213,14 @@ type Style struct {
 	// can be addressed by name in @container rules. Empty means no name.
 	// Spec: https://www.w3.org/TR/css-contain-3/#container-name
 	ContainerName ContainerName
+
+	// Direction sets the inline base direction (ltr or rtl) of this node. It is
+	// not inherited by the layout engine: set it on each node whose layout
+	// depends on it (text nodes for alignment, positioned boxes for the
+	// over-constrained rule). Unset falls back to TextStyle.Direction on text
+	// nodes.
+	// Spec: https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
+	Direction Direction
 
 	// TextStyle contains text-specific properties (nil for non-text nodes).
 	// Based on CSS Text Module Level 3: https://www.w3.org/TR/css-text-3/
@@ -290,6 +306,17 @@ const (
 	JustifyContentSpaceBetween
 	JustifyContentSpaceAround
 	JustifyContentSpaceEvenly
+	// JustifyContentStretch distributes free space to auto-sized tracks
+	// (grid only; behaves as start in flexbox).
+	// Spec: https://www.w3.org/TR/css-align-3/#valdef-justify-content-stretch
+	JustifyContentStretch
+)
+
+// Grid-oriented aliases: CSS Box Alignment uses start/end where Flexbox uses
+// flex-start/flex-end. The values are identical.
+const (
+	JustifyContentStart = JustifyContentFlexStart
+	JustifyContentEnd   = JustifyContentFlexEnd
 )
 
 // AlignItems
@@ -301,6 +328,12 @@ const (
 	AlignItemsFlexEnd
 	AlignItemsCenter
 	AlignItemsBaseline
+)
+
+// Grid-oriented aliases for AlignItems / AlignSelf.
+const (
+	AlignItemsStart = AlignItemsFlexStart
+	AlignItemsEnd   = AlignItemsFlexEnd
 )
 
 // JustifyItems controls alignment along the inline (row) axis in Grid
@@ -324,6 +357,16 @@ const (
 	AlignContentCenter
 	AlignContentSpaceBetween
 	AlignContentSpaceAround
+	// AlignContentSpaceEvenly distributes free space so that every gap,
+	// including the two edges, is the same size.
+	// Spec: https://www.w3.org/TR/css-align-3/#valdef-align-content-space-evenly
+	AlignContentSpaceEvenly
+)
+
+// Grid-oriented aliases for AlignContent.
+const (
+	AlignContentStart = AlignContentFlexStart
+	AlignContentEnd   = AlignContentFlexEnd
 )
 
 // GridAutoFlow controls the auto-placement algorithm for grid items
@@ -648,8 +691,8 @@ type TextStyle struct {
 	// Punctuation (§9.2)
 	HangingPunctuation HangingPunctuation
 
-	// Tab Size (§3.1.1) - Number of spaces per tab character
-	// -1 = default (8 spaces), otherwise number of spaces
+	// Tab Size (§3.1.1) - Number of space advances per tab stop.
+	// <= 0 means the CSS initial value of 8.
 	TabSize float64
 
 	// Font (for measurement)
@@ -695,6 +738,10 @@ type TextLine struct {
 	CharacterAdjustment float64 // Extra pixels to add between characters (for inter-character justify)
 	OffsetX             float64 // X offset for text-align
 	OffsetY             float64 // Y position (cumulative)
+	// EndsWithForcedBreak is true when the line ends at a preserved newline
+	// (or the end of the text) rather than a soft wrap. Such lines are aligned
+	// with text-align-last when justifying (css-text-3 §7.1).
+	EndsWithForcedBreak bool
 }
 
 // InlineBoxKind represents the type of inline box.
@@ -723,6 +770,11 @@ type InlineBox struct {
 	// Based on Unicode UAX #50: Unicode Vertical Text Layout
 	// See: https://www.unicode.org/reports/tr50/
 	Orientations []bool
+
+	// SpaceAfter is true when an inter-word space follows this box on the same
+	// line. Renderers use it to place the justified space and to reconstruct
+	// the original text.
+	SpaceAfter bool
 }
 
 // IntrinsicSize represents intrinsic sizing keywords from CSS Sizing Module Level 3.
@@ -740,7 +792,11 @@ const (
 )
 
 // Sentinel values for Width/Height to indicate intrinsic sizing.
-// These are distinct from -1 (auto) to maintain backward compatibility.
+//
+// Deprecated: prefer WidthSizing / HeightSizing (IntrinsicSize), which cannot
+// collide with negative resolved lengths. These sentinels are compared after
+// unit resolution, so e.g. Em(-0.125) at 16px resolves to -2 and would be
+// read as min-content.
 //
 // Usage:
 //
@@ -796,7 +852,8 @@ func AutoTrack() GridTrack {
 }
 
 // RepeatTrack represents a repeating track pattern for grid templates
-// Used with auto-fill and auto-fit grid track generation (Feature 4)
+// Used with auto-fill and auto-fit grid track generation via
+// Style.GridTemplateRowsRepeat / GridTemplateColumnsRepeat.
 type RepeatTrack struct {
 	Count  int         // Number of repetitions, or special values (RepeatCountAutoFill, RepeatCountAutoFit)
 	Tracks []GridTrack // Track pattern to repeat
@@ -944,6 +1001,9 @@ func (t1 Transform) Multiply(t2 Transform) Transform {
 
 // Apply applies the transform to a point
 func (t Transform) Apply(p Point) Point {
+	if t.IsIdentity() {
+		return p
+	}
 	return Point{
 		X: t.A*p.X + t.C*p.Y + t.E,
 		Y: t.B*p.X + t.D*p.Y + t.F,
@@ -1067,26 +1127,6 @@ func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBo
 	}
 	// content-box: size is already content size
 	return size
-}
-
-// convertFromContentSize converts a content size to the appropriate box-sizing format
-// If boxSizing is content-box, returns content size unchanged
-// If boxSizing is border-box, adds padding and border to get total size
-func convertFromContentSize(contentSize float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
-	if contentSize < 0 {
-		// Auto values are passed through unchanged
-		return contentSize
-	}
-	if boxSizing == BoxSizingBorderBox {
-		// border-box: add padding + border to get total size
-		if isWidth {
-			return contentSize + horizontalPaddingBorder
-		} else {
-			return contentSize + verticalPaddingBorder
-		}
-	}
-	// content-box: content size is the total size
-	return contentSize
 }
 
 // convertMinMaxToContentSize converts min/max constraints from border-box to content-box

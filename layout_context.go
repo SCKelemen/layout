@@ -19,7 +19,7 @@ type LayoutContext struct {
 	// Used to resolve vh (viewport height) units: 1vh = 1% of ViewportHeight.
 	ViewportHeight float64
 
-	// RootFontSize is the root element's font size in points.
+	// RootFontSize is the root element's font size in pixels.
 	// Used to resolve rem (root em) units: 1rem = RootFontSize.
 	RootFontSize float64
 
@@ -40,7 +40,8 @@ type LayoutContext struct {
 // Parameters:
 //   - viewportWidth: Width of the viewport in pixels
 //   - viewportHeight: Height of the viewport in pixels
-//   - rootFontSize: Root font size in points (typical values: 12-16 points)
+//   - rootFontSize: Root font size in pixels (typical values: 12-16px; the CSS
+//     default "medium" is 16px)
 //
 // Returns a LayoutContext with:
 //   - Viewport dimensions set to the provided values
@@ -50,7 +51,7 @@ type LayoutContext struct {
 //
 // Example:
 //
-//	// Create context for a 1920x1080 viewport with 16pt root font
+//	// Create context for a 1920x1080 viewport with a 16px root font
 //	ctx := layout.NewLayoutContext(1920, 1080, 16)
 //
 //	// Use in layout

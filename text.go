@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"math"
 	"strings"
 	"sync/atomic"
 	"unicode"
@@ -69,6 +70,16 @@ func getTextMetrics() TextMetricsProvider {
 	return textMetrics.Load().provider
 }
 
+// textMetricsFor returns the provider text layout should measure with: the
+// context's TextMetrics when one is set, otherwise the package-level
+// provider. A nil context is allowed.
+func textMetricsFor(ctx *LayoutContext) TextMetricsProvider {
+	if ctx != nil && ctx.TextMetrics != nil {
+		return ctx.TextMetrics
+	}
+	return getTextMetrics()
+}
+
 // SetTextMetricsProvider installs a custom text measurement provider.
 //
 // The provider is consulted by the layout engine whenever it needs to
@@ -111,7 +122,7 @@ func SetTextMetricsProvider(provider TextMetricsProvider) {
 // - §7: Text Alignment
 //
 // Note: This implementation uses simplified algorithms for whitespace collapsing
-// and line breaking. See TEXT_LAYOUT_ISSUES.md for details.
+// and line breaking. See docs/limitations.md for details.
 func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// Validate text node invariants
 	if len(node.Children) > 0 {
@@ -130,20 +141,42 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 			Direction:  DirectionLTR,
 		}
 	}
-	style := node.Style.TextStyle
+	// Work on a local copy so resolving defaults never mutates a TextStyle
+	// that may be shared between nodes (Clone shares the pointer).
+	style := *node.Style.TextStyle
 
-	// Get writing mode - prefer Style.WritingMode (inherited), fall back to TextStyle.WritingMode (legacy)
+	// An unset (zero) FontSize is not a 0px font: like the nil-TextStyle path,
+	// fall back to the root font size so the text still has a size.
+	if style.FontSize <= 0 {
+		style.FontSize = rootFontSizeOrDefault(ctx)
+	}
+
+	// Writing mode: Style.WritingMode wins, TextStyle.WritingMode is the legacy fallback.
 	writingMode := node.Style.WritingMode
 	if writingMode == WritingModeHorizontalTB && style.WritingMode != WritingModeHorizontalTB {
 		// Style.WritingMode is default but TextStyle.WritingMode is set, use TextStyle value for backward compat
 		writingMode = style.WritingMode
 	}
 
-	// Get current font size for em unit resolution
-	currentFontSize := 16.0 // Default
-	if style.FontSize > 0 {
-		currentFontSize = style.FontSize
+	// Direction is resolved the same way: Style.Direction wins,
+	// TextStyle.Direction is the legacy fallback.
+	// https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
+	direction := node.Style.Direction
+	if direction == DirectionLTR && style.Direction != DirectionLTR {
+		direction = style.Direction
 	}
+	// Write the resolved values back into the local copy so every helper that
+	// reads style.WritingMode / style.Direction (box orientations, alignment)
+	// sees the same resolution as the sizing code below.
+	style.WritingMode = writingMode
+	style.Direction = direction
+
+	// Measure with the context's provider when it has one (LayoutContext.
+	// WithTextMetrics), otherwise the package-level provider.
+	metrics := textMetricsFor(ctx)
+
+	// Current font size for em unit resolution
+	currentFontSize := style.FontSize
 
 	// 1. Determine available content size from constraints and Style (box sizing)
 	//
@@ -219,7 +252,9 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 
 	// 2. Expand tabs based on tab-size (§3.1.1) - BEFORE whitespace processing
-	// Only expand tabs for normal and nowrap modes; pre modes preserve tabs
+	// Only expand tabs for normal and nowrap modes, where they collapse to a
+	// space anyway. pre and pre-wrap keep the tab characters and advance them
+	// to tab stops while measuring (see measureWithTabs).
 	processedText := node.Text
 	if style.WhiteSpace == WhiteSpaceNormal || style.WhiteSpace == WhiteSpaceNowrap {
 		processedText = expandTabs(processedText, style.TabSize)
@@ -231,13 +266,13 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// 2.6. Apply text-transform (§6)
 	processedText = applyTextTransform(processedText, style.TextTransform)
 
-	// 3. Perform line breaking (§4) with getTextMetrics().Measure
-	lines, lineMetas := breakIntoLines(processedText, contentInline, *style)
+	// 3. Perform line breaking (§4) with metrics.Measure
+	lines := breakIntoLines(processedText, contentInline, style, metrics)
 
 	// 3.5. Apply text-overflow if needed (ellipsis truncation)
 	// CSS Text Overflow Module Level 3: https://www.w3.org/TR/css-overflow-3/#text-overflow
 	if style.TextOverflow == TextOverflowEllipsis {
-		lines = applyTextOverflow(lines, lineMetas, contentInline, *style)
+		lines = applyTextOverflow(lines, contentInline, style, metrics)
 	}
 
 	// 4. Compute the block size from line count and line-height (§4.4.1)
@@ -302,10 +337,10 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	if finalBlock < 0 {
 		finalBlock = 0
 	}
-	positionLines(lines, inlineAlignSize, finalBlock, lineMetas, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, style.Direction, lineHeight, writingMode)
+	positionLines(lines, inlineAlignSize, finalBlock, style.TextAlign, style.TextAlignLast, style.TextJustify, style.TextIndent, direction, lineHeight, writingMode)
 
 	// 6.5. Apply hanging-punctuation (§9.2)
-	applyHangingPunctuation(lines, style.HangingPunctuation, *style)
+	applyHangingPunctuation(lines, style.HangingPunctuation, style, metrics)
 
 	// 7. Store line metadata for rendering
 	node.TextLayout = &TextLayout{
@@ -314,6 +349,15 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 
 	return size
+}
+
+// rootFontSizeOrDefault returns ctx.RootFontSize when it is usable, otherwise
+// the 16px default. Used as the fallback for an unset TextStyle.FontSize.
+func rootFontSizeOrDefault(ctx *LayoutContext) float64 {
+	if ctx != nil && ctx.RootFontSize > 0 {
+		return ctx.RootFontSize
+	}
+	return defaultRootFontSize
 }
 
 // clampContentSize clamps size to [min, max]. A min of 0 or less is ignored,
@@ -569,7 +613,7 @@ func isClosingPunctuation(r rune) bool {
 
 // applyHangingPunctuation adjusts line boxes for hanging punctuation
 // CSS Text Module Level 3 §9.2: https://www.w3.org/TR/css-text-3/#hanging-punctuation-property
-func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style TextStyle) {
+func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style TextStyle, metrics TextMetricsProvider) {
 	if hanging == HangingPunctuationNone {
 		return
 	}
@@ -589,7 +633,7 @@ func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style
 				runes := []rune(firstBox.Text)
 				if isOpeningPunctuation(runes[0]) {
 					// Measure the punctuation character
-					punctWidth, _, _ := getTextMetrics().Measure(string(runes[0]), style)
+					punctWidth, _, _ := metrics.Measure(string(runes[0]), style)
 					// Hang it by moving line start position
 					line.OffsetX -= punctWidth
 					line.Width += punctWidth
@@ -604,7 +648,7 @@ func applyHangingPunctuation(lines []TextLine, hanging HangingPunctuation, style
 				runes := []rune(lastBox.Text)
 				if isClosingPunctuation(runes[len(runes)-1]) {
 					// Measure the punctuation character
-					punctWidth, _, _ := getTextMetrics().Measure(string(runes[len(runes)-1]), style)
+					punctWidth, _, _ := metrics.Measure(string(runes[len(runes)-1]), style)
 					// Hang it by extending line width beyond container
 					line.Width -= punctWidth
 				}
@@ -647,29 +691,11 @@ func splitIntoWords(text string) []string {
 	return words
 }
 
-// textLineMeta carries per-line information that TextLine cannot hold yet.
-// It is kept local to the text layout code; the fields are candidates for
-// promotion onto TextLine in types.go.
-type textLineMeta struct {
-	// EndsWithForcedBreak is true when the line ends because of a preserved
-	// newline (a forced line break) rather than a soft wrap.
-	// https://www.w3.org/TR/css-text-3/#forced-line-break
-	EndsWithForcedBreak bool
-	// SpaceAfter[j] reports whether a collapsible inter-word space follows
-	// Boxes[j] on the line. len(SpaceAfter) == len(Boxes) when set.
-	SpaceAfter []bool
-}
-
-// lineEndsWithForcedBreak reports whether line i is terminated by a forced
-// break according to metas (nil-safe).
-func lineEndsWithForcedBreak(metas []textLineMeta, i int) bool {
-	return i >= 0 && i < len(metas) && metas[i].EndsWithForcedBreak
-}
-
-// markForcedBreak marks the last line in metas as ending with a forced break.
-func markForcedBreak(metas []textLineMeta) {
-	if len(metas) > 0 {
-		metas[len(metas)-1].EndsWithForcedBreak = true
+// markForcedBreak marks the last line in lines as ending with a forced break.
+// https://www.w3.org/TR/css-text-3/#forced-line-break
+func markForcedBreak(lines []TextLine) {
+	if len(lines) > 0 {
+		lines[len(lines)-1].EndsWithForcedBreak = true
 	}
 }
 
@@ -685,10 +711,13 @@ func markForcedBreak(metas []textLineMeta) {
 //   - Horizontal: width in pixels
 //   - Vertical: height in pixels (how tall the "line" is when flowing top-to-bottom)
 //
-// The returned metas slice is parallel to the returned lines.
-func breakIntoLines(text string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+// Every returned line has EndsWithForcedBreak set: true for lines that end at
+// a preserved newline and for the last line of the text (which behaves like a
+// line before a forced break, §7.1), false for soft wraps. Each box's
+// SpaceAfter reports whether an inter-word space follows it on the line.
+func breakIntoLines(text string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	if text == "" {
-		return []TextLine{}, nil
+		return []TextLine{}
 	}
 
 	// Treat maxInlineSize <= 0 as unbounded (no wrapping)
@@ -696,38 +725,49 @@ func breakIntoLines(text string, maxInlineSize float64, style TextStyle) ([]Text
 		maxInlineSize = Unbounded
 	}
 
-	// For pre mode, split on newlines first
-	if style.WhiteSpace == WhiteSpacePre {
-		return breakIntoLinesPre(text, maxInlineSize, style)
+	var lines []TextLine
+	switch style.WhiteSpace {
+	case WhiteSpacePre:
+		// For pre mode, split on newlines only
+		lines = breakIntoLinesPre(text, style, metrics)
+	case WhiteSpacePreWrap, WhiteSpacePreLine:
+		// For pre-wrap and pre-line, split on newlines then wrap each segment
+		lines = breakIntoLinesPreWrap(text, maxInlineSize, style, metrics)
+	default:
+		// Use UAX #14 to find line break opportunities
+		lines = breakIntoLinesUAX14(text, maxInlineSize, style, metrics)
 	}
 
-	// For pre-wrap and pre-line, split on newlines then wrap each segment
-	if style.WhiteSpace == WhiteSpacePreWrap || style.WhiteSpace == WhiteSpacePreLine {
-		return breakIntoLinesPreWrap(text, maxInlineSize, style)
-	}
-
-	// Use UAX #14 to find line break opportunities
-	return breakIntoLinesUAX14(text, maxInlineSize, style)
+	// The last line of the block ends the text, not a soft wrap.
+	markForcedBreak(lines)
+	return lines
 }
+
+// softHyphen is U+00AD SOFT HYPHEN: an invisible hyphenation opportunity that
+// is rendered as a hyphen only when a line is broken at it.
+// https://www.w3.org/TR/css-text-3/#hyphens-property
+const softHyphen = "\u00ad"
 
 // uax14LineBuilder accumulates boxes for the line currently being built by
 // breakIntoLinesUAX14.
 type uax14LineBuilder struct {
 	line          TextLine
-	meta          textLineMeta
 	width         float64 // total advance including inter-word spaces
 	trailingSpace bool    // the last box is followed by a space
 	spaceWidth    float64 // width of that trailing space
+	softHyphen    bool    // the last box's segment ended with U+00AD
 }
 
 func newUAX14LineBuilder() uax14LineBuilder {
 	return uax14LineBuilder{line: TextLine{Boxes: []InlineBox{}}}
 }
 
-// addBox appends a box, optionally followed by an inter-word space.
-func (b *uax14LineBuilder) addBox(box InlineBox, hasSpace bool, spaceWidth float64) {
+// addBox appends a box, optionally followed by an inter-word space. endsWithSoftHyphen
+// records that the box's source segment ended with a soft hyphen so finish can
+// render the hyphen if the line is broken there.
+func (b *uax14LineBuilder) addBox(box InlineBox, hasSpace bool, spaceWidth float64, endsWithSoftHyphen bool) {
+	box.SpaceAfter = hasSpace
 	b.line.Boxes = append(b.line.Boxes, box)
-	b.meta.SpaceAfter = append(b.meta.SpaceAfter, hasSpace)
 	b.width += box.Width
 	if hasSpace {
 		b.line.SpaceCount++
@@ -736,42 +776,66 @@ func (b *uax14LineBuilder) addBox(box InlineBox, hasSpace bool, spaceWidth float
 	}
 	b.trailingSpace = hasSpace
 	b.spaceWidth = spaceWidth
+	b.softHyphen = endsWithSoftHyphen && !hasSpace
 }
 
 // finish closes the line. A trailing space is removed from the line
 // (§4.1.3: trailing collapsible white space is removed at the end of a line)
 // and does not count toward justification.
-func (b *uax14LineBuilder) finish() (TextLine, textLineMeta) {
-	if b.trailingSpace && b.line.SpaceCount > 0 {
+//
+// When softWrap is true the line ends at a soft wrap opportunity; if that
+// opportunity was a soft hyphen, a U+002D HYPHEN-MINUS is appended to the last
+// box and its width is included (§4.3: "rendered as a hyphen at the break").
+// https://www.w3.org/TR/css-text-3/#hyphens-property
+func (b *uax14LineBuilder) finish(softWrap bool, style TextStyle, metrics TextMetricsProvider) TextLine {
+	n := len(b.line.Boxes)
+	if b.trailingSpace && b.line.SpaceCount > 0 && n > 0 {
 		b.line.SpaceCount--
 		b.line.SpaceWidth -= b.spaceWidth
 		b.width -= b.spaceWidth
-		b.meta.SpaceAfter[len(b.meta.SpaceAfter)-1] = false
+		b.line.Boxes[n-1].SpaceAfter = false
+	}
+	if softWrap && b.softHyphen && n > 0 {
+		last := &b.line.Boxes[n-1]
+		hyphenated := last.Text + "-"
+		// Measure the run as a whole so letter-spacing is honored.
+		width, ascent, descent := metrics.Measure(hyphenated, style)
+		b.width += width - last.Width
+		box := newInlineBox(hyphenated, width, ascent, descent, style.WritingMode)
+		box.SpaceAfter = last.SpaceAfter
+		*last = box
 	}
 	b.line.Width = b.width
-	return b.line, b.meta
+	return b.line
 }
 
 // breakIntoLinesUAX14 breaks text into lines using UAX #14 line breaking algorithm.
 // maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
-func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	// Find all line break opportunities using UAX #14, respecting hyphens property
 	breakPoints := findLineBreakOpportunitiesWithHyphens(text, style.Hyphens)
 	if len(breakPoints) < 2 {
-		return []TextLine{}, nil
+		return []TextLine{}
 	}
 
 	bounded := maxInlineSize > 0 && maxInlineSize < Unbounded
 	canWrap := bounded && canBreakBefore(style.WhiteSpace)
 
+	// Soft hyphens are invisible unless a line is broken at one, in which case
+	// a hyphen is rendered. Measure it once so the fit test can reserve room
+	// for it: a line that breaks at a soft hyphen must have room for "-".
+	// https://www.w3.org/TR/css-text-3/#hyphens-property
+	hasSoftHyphens := strings.Contains(text, softHyphen)
+	hyphenWidth := 0.0
+	if hasSoftHyphens {
+		hyphenWidth, _, _ = metrics.Measure("-", style)
+	}
+
 	lines := []TextLine{}
-	metas := []textLineMeta{}
 	current := newUAX14LineBuilder()
 
-	flush := func() {
-		line, meta := current.finish()
-		lines = append(lines, line)
-		metas = append(metas, meta)
+	flush := func(softWrap bool) {
+		lines = append(lines, current.finish(softWrap, style, metrics))
 		current = newUAX14LineBuilder()
 	}
 
@@ -795,19 +859,27 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) ([
 		if hasTrailingSpace {
 			// Strip trailing space and measure it separately
 			wordText = segment[:len(segment)-1]
-			spaceWidth, _, _ = getTextMetrics().Measure(" ", style)
+			spaceWidth, _, _ = metrics.Measure(" ", style)
 			if style.WordSpacing != -1 {
 				spaceWidth += style.WordSpacing
 			}
 		}
 
-		// Skip if word is empty (segment was just a space)
+		// A segment ending in a soft hyphen is a hyphenation opportunity. The
+		// soft hyphens themselves are never measured or rendered.
+		endsWithSoftHyphen := false
+		if hasSoftHyphens {
+			endsWithSoftHyphen = strings.HasSuffix(wordText, softHyphen)
+			wordText = strings.ReplaceAll(wordText, softHyphen, "")
+		}
+
+		// Skip if word is empty (segment was just a space or a soft hyphen)
 		if len(wordText) == 0 {
 			continue
 		}
 
 		// Measure the word (without trailing space)
-		wordWidth, ascent, descent := getTextMetrics().Measure(wordText, style)
+		wordWidth, ascent, descent := metrics.Measure(wordText, style)
 
 		// text-indent applies to the first line of the block (§7.2.1),
 		// regardless of how many boxes are already on it.
@@ -820,13 +892,17 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) ([
 
 		// Check whether this word fits. The word's own trailing space is not
 		// counted: white space at the end of a line hangs and never causes a
-		// wrap (§4.1.3).
+		// wrap (§4.1.3). A hyphenation opportunity reserves room for the
+		// hyphen that would be rendered if the line breaks there.
 		// https://www.w3.org/TR/css-text-3/#white-space-phase-2
 		effectiveLineWidth := current.width + wordWidth + indent
+		if endsWithSoftHyphen {
+			effectiveLineWidth += hyphenWidth
+		}
 
 		// Break if this word would exceed maxInlineSize (and we have content already on this line)
 		if canWrap && effectiveLineWidth > maxInlineSize && len(current.line.Boxes) > 0 {
-			flush()
+			flush(true)
 			isFirstLine = false
 			indent = 0
 		}
@@ -837,21 +913,39 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) ([
 		if len(current.line.Boxes) == 0 && bounded && wordWidth > availableForWord {
 			if style.OverflowWrap == OverflowWrapBreakWord || style.OverflowWrap == OverflowWrapAnywhere ||
 				style.WordBreak == WordBreakBreakAll {
-				// Break word into smaller pieces
+				// When text-indent leaves no room on the first line, the word
+				// starts on the next line (without indent) instead of
+				// overflowing the first one by the indent. The first line is
+				// left empty; it still occupies its line height.
+				// https://www.w3.org/TR/css-text-3/#text-indent-property
+				if canWrap && isFirstLine && availableForWord <= 0 {
+					flush(false)
+					isFirstLine = false
+					indent = 0
+					availableForWord = maxInlineSize
+				}
+
+				// Break word into smaller pieces. Only the first piece is
+				// limited by the indented first line; continuation lines
+				// have the full inline size available.
 				pieceMax := availableForWord
 				if pieceMax <= 0 {
 					pieceMax = maxInlineSize
 				}
-				pieces := breakWordToFit(wordText, pieceMax, style)
+				pieces := breakWordToFit(wordText, pieceMax, style, metrics)
+				if pieceMax != maxInlineSize && len(pieces) > 1 {
+					rest := wordText[len(pieces[0]):]
+					pieces = append(pieces[:1], breakWordToFit(rest, maxInlineSize, style, metrics)...)
+				}
 				for j, piece := range pieces {
 					if j > 0 {
 						// Start new line for subsequent pieces
-						flush()
+						flush(true)
 					}
 
-					pieceWidth, ascent, descent := getTextMetrics().Measure(piece, style)
+					pieceWidth, ascent, descent := metrics.Measure(piece, style)
 					isLast := j == len(pieces)-1
-					current.addBox(newInlineBox(piece, pieceWidth, ascent, descent, style.WritingMode), isLast && hasTrailingSpace, spaceWidth)
+					current.addBox(newInlineBox(piece, pieceWidth, ascent, descent, style.WritingMode), isLast && hasTrailingSpace, spaceWidth, isLast && endsWithSoftHyphen)
 				}
 
 				continue // Skip normal word addition
@@ -859,15 +953,15 @@ func breakIntoLinesUAX14(text string, maxInlineSize float64, style TextStyle) ([
 		}
 
 		// Add the word to current line
-		current.addBox(newInlineBox(wordText, wordWidth, ascent, descent, style.WritingMode), hasTrailingSpace, spaceWidth)
+		current.addBox(newInlineBox(wordText, wordWidth, ascent, descent, style.WritingMode), hasTrailingSpace, spaceWidth, endsWithSoftHyphen)
 	}
 
 	// Add final line
 	if len(current.line.Boxes) > 0 {
-		flush()
+		flush(false)
 	}
 
-	return lines, metas
+	return lines
 }
 
 func canBreakBefore(whiteSpace WhiteSpace) bool {
@@ -881,67 +975,117 @@ func canBreakBefore(whiteSpace WhiteSpace) bool {
 	return true
 }
 
+// tabStopEpsilon nudges a position that sits exactly on a tab stop to the
+// next one, so a tab always advances (a tab at a stop is a full tab wide).
+const tabStopEpsilon = 1e-6
+
+// measureWithTabs measures text in which U+0009 TAB characters are preserved
+// (white-space: pre and pre-wrap). Per CSS Text 3 §3.1.1 a preserved tab is
+// not a fixed number of spaces: it is rendered as a horizontal shift that
+// lines up the start of the next glyph with the next tab stop. Tab stops
+// occur at multiples of tab-size times the advance of the space character.
+// https://www.w3.org/TR/css-text-3/#tab-size-property
+//
+// startPos is the inline position at which text begins, relative to the
+// origin the tab stops are measured from. This engine measures tab stops
+// from the start of the line rather than from the block's content edge, so
+// text-indent does not shift them (a simplification).
+//
+// The runs between tabs are measured as whole runs so letter-spacing is
+// honored. Each loop iteration consumes one run and one tab (or the tail).
+func measureWithTabs(text string, style TextStyle, metrics TextMetricsProvider, startPos float64) (advance, ascent, descent float64) {
+	if !strings.Contains(text, "\t") {
+		return metrics.Measure(text, style)
+	}
+
+	spaceWidth, ascent, descent := metrics.Measure(" ", style)
+	tabSize := style.TabSize
+	if tabSize <= 0 {
+		tabSize = 8 // initial value, TextStyle documents <= 0 as "default"
+	}
+	tabWidth := tabSize * spaceWidth
+
+	pos := startPos
+	rest := text
+	for {
+		idx := strings.IndexByte(rest, '\t')
+		run := rest
+		if idx >= 0 {
+			run = rest[:idx]
+		}
+		if run != "" {
+			w, a, d := metrics.Measure(run, style)
+			pos += w
+			ascent = math.Max(ascent, a)
+			descent = math.Max(descent, d)
+		}
+		if idx < 0 {
+			break
+		}
+		// Advance to the next tab stop. A non-positive or non-finite tab
+		// width makes the tab a zero-width shift rather than a NaN position.
+		if tabWidth > 0 && !math.IsInf(tabWidth, 0) && !math.IsInf(pos, 0) {
+			pos = math.Ceil((pos+tabStopEpsilon)/tabWidth) * tabWidth
+		}
+		rest = rest[idx+1:]
+	}
+
+	return pos - startPos, ascent, descent
+}
+
 // breakIntoLinesPre breaks text into lines preserving newlines and spaces (pre mode).
-// maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
-// Every line except the last ends with a forced break.
-func breakIntoLinesPre(text string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+// No soft wrapping happens in pre (§3.1), so the available size is not needed.
+// Every line except the last ends with a forced break; tabs advance to tab stops.
+func breakIntoLinesPre(text string, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	// Split by newlines
 	lineTexts := strings.Split(text, "\n")
 	lines := make([]TextLine, 0, len(lineTexts))
-	metas := make([]textLineMeta, 0, len(lineTexts))
 
 	for i, lineText := range lineTexts {
 		line := TextLine{Boxes: []InlineBox{}}
 
-		// Measure the entire line text (preserving all spaces)
+		// Measure the entire line text (preserving all spaces and tabs)
 		// Text-indent affects alignment, not intrinsic width, so handle in positionLines()
-		advance, ascent, descent := getTextMetrics().Measure(lineText, style)
+		advance, ascent, descent := measureWithTabs(lineText, style, metrics, 0)
 		line.Boxes = append(line.Boxes, newInlineBox(lineText, advance, ascent, descent, style.WritingMode))
 		line.Width = advance
+		line.EndsWithForcedBreak = i < len(lineTexts)-1
 		lines = append(lines, line)
-		metas = append(metas, textLineMeta{EndsWithForcedBreak: i < len(lineTexts)-1})
 	}
 
-	return lines, metas
+	return lines
 }
 
 // breakIntoLinesPreWrap handles pre-wrap and pre-line modes.
 // Split on newlines, then wrap each segment. The last line produced by each
 // segment except the final one ends with a forced break.
 // maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
-func breakIntoLinesPreWrap(text string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+func breakIntoLinesPreWrap(text string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	lines := []TextLine{}
-	metas := []textLineMeta{}
 
 	// Split by newlines
 	segments := strings.Split(text, "\n")
 
 	for si, segment := range segments {
 		var segmentLines []TextLine
-		var segmentMetas []textLineMeta
 		if segment != "" {
 			// Wrap this segment if it exceeds maxInlineSize
 			// For pre-wrap: preserve spaces within the segment
 			// For pre-line: spaces already collapsed in preprocessText
-			segmentLines, segmentMetas = wrapSegment(segment, maxInlineSize, style)
+			segmentLines = wrapSegment(segment, maxInlineSize, style, metrics)
 		}
 		if len(segmentLines) == 0 {
 			// Empty line from consecutive newlines, a trailing newline, or a
 			// segment that collapsed to nothing
 			segmentLines = []TextLine{{Boxes: []InlineBox{}, Width: 0}}
-			segmentMetas = []textLineMeta{{}}
-		}
-		if len(segmentMetas) != len(segmentLines) {
-			segmentMetas = make([]textLineMeta, len(segmentLines))
 		}
 		lines = append(lines, segmentLines...)
-		metas = append(metas, segmentMetas...)
 		if si < len(segments)-1 {
-			markForcedBreak(metas)
+			markForcedBreak(lines)
 		}
 	}
 
-	return lines, metas
+	return lines
 }
 
 // wrapSegment wraps a single segment (between newlines).
@@ -950,26 +1094,33 @@ func breakIntoLinesPreWrap(text string, maxInlineSize float64, style TextStyle) 
 // Segments always go through the full line builder, even when they fit on one
 // line, so that inter-word spaces are tracked (SpaceCount) and the line can be
 // justified.
-func wrapSegment(segment string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+func wrapSegment(segment string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	// For pre-wrap mode, preserve all spaces including multiple consecutive ones
 	if style.WhiteSpace == WhiteSpacePreWrap {
-		return wrapSegmentPreserveSpaces(segment, maxInlineSize, style)
+		return wrapSegmentPreserveSpaces(segment, maxInlineSize, style, metrics)
 	}
 
 	// For pre-line, use UAX #14 (spaces already collapsed in preprocessText)
-	return breakIntoLinesUAX14(segment, maxInlineSize, style)
+	return breakIntoLinesUAX14(segment, maxInlineSize, style, metrics)
+}
+
+// isPreservedWhiteSpace reports whether r is a space or tab kept by
+// white-space: pre-wrap. Both hang at the end of a line (§4.1.3).
+func isPreservedWhiteSpace(r rune) bool {
+	return r == ' ' || r == '\t'
 }
 
 // wrapSegmentPreserveSpaces wraps text while preserving all spaces (for pre-wrap mode).
 // maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
 //
-// Runs of preserved spaces are kept as their own boxes. Per CSS Text 3 §4.1.3
-// a sequence of preserved white space at the end of a line hangs: it never
+// Runs of preserved spaces and tabs are kept as their own boxes; tabs advance
+// to the next tab stop (§3.1.1, see measureWithTabs). Per CSS Text 3 §4.1.3 a
+// sequence of preserved white space at the end of a line hangs: it never
 // causes a wrap and is not counted in the line's width. Before a forced break
 // (or the end of the text) the sequence hangs conditionally, i.e. only the
 // part that would overflow is excluded.
 // https://www.w3.org/TR/css-text-3/#white-space-phase-2
-func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style TextStyle) ([]TextLine, []textLineMeta) {
+func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	lines := []TextLine{}
 	current := TextLine{Boxes: []InlineBox{}}
 	currentWidth := 0.0       // width of all boxes on the current line
@@ -978,26 +1129,28 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 	runes := []rune(segment)
 	n := len(runes)
 
-	// Tokenize into alternating runs of spaces and non-spaces. Each iteration
-	// consumes at least one rune, so the loop is bounded by n.
+	// Tokenize into alternating runs of white space and non-white-space. Each
+	// iteration consumes at least one rune, so the loop is bounded by n.
 	for i := 0; i < n; {
-		isSpace := runes[i] == ' '
+		isSpace := isPreservedWhiteSpace(runes[i])
 		j := i + 1
-		for j < n && (runes[j] == ' ') == isSpace {
+		for j < n && isPreservedWhiteSpace(runes[j]) == isSpace {
 			j++
 		}
 		token := string(runes[i:j])
 		i = j
 
-		tokenWidth, ascent, descent := getTextMetrics().Measure(token, style)
-
 		if isSpace {
-			// Spaces hang at the end of a line: always append to the current line
+			// Spaces hang at the end of a line: always append to the current
+			// line. Tab stops are measured from the current position.
+			tokenWidth, ascent, descent := measureWithTabs(token, style, metrics, currentWidth)
 			current.Boxes = append(current.Boxes, newInlineBox(token, tokenWidth, ascent, descent, style.WritingMode))
 			currentWidth += tokenWidth
 			trailingSpaceWidth += tokenWidth
 			continue
 		}
+
+		tokenWidth, ascent, descent := metrics.Measure(token, style)
 
 		// A word: wrap first if it does not fit and the line already has content
 		if len(current.Boxes) > 0 && currentWidth+tokenWidth > maxInlineSize {
@@ -1028,7 +1181,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 		lines = append(lines, current)
 	}
 
-	return lines, make([]textLineMeta, len(lines))
+	return lines
 }
 
 // breakWordToFit breaks a word into pieces that fit maxInlineSize.
@@ -1039,7 +1192,7 @@ func wrapSegmentPreserveSpaces(segment string, maxInlineSize float64, style Text
 // other run-dependent metric) is honored, rather than summing per-character
 // advances.
 // https://www.w3.org/TR/css-text-3/#overflow-wrap-property
-func breakWordToFit(word string, maxInlineSize float64, style TextStyle) []string {
+func breakWordToFit(word string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) []string {
 	pieces := []string{}
 	runes := []rune(word)
 	if len(runes) == 0 {
@@ -1050,7 +1203,7 @@ func breakWordToFit(word string, maxInlineSize float64, style TextStyle) []strin
 	// One iteration per rune; every rune ends up in exactly one piece.
 	for _, r := range runes {
 		current = append(current, r)
-		width, _, _ := getTextMetrics().Measure(string(current), style)
+		width, _, _ := metrics.Measure(string(current), style)
 		if width > maxInlineSize && len(current) > 1 {
 			// Finish the piece without this rune and start a new one with it
 			pieces = append(pieces, string(current[:len(current)-1]))
@@ -1068,16 +1221,16 @@ func breakWordToFit(word string, maxInlineSize float64, style TextStyle) []strin
 // applyTextOverflow applies text-overflow: ellipsis to overflowing lines
 // CSS Text Overflow Module Level 3: https://www.w3.org/TR/css-overflow-3/#text-overflow
 //
-// metas (parallel to lines, may be nil) tells which boxes are followed by an
-// inter-word space so the space advance is accounted for when fitting boxes.
-func applyTextOverflow(lines []TextLine, metas []textLineMeta, contentWidth float64, style TextStyle) []TextLine {
+// InlineBox.SpaceAfter tells which boxes are followed by an inter-word space
+// so the space advance is accounted for when fitting boxes.
+func applyTextOverflow(lines []TextLine, contentWidth float64, style TextStyle, metrics TextMetricsProvider) []TextLine {
 	if len(lines) == 0 {
 		return lines
 	}
 
 	// Measure ellipsis width
 	ellipsisText := "..."
-	ellipsisWidth, ellipsisAscent, ellipsisDescent := getTextMetrics().Measure(ellipsisText, style)
+	ellipsisWidth, ellipsisAscent, ellipsisDescent := metrics.Measure(ellipsisText, style)
 
 	// Process each line that overflows
 	for i := range lines {
@@ -1101,25 +1254,14 @@ func applyTextOverflow(lines []TextLine, metas []textLineMeta, contentWidth floa
 		}
 
 		// Determine which gaps between boxes are inter-word spaces and how
-		// wide each one is.
-		var spaceAfter []bool
-		if i < len(metas) && len(metas[i].SpaceAfter) == len(line.Boxes) {
-			spaceAfter = metas[i].SpaceAfter
-		}
-		gaps := len(line.Boxes) - 1
+		// wide each one is. The gap before box j is a space when box j-1 is
+		// followed by one.
 		perSpace := 0.0
 		if line.SpaceCount > 0 {
 			perSpace = line.SpaceWidth / float64(line.SpaceCount)
 		}
 		gapIsSpace := func(j int) bool {
-			if j <= 0 || line.SpaceCount == 0 {
-				return false
-			}
-			if spaceAfter != nil {
-				return spaceAfter[j-1]
-			}
-			// Without metadata, assume every gap is a space when the counts agree
-			return line.SpaceCount >= gaps
+			return j > 0 && line.SpaceCount > 0 && line.Boxes[j-1].SpaceAfter
 		}
 
 		// Truncate boxes to fit within availableWidth
@@ -1148,9 +1290,9 @@ func applyTextOverflow(lines []TextLine, metas []textLineMeta, contentWidth floa
 			remainingWidth := availableWidth - currentWidth - gapWidth
 			if remainingWidth > 0 {
 				// Try to fit part of this box
-				truncatedText := truncateTextToWidth(box.Text, remainingWidth, style)
+				truncatedText := truncateTextToWidth(box.Text, remainingWidth, style, metrics)
 				if truncatedText != "" {
-					truncWidth, truncAscent, truncDesc := getTextMetrics().Measure(truncatedText, style)
+					truncWidth, truncAscent, truncDesc := metrics.Measure(truncatedText, style)
 					truncatedBoxes = append(truncatedBoxes, newInlineBox(truncatedText, truncWidth, truncAscent, truncDesc, style.WritingMode))
 					currentWidth += gapWidth + truncWidth
 					if hasGap {
@@ -1161,7 +1303,10 @@ func applyTextOverflow(lines []TextLine, metas []textLineMeta, contentWidth floa
 			break // Stop processing boxes
 		}
 
-		// Add ellipsis
+		// Add ellipsis. No space separates it from the last retained box.
+		if n := len(truncatedBoxes); n > 0 {
+			truncatedBoxes[n-1].SpaceAfter = false
+		}
 		truncatedBoxes = append(truncatedBoxes, newInlineBox(ellipsisText, ellipsisWidth, ellipsisAscent, ellipsisDescent, style.WritingMode))
 
 		line.Boxes = truncatedBoxes
@@ -1177,7 +1322,7 @@ func applyTextOverflow(lines []TextLine, metas []textLineMeta, contentWidth floa
 
 // truncateTextToWidth truncates text to fit within maxInlineSize.
 // maxInlineSize represents the maximum extent in the inline dimension (width for horizontal, height for vertical).
-func truncateTextToWidth(text string, maxInlineSize float64, style TextStyle) string {
+func truncateTextToWidth(text string, maxInlineSize float64, style TextStyle, metrics TextMetricsProvider) string {
 	runes := []rune(text)
 
 	// Binary search for the longest prefix that fits
@@ -1187,7 +1332,7 @@ func truncateTextToWidth(text string, maxInlineSize float64, style TextStyle) st
 	for left <= right {
 		mid := (left + right) / 2
 		candidate := string(runes[:mid])
-		width, _, _ := getTextMetrics().Measure(candidate, style)
+		width, _, _ := metrics.Measure(candidate, style)
 
 		if width <= maxInlineSize {
 			result = candidate
@@ -1223,11 +1368,16 @@ func resolveTextAlignLast(last TextAlignLast, textAlign TextAlign) TextAlignLast
 //
 // contentInlineSize is the size lines are aligned within; contentBlockSize is
 // the block extent of the content box, used as the starting edge for writing
-// modes whose lines stack right-to-left. metas (parallel to lines, may be nil)
-// marks lines that end with a forced break: per §7.1 those lines, like the
-// last line of the block, are aligned with text-align-last instead of being
-// justified.
+// modes whose lines stack right-to-left. Lines whose EndsWithForcedBreak is
+// set are, per §7.1, aligned with text-align-last instead of being justified,
+// like the last line of the block.
 // https://www.w3.org/TR/css-text-3/#text-align-property
+//
+// text-indent (§7.2.1) is treated as a margin applied to the start edge of the
+// first line box: the line box is shortened at the start edge (left in LTR,
+// right in RTL) and the content is aligned within what remains. End-aligned
+// text therefore stays flush with the end edge.
+// https://www.w3.org/TR/css-text-3/#text-indent-property
 //
 // For vertical writing modes, the logical positioning changes:
 //   - Horizontal: lines stack vertically (Y increases), alignment is horizontal (X)
@@ -1235,7 +1385,7 @@ func resolveTextAlignLast(last TextAlignLast, textAlign TextAlign) TextAlignLast
 //   - Vertical-RL: lines stack right-to-left (X decreases), alignment is vertical (Y)
 //
 // https://www.w3.org/TR/css-writing-modes-3/#block-flow
-func positionLines(lines []TextLine, contentInlineSize, contentBlockSize float64, metas []textLineMeta, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, direction Direction, lineHeight float64, writingMode WritingMode) {
+func positionLines(lines []TextLine, contentInlineSize, contentBlockSize float64, textAlign TextAlign, textAlignLast TextAlignLast, textJustify TextJustify, textIndent float64, direction Direction, lineHeight float64, writingMode WritingMode) {
 	// Resolve TextAlignDefault based on direction
 	align := textAlign
 	wasDefault := (align == TextAlignDefault)
@@ -1284,35 +1434,42 @@ func positionLines(lines []TextLine, contentInlineSize, contentBlockSize float64
 			indent = textIndent
 		}
 
+		// The line box, in inline-axis coordinates, after the indent has been
+		// applied to its start edge (§7.2.1). In LTR the start edge is the
+		// low coordinate; in RTL it is the high one.
+		lineStart, lineEnd := 0.0, contentInlineSize
+		if direction == DirectionRTL {
+			lineEnd -= indent
+		} else {
+			lineStart += indent
+		}
+		availableSize := lineEnd - lineStart
+
 		// Calculate inline-axis offset based on text-align
 		// Horizontal mode: inline-axis is X
 		// Vertical mode: inline-axis is Y
-		// Per CSS Text Module Level 3 §7.2.1: text-indent is treated as a margin
-		// applied to the start edge (left in LTR, top in vertical)
 		var inlineOffset float64
 
 		switch align {
 		case TextAlignLeft:
-			// Start-aligned: text starts at indent position
-			inlineOffset = indent
+			// Aligned to the low edge of the line box
+			inlineOffset = lineStart
 
 		case TextAlignRight:
-			// End-aligned: indent reduces available size, text aligns to (contentInlineSize - indent)
-			// So text ends at (contentInlineSize - indent), not at contentInlineSize
-			inlineOffset = contentInlineSize - lineWidth - indent
+			// Aligned to the high edge of the line box: the indent shortens
+			// the start edge only, so end-aligned text stays flush.
+			inlineOffset = lineEnd - lineWidth
 
 		case TextAlignCenter:
-			// Center-aligned: indent reduces available size, center within remaining space
-			// Available size is (contentInlineSize - indent), center the line within that
-			availableSize := contentInlineSize - indent
-			inlineOffset = indent + (availableSize-lineWidth)/2
+			// Centered within the (indented) line box
+			inlineOffset = lineStart + (availableSize-lineWidth)/2
 
 		case TextAlignJustify:
 			// Justified: distribute extra space using text-justify algorithm
 			// Per CSS Text Module Level 3 §7.1.1, §7.2.2, and §7.3
 			// §7.1: "the last line before a forced break" is treated like the
 			// last line of the block and uses text-align-last.
-			isLastLine := i == len(lines)-1 || lineEndsWithForcedBreak(metas, i)
+			isLastLine := i == len(lines)-1 || line.EndsWithForcedBreak
 			hasMultipleWords := line.SpaceCount > 0
 
 			// Resolve text-justify
@@ -1323,14 +1480,9 @@ func positionLines(lines []TextLine, contentInlineSize, contentBlockSize float64
 
 			// Handle text-justify: none
 			if justifyMode == TextJustifyNone {
-				inlineOffset = indent
+				inlineOffset = lineStart
 			} else if !isLastLine && hasMultipleWords {
 				// Middle lines: apply justification algorithm
-				availableSize := contentInlineSize
-				if i == 0 && indent != 0 {
-					availableSize -= indent
-				}
-
 				extraSpace := availableSize - lineWidth
 				if extraSpace > 0 {
 					switch justifyMode {
@@ -1371,46 +1523,35 @@ func positionLines(lines []TextLine, contentInlineSize, contentBlockSize float64
 						}
 					}
 				}
-				inlineOffset = indent
+				inlineOffset = lineStart
 			} else {
 				// Last line or single word: use text-align-last
 				lastAlign := resolveTextAlignLast(textAlignLast, align)
 
 				switch lastAlign {
 				case TextAlignLastLeft:
-					inlineOffset = indent
+					inlineOffset = lineStart
 				case TextAlignLastRight:
-					inlineOffset = contentInlineSize - lineWidth
-					if i == 0 {
-						inlineOffset -= indent
-					}
+					inlineOffset = lineEnd - lineWidth
 				case TextAlignLastCenter:
-					availableSize := contentInlineSize
-					if i == 0 {
-						availableSize -= indent
-					}
-					inlineOffset = indent + (availableSize-lineWidth)/2
+					inlineOffset = lineStart + (availableSize-lineWidth)/2
 				case TextAlignLastJustify:
 					// Justify even last line
 					if hasMultipleWords {
-						availableSize := contentInlineSize
-						if i == 0 && indent != 0 {
-							availableSize -= indent
-						}
 						extraSpace := availableSize - lineWidth
 						if extraSpace > 0 {
 							line.SpaceAdjustment = extraSpace / float64(line.SpaceCount)
 							line.Width = availableSize
 						}
 					}
-					inlineOffset = indent
+					inlineOffset = lineStart
 				default:
-					inlineOffset = indent
+					inlineOffset = lineStart
 				}
 			}
 
 		default:
-			inlineOffset = 0.0
+			inlineOffset = lineStart
 		}
 
 		// Map logical offsets to physical X/Y based on writing mode
@@ -1495,16 +1636,6 @@ func Text(text string, style ...Style) *Node {
 // --- Vertical Writing Mode Helpers ---
 // These functions abstract the dimension mapping for vertical writing modes.
 // In vertical modes, the inline and block dimensions are swapped compared to horizontal modes.
-
-// getInlineSize returns the inline dimension (the direction text flows within a line).
-// For horizontal modes: inline = width
-// For vertical modes: inline = height
-func getInlineSize(width, height float64, wm WritingMode) float64 {
-	if wm.IsVertical() {
-		return height
-	}
-	return width
-}
 
 // getBlockSize returns the block dimension (the direction lines are stacked).
 // For horizontal modes: block = height

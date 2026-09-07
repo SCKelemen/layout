@@ -91,8 +91,8 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	if len(node.Children) == 0 {
 		// Empty grid: the tracks alone (including gaps in both axes)
 		// determine the size.
-		columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, nil, ctx, currentFontSize)
-		rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, nil, ctx, currentFontSize)
+		columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, nil, nil, ctx, currentFontSize)
+		rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, nil, nil, ctx, currentFontSize)
 		return gridFinishContainer(node, constraints,
 			gridTracksTotal(columnSizes, columnGap), gridTracksTotal(rowSizes, rowGap),
 			isVerticalWritingMode,
@@ -106,23 +106,31 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 
 	// Step 2: Place items using grid-auto-flow (§8.5). Placement may grow
 	// the implicit grid; every item's end line is covered afterwards.
+	// Absolutely positioned children are not grid items and are skipped by
+	// placement (§9); they are laid out separately below.
 	gridItems := gridPlaceItems(node, &rows, &columns, node.Style.GridAutoFlow)
 
 	// Step 3: Size the columns (§12.5 intrinsic contributions, §12.6
 	// maximize, §12.7 expand flexible tracks).
 	//
 	// Intrinsic column tracks (auto, min-content, max-content, fit-content,
-	// minmax, and fr whose auto minimum is content-based) need the items'
-	// max-content contributions along the column axis.
-	var colContrib []float64
+	// minmax, and fr whose auto minimum is content-based) need two
+	// contributions per item along the column axis: the minimum contribution
+	// (min-content, e.g. the longest word of a text item) that sets a track's
+	// base size, and the max-content contribution that sets its growth limit.
+	// See: https://www.w3.org/TR/css-grid-1/#algo-content
+	var colMinContrib, colMaxContrib []float64
 	if gridTracksNeedContributions(columns, ctx, currentFontSize) {
-		colContrib = make([]float64, len(columns))
+		colMinContrib = make([]float64, len(columns))
+		colMaxContrib = make([]float64, len(columns))
 		for _, item := range gridItems {
-			size := gridMeasureItemAxis(item.node, isVerticalWritingMode, ctx)
-			gridDistributeContribution(colContrib, columns, item.colStart, item.colEnd, columnGap, size, ctx, currentFontSize)
+			maxSize := gridMeasureItemAxis(item.node, isVerticalWritingMode, ctx)
+			minSize := gridMeasureItemMinAxis(item.node, isVerticalWritingMode, maxSize, ctx)
+			gridDistributeContribution(colMinContrib, columns, item.colStart, item.colEnd, columnGap, minSize, ctx, currentFontSize)
+			gridDistributeContribution(colMaxContrib, columns, item.colStart, item.colEnd, columnGap, maxSize, ctx, currentFontSize)
 		}
 	}
-	columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, colContrib, ctx, currentFontSize)
+	columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, colMinContrib, colMaxContrib, ctx, currentFontSize)
 	// Note: JustifyContent's zero value is flex-start in this library (there
 	// is no stretch keyword), so §12.8 stretch is not applied to columns.
 
@@ -153,8 +161,10 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		gridDistributeContribution(rowContrib, rows, item.rowStart, item.rowEnd, rowGap, rowSize, ctx, currentFontSize)
 	}
 
-	// Step 5: Size the rows.
-	rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, rowContrib, ctx, currentFontSize)
+	// Step 5: Size the rows. In the block axis an item's min-content and
+	// max-content contributions coincide (both are its size at the resolved
+	// column width), so the same array serves as base size and growth limit.
+	rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, rowContrib, rowContrib, ctx, currentFontSize)
 
 	// Step 6: Apply align-content to the rows (§10.4, §12.8). Free space
 	// exists only when the row axis is definite.
@@ -524,6 +534,29 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		}
 	}
 
+	// Step 8: Absolutely positioned children. They are not grid items (§9):
+	// they took part in neither placement nor track sizing above. Each is
+	// laid out for its own size against the container's content box and left
+	// at its static position, the content-box origin (§9: the static position
+	// is determined as if it were the sole grid item in a grid area whose
+	// edges coincide with the content edges of the grid container). The
+	// positioned pass (LayoutWithPositioning) then applies its offsets
+	// relative to the container's padding box.
+	// See: https://www.w3.org/TR/css-grid-1/#abspos-items
+	// See: https://www.w3.org/TR/css-grid-1/#static-position
+	for _, child := range node.Children {
+		if child.Style.Display == DisplayNone || !isOutOfFlow(child) {
+			continue
+		}
+		childSize := gridLayoutItem(child, Loose(contentWidth, contentHeight), ctx)
+		child.Rect = Rect{
+			X:      paddingLeft + borderLeft,
+			Y:      paddingTop + borderTop,
+			Width:  childSize.Width,
+			Height: childSize.Height,
+		}
+	}
+
 	return gridFinishContainer(node, constraints,
 		gridTracksTotal(columnSizes, columnGap), totalRowSize,
 		isVerticalWritingMode,
@@ -666,6 +699,48 @@ func gridMeasureItemAxis(child *Node, isVertical bool, ctx *LayoutContext) float
 	return value
 }
 
+// gridMeasureItemMinAxis returns an item's minimum contribution along the
+// column axis: the size a track must have so the item does not overflow it.
+//
+// The min track sizing function of auto and fr tracks is auto, whose
+// minimum contribution is the item's min-content size (§6.6 automatic
+// minimum size; for text that is its longest unbreakable word, for a block
+// or flex container the largest such contribution among its children). An
+// item with a definite width has the same min- and max-content contribution,
+// so its max-content size (maxContribution) is used directly.
+//
+// The result never exceeds maxContribution so a track's base size never
+// exceeds its growth limit. Only the horizontal-tb writing mode has an
+// inline-axis min-content measurement; in vertical writing modes the column
+// axis is the physical block axis and the max-content size is used as the
+// minimum as well.
+//
+// CSS Grid Layout Module Level 1 §12.5: "For auto minimums ... set the
+// track's base size to the maximum of its items' minimum contributions."
+// See: https://www.w3.org/TR/css-grid-1/#algo-single-span-items
+// See: https://www.w3.org/TR/css-grid-1/#min-size-auto
+// See: https://www.w3.org/TR/css-sizing-3/#min-content
+func gridMeasureItemMinAxis(child *Node, isVertical bool, maxContribution float64, ctx *LayoutContext) float64 {
+	if isVertical || maxContribution <= 0 {
+		return maxContribution
+	}
+	fontSize := getCurrentFontSize(child, ctx)
+	widthPx := ResolveLength(child.Style.Width, ctx, fontSize)
+	if !isUnsetLength(child.Style.Width) && widthPx >= 0 && widthPx < Unbounded {
+		// Definite width: the minimum contribution is the specified size,
+		// which is what the max-content layout pass already produced.
+		return maxContribution
+	}
+	value := CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent, ctx)
+	if math.IsNaN(value) || value < 0 {
+		return 0
+	}
+	if value > maxContribution {
+		return maxContribution
+	}
+	return value
+}
+
 // gridIsZeroTrack reports whether a GridTrack is the zero value, which
 // stands for the initial value of grid-auto-rows / grid-auto-columns (auto).
 // A zero-value Length has no unit, unlike Px(0), so a genuine 0px track is
@@ -799,18 +874,27 @@ func gridDistributeContribution(contrib []float64, tracks []GridTrack, start, en
 // Algorithm based on CSS Grid Layout Module Level 1 §12.3 - §12.7:
 //
 //   - §12.4 Initialize Track Sizes / §12.5 Resolve Intrinsic Track Sizes:
-//     each track's base size comes from its sizing functions and, for
-//     intrinsic tracks, from the item contributions in contrib (nil when no
-//     items have been measured).
+//     each track's base size comes from its min sizing function and, for an
+//     intrinsic minimum, from the items' minimum contributions in minContrib
+//     (auto and min-content minimums use the min-content contribution, a
+//     max-content minimum uses maxContrib). Each track's growth limit comes
+//     from its max sizing function and, for an intrinsic maximum, from the
+//     items' max-content contributions in maxContrib (min-content maximums
+//     use minContrib; fit-content clamps to its limit). A flexible track's
+//     growth limit is its base size (§12.5 final step), so §12.6 never grows
+//     it. Both arrays may be nil when no items have been measured.
 //   - §12.6 Maximize Tracks: with definite free space, tracks whose growth
-//     limit (a fixed max sizing function) exceeds their base size grow
-//     toward it.
+//     limit exceeds their base size grow toward it, sharing the free space
+//     equally and freezing as they reach their limits; with indefinite
+//     space (a max-content constraint) the free space is infinite and every
+//     track grows to its growth limit.
 //   - §12.7 Expand Flexible Tracks: fr tracks are minmax(auto, Nfr); with
 //     definite space the flex fraction is found per §12.7.1, restarting with
 //     a track treated as inflexible whenever its content-based base size
 //     exceeds its share (bounded by the number of flexible tracks); with
-//     indefinite space the flex fraction is the largest base size / flex
-//     factor among the flexible tracks.
+//     indefinite space the flex fraction is the largest of base size / flex
+//     factor and max-content contribution / flex factor among the flexible
+//     tracks, and no track shrinks below its base size.
 //
 // §12.8 (Stretch auto Tracks) is applied by gridDistributeTrackSpace.
 //
@@ -818,8 +902,10 @@ func gridDistributeContribution(contrib []float64, tracks []GridTrack, start, en
 // indefinite) and definite says whether free space exists at all.
 //
 // See: https://www.w3.org/TR/css-grid-1/#algo-track-sizing
+// See: https://www.w3.org/TR/css-grid-1/#algo-content
+// See: https://www.w3.org/TR/css-grid-1/#algo-grow-tracks
 // See: https://www.w3.org/TR/css-grid-1/#algo-flex-tracks
-func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap float64, contrib []float64, ctx *LayoutContext, currentFontSize float64) []float64 {
+func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap float64, minContrib, maxContrib []float64, ctx *LayoutContext, currentFontSize float64) []float64 {
 	n := len(tracks)
 	if n == 0 {
 		return []float64{}
@@ -829,38 +915,77 @@ func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap fl
 	limits := make([]float64, n)
 	flexIdx := make([]int, 0)
 
-	for i, track := range tracks {
-		contribution := 0.0
-		if i < len(contrib) {
-			contribution = contrib[i]
+	// contribution returns a finite, non-negative entry of a contribution
+	// array, or 0 when the array is shorter than the track list.
+	contribution := func(contrib []float64, i int) float64 {
+		if i >= len(contrib) {
+			return 0
 		}
-		minSize := ResolveLength(track.MinSize, ctx, currentFontSize)
+		v := contrib[i]
+		if math.IsNaN(v) || v < 0 || v >= Unbounded {
+			return 0
+		}
+		return v
+	}
+
+	for i, track := range tracks {
+		minC := contribution(minContrib, i)
+		maxC := contribution(maxContrib, i)
+		if maxC < minC {
+			maxC = minC
+		}
+		rawMin := ResolveLength(track.MinSize, ctx, currentFontSize)
 		maxSize := ResolveLength(track.MaxSize, ctx, currentFontSize)
+
+		// Base size from the min sizing function (§12.4, §12.5 step 1).
+		var base float64
+		switch {
+		case rawMin == SizeMaxContent:
+			// max-content minimum: the items' max-content contributions.
+			base = maxC
+		case rawMin < 0 || rawMin >= Unbounded:
+			// auto or min-content minimum (an unbounded value also behaves as
+			// auto): the items' minimum contributions.
+			base = minC
+		default:
+			// Fixed minimum. Content never shrinks a track below it; an
+			// auto-like zero minimum still takes the minimum contribution.
+			base = math.Max(rawMin, minC)
+		}
+		minSize := rawMin
 		if minSize < 0 || minSize >= Unbounded {
-			// Intrinsic keywords or an unbounded value as the min sizing
-			// function behave as the automatic minimum.
 			minSize = 0
 		}
 
 		switch {
 		case track.Fraction > 0:
-			// §7.2.4: <flex> as a max sizing function implies an auto minimum.
+			// §7.2.4: <flex> as a max sizing function implies an auto
+			// minimum. Growth limit = base size (§12.5 final step) so the
+			// track only grows in §12.7.
 			flexIdx = append(flexIdx, i)
-			sizes[i] = math.Max(minSize, contribution)
-			limits[i] = sizes[i]
+			sizes[i] = base
+			limits[i] = base
 		case track.Fraction == -1:
-			// fit-content(limit): max-content clamped to the limit (§7.2.2).
-			size := contribution
+			// fit-content(limit): auto minimum, growth limit = max-content
+			// clamped to the limit (§7.2.2). The auto minimum is limited by
+			// the same fixed limit (§6.6 "limited min-content contribution").
+			limit := maxC
 			if maxSize >= 0 && maxSize < Unbounded {
-				size = math.Min(size, maxSize)
+				limit = math.Min(limit, maxSize)
+				base = math.Min(base, math.Max(minSize, maxSize))
 			}
-			sizes[i] = math.Max(minSize, size)
-			limits[i] = sizes[i]
-		case maxSize == SizeMinContent || maxSize == SizeMaxContent || maxSize >= Unbounded:
-			// Intrinsic max sizing function (min-content, max-content, auto):
-			// the track is sized to its contributions (§12.5).
-			sizes[i] = math.Max(minSize, contribution)
-			limits[i] = sizes[i]
+			sizes[i] = base
+			limits[i] = math.Max(base, limit)
+		case maxSize == SizeMinContent:
+			// min-content maximum: growth limit = min-content contributions.
+			sizes[i] = base
+			limits[i] = math.Max(base, minC)
+		case maxSize == SizeMaxContent || maxSize >= Unbounded:
+			// max-content or auto maximum: growth limit = max-content
+			// contributions (§12.5: an auto maximum is treated as
+			// max-content here).
+			sizes[i] = base
+			limits[i] = math.Max(base, maxC)
 		case maxSize < minSize:
 			// §7.2.1: if max < min, the max is ignored and the track is min.
 			sizes[i] = minSize
@@ -870,8 +995,9 @@ func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap fl
 			sizes[i] = minSize
 			limits[i] = minSize
 		default:
-			// minmax(fixed, fixed): content grows the base within the range.
-			sizes[i] = math.Min(math.Max(minSize, contribution), maxSize)
+			// minmax(min, fixed): an intrinsic minimum is limited by the
+			// fixed maximum (§6.6); the fixed maximum is the growth limit.
+			sizes[i] = math.Min(base, maxSize)
 			limits[i] = maxSize
 		}
 	}
@@ -898,6 +1024,14 @@ func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap fl
 				add := math.Min(perTrack, room)
 				sizes[i] += add
 				free -= add
+			}
+		}
+	} else {
+		// Indefinite free space (sizing under a max-content constraint):
+		// every track grows to its growth limit.
+		for i := range sizes {
+			if limits[i] > sizes[i] {
+				sizes[i] = limits[i]
 			}
 		}
 	}
@@ -954,13 +1088,17 @@ func gridSizeTracks(tracks []GridTrack, available float64, definite bool, gap fl
 			}
 		} else {
 			// Indefinite free space (§12.7.1): the flex fraction is the
-			// largest base size divided by flex factor.
+			// largest of each flexible track's base size divided by its flex
+			// factor and each item's max-content contribution divided by the
+			// flex factor of the track it sits in. A track never ends up
+			// below its base size.
 			flexFraction := 0.0
 			for _, i := range flexIdx {
 				flexFraction = math.Max(flexFraction, sizes[i]/tracks[i].Fraction)
+				flexFraction = math.Max(flexFraction, contribution(maxContrib, i)/tracks[i].Fraction)
 			}
 			for _, i := range flexIdx {
-				sizes[i] = tracks[i].Fraction * flexFraction
+				sizes[i] = math.Max(sizes[i], tracks[i].Fraction*flexFraction)
 			}
 		}
 	}

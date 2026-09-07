@@ -164,8 +164,13 @@ func TestGridAlignContentSpaceAround(t *testing.T) {
 	}
 }
 
-// TestGridAlignContentStretch tests align-content: stretch for grid rows
-// Track sizes should increase to fill available space
+// TestGridAlignContentStretch tests align-content: stretch for grid rows.
+//
+// CSS Grid §12.8 "Stretch auto Tracks": only tracks whose max sizing function
+// is auto grow to fill free space. Fixed 50px tracks stay 50px, so stretch
+// behaves as start here. (This test previously asserted that the fixed rows
+// were stretched to 100px each, which the spec does not allow.)
+// https://www.w3.org/TR/css-grid-1/#algo-stretch
 func TestGridAlignContentStretch(t *testing.T) {
 	container := &Node{
 		Style: Style{
@@ -190,14 +195,21 @@ func TestGridAlignContentStretch(t *testing.T) {
 		t.Errorf("First item should be at Y=0, got %v", container.Children[0].Rect.Y)
 	}
 
-	// Second item: should be at Y=100 (each row stretched to 100px: 200/2)
-	if container.Children[1].Rect.Y != 100 {
-		t.Errorf("Second item should be at Y=100, got %v", container.Children[1].Rect.Y)
+	// Second item: Y=50. The fixed 50px rows are not auto tracks, so §12.8
+	// leaves them alone and the free space stays at the end.
+	if container.Children[1].Rect.Y != 50 {
+		t.Errorf("Second item should be at Y=50, got %v", container.Children[1].Rect.Y)
 	}
 
-	// Rows are stretched to fill the container, but items with an explicit
-	// height must NOT stretch: per CSS Box Alignment Level 3 §6.2, stretch is a
-	// no-op when the axis size is definite, so each item keeps its 50px height.
+	// The container keeps its explicit 200px height even though the tracks
+	// only fill 100px.
+	if container.Rect.Height != 200 {
+		t.Errorf("Container height should be 200, got %v", container.Rect.Height)
+	}
+
+	// Items with an explicit height must NOT stretch: per CSS Box Alignment
+	// Level 3 §6.2, stretch is a no-op when the axis size is definite, so
+	// each item keeps its 50px height.
 	// https://www.w3.org/TR/css-align-3/#stretch-alignment
 	if container.Children[0].Rect.Height != 50 {
 		t.Errorf("First item height should remain 50, got %v", container.Children[0].Rect.Height)
@@ -276,12 +288,14 @@ func TestGridAlignContentWithSpanning(t *testing.T) {
 		t.Errorf("First spanning item should be at Y=75, got %v", container.Children[0].Rect.Y)
 	}
 
-	// Second item: should be at Y=175 (75 + 50 + 50)
-	// Actually at Y=125, which suggests free space isn't being distributed as expected
-	// This might be because the spanning item's measurement affects the calculation
-	// For now, accept the actual behavior
-	if container.Children[1].Rect.Y != 125 {
-		t.Errorf("Second item should be at Y=125, got %v", container.Children[1].Rect.Y)
+	// Second item: Y=175 (75 offset + 50 + 50). Fixed tracks never grow from
+	// a spanning item (CSS Grid §12.5 only distributes extra space to
+	// intrinsic tracks), so the centered 150px block starts at 75 and row 2
+	// begins at 175. (Previously asserted 125, an artifact of the spanning
+	// item's height being split into the fixed rows.)
+	// https://www.w3.org/TR/css-grid-1/#algo-content
+	if container.Children[1].Rect.Y != 175 {
+		t.Errorf("Second item should be at Y=175, got %v", container.Children[1].Rect.Y)
 	}
 }
 

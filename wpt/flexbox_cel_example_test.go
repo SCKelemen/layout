@@ -1,7 +1,4 @@
-//go:build wpt
-// +build wpt
-
-package layout_test
+package wpt
 
 import (
 	"testing"

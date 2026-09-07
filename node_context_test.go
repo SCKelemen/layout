@@ -109,7 +109,7 @@ func TestAncestors(t *testing.T) {
 
 	t.Run("root has no ancestors", func(t *testing.T) {
 		ancestors := rootCtx.Ancestors()
-		if ancestors != nil && len(ancestors) != 0 {
+		if len(ancestors) != 0 {
 			t.Errorf("Root should have no ancestors")
 		}
 	})
@@ -224,7 +224,7 @@ func TestSiblings(t *testing.T) {
 
 	t.Run("root has no siblings", func(t *testing.T) {
 		siblings := rootCtx.Siblings()
-		if siblings != nil && len(siblings) != 0 {
+		if len(siblings) != 0 {
 			t.Errorf("Root should have no siblings")
 		}
 	})
@@ -257,7 +257,7 @@ func TestSiblings(t *testing.T) {
 		childCtx := ctx.ChildAt(0)
 
 		siblings := childCtx.Siblings()
-		if siblings != nil && len(siblings) != 0 {
+		if len(siblings) != 0 {
 			t.Errorf("Only child should have no siblings")
 		}
 	})
@@ -321,7 +321,7 @@ func TestChildren(t *testing.T) {
 		leafCtx := NewContext(leaf)
 
 		children := leafCtx.Children()
-		if children != nil && len(children) != 0 {
+		if len(children) != 0 {
 			t.Errorf("Leaf should have no children")
 		}
 	})

@@ -19,7 +19,7 @@ import (
 //	    layout.Spacer(),
 //	    layout.Fixed(100, 50),
 //	)
-//	stack.Style.Padding = layout.Uniform(10)
+//	stack.Style.Padding = layout.Uniform(layout.Px(10))
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout
 func HStack(children ...*Node) *Node {
@@ -42,7 +42,7 @@ func HStack(children ...*Node) *Node {
 //	    layout.Spacer(),
 //	    layout.Fixed(100, 50),
 //	)
-//	stack.Style.Padding = layout.Uniform(10)
+//	stack.Style.Padding = layout.Uniform(layout.Px(10))
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout
 func VStack(children ...*Node) *Node {
@@ -362,7 +362,7 @@ func DistributeNodes(nodes []*Node, direction DistributeDirection) {
 //
 //	// For block/absolute layouts
 //	nodes := []*layout.Node{item1, item2, item3}
-//	layout.Layout(root, constraints)
+//	layout.Layout(root, constraints, ctx)
 //	layout.SnapNodes(nodes, 10.0) // Snap to 10px grid
 //
 // Note: This modifies the Rect positions directly. Call Layout() first to compute initial positions.
@@ -390,7 +390,7 @@ func SnapNodes(nodes []*Node, snapSize float64) {
 //
 //	// For block/absolute layouts with offset grid
 //	nodes := []*layout.Node{item1, item2, item3}
-//	layout.Layout(root, constraints)
+//	layout.Layout(root, constraints, ctx)
 //	layout.SnapToGrid(nodes, 10.0, 5.0, 5.0) // 10px grid, offset by (5, 5)
 //
 // Note: This modifies the Rect positions directly. Call Layout() first to compute initial positions.
@@ -465,7 +465,7 @@ func MinWidth(node *Node, width float64) *Node {
 //	// Image that maintains 16:9 aspect ratio
 //	image := &layout.Node{
 //	    Style: layout.Style{
-//	        Width: 800, // Width is set
+//	        Width: layout.Px(800), // Width is set
 //	        // Height will be calculated: 800 / 1.777... = 450
 //	    },
 //	}
@@ -492,7 +492,7 @@ func AspectRatio(node *Node, ratio float64) *Node {
 // Example:
 //
 //	grid := layout.Grid(3, 4, 150, 200) // 3 rows x 4 columns, rows=150px, cols=200px
-//	grid.Style.GridGap = 10
+//	grid.Style.GridGap = layout.Px(10)
 //
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout
 func Grid(rows, cols int, rowSize, colSize float64) *Node {
@@ -572,20 +572,31 @@ func GridFractional(rows, cols int) *Node {
 }
 
 // RepeatTracks creates a repeated pattern of grid tracks.
-// This is equivalent to the CSS repeat() function.
+// This is equivalent to the CSS repeat() function with an integer count.
 //
 // Example:
 //
 //	// Creates: [100px, 100px, 100px]
-//	columns := layout.RepeatTracks(3, layout.FixedTrack(100))
+//	columns := layout.RepeatTracks(3, layout.FixedTrack(layout.Px(100)))
 //
 //	// Creates: [100px, 1fr, 100px, 1fr, 100px, 1fr]
-//	columns := layout.RepeatTracks(3, layout.FixedTrack(100), layout.FractionTrack(1))
+//	columns := layout.RepeatTracks(3, layout.FixedTrack(layout.Px(100)), layout.FractionTrack(1))
+//
+// Count handling:
+//   - count > 0: the pattern is repeated count times.
+//   - count <= 0, INCLUDING RepeatCountAutoFill (-1) and RepeatCountAutoFit
+//     (-2): an empty, non-nil slice is returned. RepeatTracks cannot expand
+//     auto-repeat because the number of repetitions depends on the container
+//     size, and a plain []GridTrack cannot carry the auto-repeat intent.
+//     Use AutoFillTracks/AutoFitTracks to build a RepeatTrack instead; note
+//     that LayoutGrid does not yet expand auto-fill/auto-fit (the algorithm
+//     lives in grid_auto_repeat.go but is not wired into layout).
 //
 // See: CSS Grid Layout Module Level 1 §5.1.2 (repeat() notation)
 // https://www.w3.org/TR/css-grid-1/#repeat-notation
 func RepeatTracks(count int, tracks ...GridTrack) []GridTrack {
 	if count <= 0 {
+		// Covers RepeatCountAutoFill/RepeatCountAutoFit as well; see doc above.
 		return []GridTrack{}
 	}
 	result := make([]GridTrack, 0, count*len(tracks))
@@ -795,10 +806,13 @@ func FitContentTrack(maxSize float64) GridTrack {
 // Example:
 //
 //	// CSS: grid-template-columns: repeat(auto-fill, 100px);
-//	GridTemplateColumns: RepeatTracks(RepeatCountAutoFill, FixedTrack(100))
+//	repeat := layout.AutoFillTracks(layout.FixedTrack(layout.Px(100)))
 //
-// Note: This is a low-level helper. For simpler usage, use expandAutoRepeatTracks
-// in grid layout code to expand auto-fill patterns.
+// Status: auto-fill/auto-fit expansion is implemented in grid_auto_repeat.go
+// (expandAutoRepeatTracks) but is NOT yet wired into LayoutGrid, and Style has
+// no field that accepts a RepeatTrack. Until that lands, a RepeatTrack is only
+// a description of intent; RepeatTracks(RepeatCountAutoFill, ...) returns an
+// empty slice rather than expanding it.
 //
 // See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fill)
 // https://www.w3.org/TR/css-grid-1/#auto-repeat
@@ -815,14 +829,14 @@ func AutoFillTracks(tracks ...GridTrack) RepeatTrack {
 // Example:
 //
 //	// CSS: grid-template-columns: repeat(auto-fit, 100px);
-//	GridTemplateColumns: RepeatTracks(RepeatCountAutoFit, FixedTrack(100))
+//	repeat := layout.AutoFitTracks(layout.FixedTrack(layout.Px(100)))
 //
 // The difference between auto-fill and auto-fit:
-// - auto-fill: keeps all generated tracks, even if empty
-// - auto-fit: collapses empty tracks to zero size
+//   - auto-fill: keeps all generated tracks, even if empty
+//   - auto-fit: collapses empty tracks to zero size
 //
-// Note: This is a low-level helper. For simpler usage, use expandAutoRepeatTracks
-// in grid layout code to expand auto-fit patterns.
+// Status: see AutoFillTracks; auto-repeat expansion is not yet wired into
+// LayoutGrid and Style has no field that accepts a RepeatTrack.
 //
 // See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fit)
 // https://www.w3.org/TR/css-grid-1/#auto-repeat

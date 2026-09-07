@@ -76,19 +76,19 @@ func main() {
             FlexDirection:  layout.FlexDirectionRow,
             JustifyContent: layout.JustifyContentSpaceBetween,
             AlignItems:     layout.AlignItemsCenter,
-            Padding:        layout.Uniform(10),
+            Padding:        layout.Uniform(layout.Px(10)),
         },
         Children: []*layout.Node{
             {
                 Style: layout.Style{
-                    Width:  100,
-                    Height: 50,
+                    Width:  layout.Px(100),
+                    Height: layout.Px(50),
                 },
             },
             {
                 Style: layout.Style{
-                    Width:  100,
-                    Height: 50,
+                    Width:  layout.Px(100),
+                    Height: layout.Px(50),
                 },
             },
         },
@@ -96,7 +96,9 @@ func main() {
 
     // Perform layout
     constraints := layout.Loose(800, 600)
-    size := layout.Layout(root, constraints)
+    // LayoutSimple derives a LayoutContext from the constraints;
+    // use layout.Layout(root, constraints, ctx) to supply your own.
+    size := layout.LayoutSimple(root, constraints)
 
     fmt.Printf("Layout size: %.2f x %.2f\n", size.Width, size.Height)
     fmt.Printf("Child 1 position: (%.2f, %.2f)\n", root.Children[0].Rect.X, root.Children[0].Rect.Y)
@@ -112,26 +114,26 @@ root := &layout.Node{
         FlexDirection:  layout.FlexDirectionColumn,
         JustifyContent: layout.JustifyContentCenter,
         AlignItems:     layout.AlignItemsStretch,
-        Padding:        layout.Uniform(20),
+        Padding:        layout.Uniform(layout.Px(20)),
     },
     Children: []*layout.Node{
         {
             Style: layout.Style{
                 FlexGrow: 1,
-                Height:   100,
+                Height:   layout.Px(100),
             },
         },
         {
             Style: layout.Style{
                 FlexGrow: 2,
-                Height:   100,
+                Height:   layout.Px(100),
             },
         },
     },
 }
 
 constraints := layout.Tight(400, 600)
-layout.Layout(root, constraints)
+layout.LayoutSimple(root, constraints)
 ```
 
 ### Grid Example
@@ -141,16 +143,16 @@ root := &layout.Node{
     Style: layout.Style{
         Display: layout.DisplayGrid,
         GridTemplateRows: []layout.GridTrack{
-            layout.FixedTrack(100),
+            layout.FixedTrack(layout.Px(100)),
             layout.FractionTrack(1),
-            layout.FixedTrack(50),
+            layout.FixedTrack(layout.Px(50)),
         },
         GridTemplateColumns: []layout.GridTrack{
             layout.FractionTrack(1),
             layout.FractionTrack(2),
         },
-        GridGap: 10,
-        Padding: layout.Uniform(10),
+        GridGap: layout.Px(10),
+        Padding: layout.Uniform(layout.Px(10)),
     },
     Children: []*layout.Node{
         {
@@ -181,7 +183,7 @@ root := &layout.Node{
 }
 
 constraints := layout.Loose(600, 400)
-layout.Layout(root, constraints)
+layout.LayoutSimple(root, constraints)
 ```
 
 ### Unicode Text Integration
@@ -239,11 +241,11 @@ You can use either the classic mutable style or the new fluent immutable style:
 
 ```go
 // Classic style (still supported)
-node := &layout.Node{Style: layout.Style{Width: 100}}
+node := &layout.Node{Style: layout.Style{Width: layout.Px(100)}}
 layout.Padding(node, 10)
 
 // Fluent style
-node := (&layout.Node{}).WithWidth(100).WithPadding(10)
+fluent := (&layout.Node{}).WithWidth(100).WithPadding(10)
 ```
 
 ### Navigation & Querying
@@ -264,7 +266,7 @@ textNodes := root.FindAll(func(n *layout.Node) bool {
 
 // Find first wide node
 wide := root.Find(func(n *layout.Node) bool {
-    return n.Style.Width > 150
+    return n.Style.Width.Value > 150
 })
 
 // Check if any child is flex
@@ -302,8 +304,8 @@ styled := original.
     AddChild(layout.Fixed(100, 50))
 
 // Original unchanged
-fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top) // 0
-fmt.Printf("Variant padding: %.0f\n", padded.Style.Padding.Top)    // 16
+fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top.Value) // 0
+fmt.Printf("Variant padding: %.0f\n", padded.Style.Padding.Top.Value)    // 16
 ```
 
 ### Parent Navigation with Context
@@ -356,23 +358,23 @@ root := layout.HStack(
 // Transform: Selectively modify nodes
 doubled := root.Transform(
     func(n *layout.Node) bool {
-        return n.Style.Width > 0 && n.Style.Width < 200
+        return n.Style.Width.Value > 0 && n.Style.Width.Value < 200
     },
     func(n *layout.Node) *layout.Node {
-        return n.WithWidth(n.Style.Width * 2)
+        return n.WithWidth(n.Style.Width.Value * 2)
     },
 )
 
 // Map: Apply to all nodes
 scaled := root.Map(func(n *layout.Node) *layout.Node {
     return n.
-        WithWidth(n.Style.Width * 1.5).
-        WithHeight(n.Style.Height * 1.5)
+        WithWidth(n.Style.Width.Value * 1.5).
+        WithHeight(n.Style.Height.Value * 1.5)
 })
 
 // Filter: Keep only matching children (shallow)
 wide := root.Filter(func(n *layout.Node) bool {
-    return n.Style.Width >= 150
+    return n.Style.Width.Value >= 150
 })
 
 // FilterDeep: Recursive filtering
@@ -382,7 +384,7 @@ visible := root.FilterDeep(func(n *layout.Node) bool {
 
 // Fold: Reduce tree to single value
 totalWidth := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
-    return acc.(float64) + n.Style.Width
+    return acc.(float64) + n.Style.Width.Value
 }).(float64)
 
 count := root.Fold(0, func(acc interface{}, n *layout.Node) interface{} {
@@ -477,8 +479,8 @@ maxDepth := root.FoldWithContext(
 // Sum all padding
 totalPadding := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
     sum := acc.(float64)
-    return sum + n.Style.Padding.Top + n.Style.Padding.Right +
-           n.Style.Padding.Bottom + n.Style.Padding.Left
+    return sum + n.Style.Padding.Top.Value + n.Style.Padding.Right.Value +
+           n.Style.Padding.Bottom.Value + n.Style.Padding.Left.Value
 }).(float64)
 ```
 

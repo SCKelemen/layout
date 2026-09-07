@@ -276,13 +276,17 @@ func (n *Node) OfDisplayType(display Display) []*Node {
 // =============================================================================
 
 // Clone creates a shallow copy of the node.
-// The copy has the same Style, Rect, Text, and other fields, but shares the Children slice.
-// Use this when you want to modify node properties without affecting the original.
+// The copy has the same Style, Rect, Text, and other fields, but shares the
+// Children slice and every reference held inside Style and TextLayout
+// (GridTemplateRows/Columns, GridTemplateAreas, ContainerName, TextStyle,
+// TextLayout). Mutating those shared values through the copy also affects the
+// original; use CloneDeep when you need an independent copy.
+// Use this when you want to replace scalar node properties without affecting the original.
 //
 // Example:
 //
 //	copy := node.Clone()
-//	copy.Style.Width = 200  // Original unchanged
+//	copy.Style.Width = Px(200)  // Original unchanged
 func (n *Node) Clone() *Node {
 	if n == nil {
 		return nil
@@ -292,13 +296,16 @@ func (n *Node) Clone() *Node {
 }
 
 // CloneDeep creates a deep copy of the entire subtree.
-// Both the node and all its descendants are recursively copied.
+// Both the node and all its descendants are recursively copied, including the
+// reference-typed parts of Style (GridTemplateRows/Columns, GridTemplateAreas,
+// ContainerName, TextStyle) and the derived TextLayout, so the result shares
+// no mutable state with the original.
 // Use this when you need a completely independent copy of the tree.
 //
 // Example:
 //
 //	independentCopy := root.CloneDeep()
-//	independentCopy.Children[0].Style.Width = 100  // Original tree unchanged
+//	independentCopy.Children[0].Style.Width = Px(100)  // Original tree unchanged
 func (n *Node) CloneDeep() *Node {
 	if n == nil {
 		return nil
@@ -306,6 +313,10 @@ func (n *Node) CloneDeep() *Node {
 
 	// Shallow copy first
 	copy := *n
+
+	// Deep copy the reference-typed parts of Style and the text layout output
+	copy.Style = cloneStyleDeep(&n.Style)
+	copy.TextLayout = cloneTextLayout(n.TextLayout)
 
 	// Deep copy children
 	if len(n.Children) > 0 {
@@ -318,6 +329,60 @@ func (n *Node) CloneDeep() *Node {
 	return &copy
 }
 
+// cloneStyleDeep returns a copy of s whose slices and pointers do not alias
+// the original. Scalar fields are copied by value.
+func cloneStyleDeep(s *Style) Style {
+	c := *s
+	if s.GridTemplateRows != nil {
+		c.GridTemplateRows = append([]GridTrack(nil), s.GridTemplateRows...)
+	}
+	if s.GridTemplateColumns != nil {
+		c.GridTemplateColumns = append([]GridTrack(nil), s.GridTemplateColumns...)
+	}
+	if s.GridTemplateAreas != nil {
+		areas := *s.GridTemplateAreas
+		if s.GridTemplateAreas.Areas != nil {
+			areas.Areas = append([]GridArea(nil), s.GridTemplateAreas.Areas...)
+		}
+		c.GridTemplateAreas = &areas
+	}
+	if s.ContainerName != nil {
+		c.ContainerName = append(ContainerName(nil), s.ContainerName...)
+	}
+	if s.TextStyle != nil {
+		ts := *s.TextStyle
+		c.TextStyle = &ts
+	}
+	return c
+}
+
+// cloneTextLayout returns a deep copy of tl (nil-safe), including every
+// line's inline boxes and their per-rune orientation slices.
+func cloneTextLayout(tl *TextLayout) *TextLayout {
+	if tl == nil {
+		return nil
+	}
+	c := *tl
+	if tl.Lines != nil {
+		c.Lines = make([]TextLine, len(tl.Lines))
+		for i := range tl.Lines {
+			line := tl.Lines[i]
+			if line.Boxes != nil {
+				line.Boxes = make([]InlineBox, len(tl.Lines[i].Boxes))
+				for j := range tl.Lines[i].Boxes {
+					box := tl.Lines[i].Boxes[j]
+					if box.Orientations != nil {
+						box.Orientations = append([]bool(nil), box.Orientations...)
+					}
+					line.Boxes[j] = box
+				}
+			}
+			c.Lines[i] = line
+		}
+	}
+	return &c
+}
+
 // =============================================================================
 // Style Modifications - Return new node with modified style
 // =============================================================================
@@ -325,11 +390,15 @@ func (n *Node) CloneDeep() *Node {
 // WithStyle returns a new node with the specified style.
 // The original node is unchanged.
 //
+// Caveat: the style is stored as given. If it contains slices or pointers
+// (GridTemplateRows/Columns, GridTemplateAreas, ContainerName, TextStyle)
+// they are shared between the caller's value and the new node.
+//
 // Example:
 //
 //	newNode := node.WithStyle(Style{
 //	    Display: DisplayFlex,
-//	    Width:   200,
+//	    Width:   Px(200),
 //	})
 func (n *Node) WithStyle(style Style) *Node {
 	if n == nil {
@@ -635,17 +704,24 @@ func (n *Node) InsertChildAt(index int, child *Node) *Node {
 
 // Transform returns a new tree with nodes selectively transformed.
 // Walks the tree and applies the transform function to nodes matching the predicate.
-// Returns a deep copy with transformations applied.
+// Returns a copy with transformations applied; the original tree is unchanged.
+//
+// The transform function receives a shallow clone of the matched node and its
+// result replaces the node. Child-list edits made by the callback (AddChild,
+// RemoveChildAt, WithChildren, ...) are honored: the recursion continues over
+// the children of the RETURNED node, not the original's. If the callback
+// returns nil, the node is removed from its parent's child list (and
+// Transform itself returns nil when the root is removed).
 //
 // Example:
 //
 //	// Double widths in flex containers
 //	doubled := root.Transform(
 //	    func(n *Node) bool {
-//	        return n.Style.Display == DisplayFlex && n.Style.Width > 0
+//	        return n.Style.Display == DisplayFlex && n.Style.Width.Value > 0
 //	    },
 //	    func(n *Node) *Node {
-//	        return n.WithWidth(n.Style.Width * 2)
+//	        return n.WithWidth(n.Style.Width.Value * 2)
 //	    },
 //	)
 func (n *Node) Transform(predicate func(*Node) bool, transform func(*Node) *Node) *Node {
@@ -659,29 +735,47 @@ func (n *Node) Transform(predicate func(*Node) bool, transform func(*Node) *Node
 	// Apply transformation if predicate matches
 	if predicate(n) {
 		result = transform(result)
-	}
-
-	// Recursively transform children
-	if len(n.Children) > 0 {
-		result.Children = make([]*Node, len(n.Children))
-		for i, child := range n.Children {
-			result.Children[i] = child.Transform(predicate, transform)
+		if result == nil {
+			return nil
 		}
 	}
+
+	// Recursively transform the children of the (possibly edited) result
+	result.Children = transformChildren(result.Children, func(child *Node) *Node {
+		return child.Transform(predicate, transform)
+	})
 
 	return result
 }
 
+// transformChildren applies fn to every child and returns a NEW slice with the
+// results, dropping nil results. The input slice is never mutated because it
+// may be shared with the original tree through a shallow Clone.
+func transformChildren(children []*Node, fn func(*Node) *Node) []*Node {
+	if len(children) == 0 {
+		return children
+	}
+	out := make([]*Node, 0, len(children))
+	for _, child := range children {
+		if c := fn(child); c != nil {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // Map returns a new tree with the transform function applied to all nodes.
-// This is equivalent to Transform with a predicate that always returns true.
+// This is equivalent to Transform with a predicate that always returns true:
+// child-list edits made by the callback are honored and a nil result removes
+// the node from its parent (Map returns nil when the root is removed).
 //
 // Example:
 //
 //	// Scale entire tree by 1.5x
 //	scaled := root.Map(func(n *Node) *Node {
 //	    return n.
-//	        WithWidth(n.Style.Width * 1.5).
-//	        WithHeight(n.Style.Height * 1.5)
+//	        WithWidth(n.Style.Width.Value * 1.5).
+//	        WithHeight(n.Style.Height.Value * 1.5)
 //	})
 func (n *Node) Map(transform func(*Node) *Node) *Node {
 	if n == nil || transform == nil {
@@ -690,14 +784,14 @@ func (n *Node) Map(transform func(*Node) *Node) *Node {
 
 	// Apply transformation to this node
 	result := transform(n.Clone())
-
-	// Recursively map children
-	if len(n.Children) > 0 {
-		result.Children = make([]*Node, len(n.Children))
-		for i, child := range n.Children {
-			result.Children[i] = child.Map(transform)
-		}
+	if result == nil {
+		return nil
 	}
+
+	// Recursively map the children of the (possibly edited) result
+	result.Children = transformChildren(result.Children, func(child *Node) *Node {
+		return child.Map(transform)
+	})
 
 	return result
 }

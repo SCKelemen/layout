@@ -6,7 +6,12 @@ package layout
 // - §5: Aspect Ratios
 //
 // See: https://www.w3.org/TR/css-sizing-4/#aspect-ratio
-func blockDetermineSize(node *Node, setup blockSetup, ctx *LayoutContext, currentFontSize float64) (nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) {
+//
+// setup is a pointer because intrinsic sizing may fall back to auto sizing:
+// when CalculateIntrinsicWidth/Height cannot produce a size (returns < 0),
+// the corresponding isAutoWidth/isAutoHeight flag is set so the caller sizes
+// the box from its content instead of using the negative sentinel.
+func blockDetermineSize(node *Node, setup *blockSetup, ctx *LayoutContext, currentFontSize float64) (nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) {
 	// Check for intrinsic sizing (min-content, max-content, fit-content)
 	// These override auto sizing
 	constraints := Loose(setup.contentWidth, setup.contentHeight)
@@ -14,13 +19,27 @@ func blockDetermineSize(node *Node, setup blockSetup, ctx *LayoutContext, curren
 	// Handle width intrinsic sizing
 	// Check both sentinel values in Width and WidthSizing enum
 	widthValue := ResolveLength(node.Style.Width, ctx, currentFontSize)
+	intrinsicWidth := -1.0
+	hasIntrinsicWidth := true
 	if widthValue == SizeMinContent || node.Style.WidthSizing == IntrinsicSizeMinContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMinContent, ctx)
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMinContent, ctx)
 	} else if widthValue == SizeMaxContent || node.Style.WidthSizing == IntrinsicSizeMaxContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMaxContent, ctx)
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeMaxContent, ctx)
 	} else if widthValue == SizeFitContent || node.Style.WidthSizing == IntrinsicSizeFitContent {
-		nodeWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeFitContent, ctx)
+		intrinsicWidth = CalculateIntrinsicWidth(node, constraints, IntrinsicSizeFitContent, ctx)
 	} else {
+		hasIntrinsicWidth = false
+	}
+	if hasIntrinsicWidth && intrinsicWidth >= 0 {
+		nodeWidth = intrinsicWidth
+		// An intrinsic size is a definite size for the remainder of layout.
+		setup.isAutoWidth = false
+	} else {
+		if hasIntrinsicWidth {
+			// Intrinsic sizing requested but not computable: behave as auto.
+			// CSS Sizing Level 3 §4.1 (https://www.w3.org/TR/css-sizing-3/#intrinsic-sizes)
+			setup.isAutoWidth = true
+		}
 		// Normal width handling
 		nodeWidth = setup.specifiedWidth
 		if setup.isAutoWidth {
@@ -30,13 +49,29 @@ func blockDetermineSize(node *Node, setup blockSetup, ctx *LayoutContext, curren
 
 	// Handle height intrinsic sizing
 	heightValue := ResolveLength(node.Style.Height, ctx, currentFontSize)
+	intrinsicHeight := -1.0
+	hasIntrinsicHeight := true
 	if heightValue == SizeMinContent || node.Style.HeightSizing == IntrinsicSizeMinContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMinContent, ctx)
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMinContent, ctx)
 	} else if heightValue == SizeMaxContent || node.Style.HeightSizing == IntrinsicSizeMaxContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMaxContent, ctx)
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeMaxContent, ctx)
 	} else if heightValue == SizeFitContent || node.Style.HeightSizing == IntrinsicSizeFitContent {
-		nodeHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeFitContent, ctx)
+		intrinsicHeight = CalculateIntrinsicHeight(node, constraints, IntrinsicSizeFitContent, ctx)
 	} else {
+		hasIntrinsicHeight = false
+	}
+	if hasIntrinsicHeight && intrinsicHeight >= 0 {
+		nodeHeight = intrinsicHeight
+		setup.isAutoHeight = false
+	} else {
+		if hasIntrinsicHeight {
+			// Intrinsic height is not computable up front (the block axis size
+			// of a block container is its content height): fall back to auto
+			// so the height is taken from the laid-out children instead of
+			// storing the -1 sentinel as a real size.
+			// CSS Sizing Level 3 §5.2 (https://www.w3.org/TR/css-sizing-3/#intrinsic-contribution)
+			setup.isAutoHeight = true
+		}
 		// Normal height handling
 		nodeHeight = setup.specifiedHeight
 		if setup.isAutoHeight {
@@ -102,14 +137,9 @@ func blockDetermineSize(node *Node, setup blockSetup, ctx *LayoutContext, curren
 //
 // See: https://www.w3.org/TR/css-sizing-3/#constraints
 func blockApplyConstraints(node *Node, setup blockSetup, nodeWidth, nodeHeight float64, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight bool) (float64, float64) {
+	// Apply max first, then min, so that min wins when min > max.
+	// CSS 2.1 §10.4 / §10.7: https://www.w3.org/TR/CSS21/visudet.html#min-max-widths
 	// If aspect ratio calculated dimensions, we need to maintain the ratio when min/max are applied
-	if setup.minWidthContent > 0 {
-		nodeWidth = max(nodeWidth, setup.minWidthContent)
-		// If aspect ratio calculated width, recalculate height to maintain ratio
-		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
-			nodeHeight = nodeWidth / node.Style.AspectRatio
-		}
-	}
 	if setup.maxWidthContent > 0 && setup.maxWidthContent < Unbounded {
 		nodeWidth = min(nodeWidth, setup.maxWidthContent)
 		// If aspect ratio calculated width, recalculate height to maintain ratio
@@ -117,12 +147,11 @@ func blockApplyConstraints(node *Node, setup blockSetup, nodeWidth, nodeHeight f
 			nodeHeight = nodeWidth / node.Style.AspectRatio
 		}
 	}
-	if setup.minHeightContent > 0 {
-		oldHeight := nodeHeight
-		nodeHeight = max(nodeHeight, setup.minHeightContent)
-		// If aspect ratio calculated height and MinHeight changed it, recalculate width to maintain ratio
-		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight != oldHeight {
-			nodeWidth = nodeHeight * node.Style.AspectRatio
+	if setup.minWidthContent > 0 {
+		nodeWidth = max(nodeWidth, setup.minWidthContent)
+		// If aspect ratio calculated width, recalculate height to maintain ratio
+		if aspectRatioCalculatedWidth && node.Style.AspectRatio > 0 {
+			nodeHeight = nodeWidth / node.Style.AspectRatio
 		}
 	}
 	if setup.maxHeightContent > 0 && setup.maxHeightContent < Unbounded {
@@ -130,6 +159,14 @@ func blockApplyConstraints(node *Node, setup blockSetup, nodeWidth, nodeHeight f
 		nodeHeight = min(nodeHeight, setup.maxHeightContent)
 		// If aspect ratio calculated height and MaxHeight decreased it, recalculate width to maintain ratio
 		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight < oldHeight {
+			nodeWidth = nodeHeight * node.Style.AspectRatio
+		}
+	}
+	if setup.minHeightContent > 0 {
+		oldHeight := nodeHeight
+		nodeHeight = max(nodeHeight, setup.minHeightContent)
+		// If aspect ratio calculated height and MinHeight changed it, recalculate width to maintain ratio
+		if aspectRatioCalculatedHeight && node.Style.AspectRatio > 0 && nodeHeight != oldHeight {
 			nodeWidth = nodeHeight * node.Style.AspectRatio
 		}
 	}

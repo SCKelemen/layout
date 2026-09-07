@@ -26,9 +26,29 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 
 	flexItems := make([]*flexItem, 0, len(orderedChildren))
 
+	// Content-box origin of the container: the static position of any
+	// absolutely positioned child.
+	containerFontSize := getCurrentFontSize(node, ctx)
+	contentOriginX := ResolveLength(node.Style.Padding.Left, ctx, containerFontSize) +
+		ResolveLength(node.Style.Border.Left, ctx, containerFontSize)
+	contentOriginY := ResolveLength(node.Style.Padding.Top, ctx, containerFontSize) +
+		ResolveLength(node.Style.Border.Top, ctx, containerFontSize)
+
 	for _, child := range orderedChildren {
 		// Skip display:none children
 		if child.Style.Display == DisplayNone {
+			continue
+		}
+
+		// CSS Flexbox §4.1: an absolutely positioned child of a flex container
+		// does not participate in flex layout and is not a flex item. It is
+		// still laid out for its own size, against the container's content
+		// box, and left at its static position (the content-box start corner,
+		// as if it were the sole flex item) so that the positioned pass
+		// (LayoutWithPositioning) can place it.
+		// https://www.w3.org/TR/css-flexbox-1/#abs-pos-items
+		if isOutOfFlow(child) {
+			flexboxLayoutAbsPosChild(child, setup, contentOriginX, contentOriginY, ctx)
 			continue
 		}
 		item := &flexItem{
@@ -104,15 +124,12 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			childConstraints.MaxWidth, childConstraints.MaxHeight = childConstraints.MaxHeight, childConstraints.MaxWidth
 		}
 
-		// Measure child
-		var childSize Size
-		if child.Style.Display == DisplayFlex {
-			childSize = LayoutFlexbox(child, childConstraints, ctx)
-		} else if child.Style.Display == DisplayGrid {
-			childSize = LayoutGrid(child, childConstraints, ctx)
-		} else {
-			childSize = LayoutBlock(child, childConstraints, ctx)
-		}
+		// Measure child. Dispatch on the child's display type through Layout so
+		// that text items are measured with LayoutText (a text flex item's flex
+		// base size is its max-content size; CSS Flexbox §9.2 step 3E) instead
+		// of the block algorithm, which has no notion of text and reports 0.
+		// https://www.w3.org/TR/css-flexbox-1/#algo-main-item
+		childSize := Layout(child, childConstraints, ctx)
 
 		if setup.isMainHorizontal {
 			item.mainSize = childSize.Width
@@ -213,4 +230,19 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 	}
 
 	return flexItems
+}
+
+// flexboxLayoutAbsPosChild lays out an absolutely positioned child of a flex
+// container. Such a child is not a flex item (CSS Flexbox §4.1): it takes no
+// main-axis slot and contributes nothing to the container's size. It is laid
+// out against the container's content box so it gets its own size, and placed
+// at its static position, which for a flex container is the content-box start
+// corner (as though it were the sole flex item with the container's default
+// alignment). The positioned pass (LayoutWithPositioning) applies any inset
+// properties afterwards.
+// https://www.w3.org/TR/css-flexbox-1/#abs-pos-items
+func flexboxLayoutAbsPosChild(child *Node, setup flexboxSetup, contentOriginX, contentOriginY float64, ctx *LayoutContext) {
+	Layout(child, Loose(setup.contentWidth, setup.contentHeight), ctx)
+	child.Rect.X = contentOriginX
+	child.Rect.Y = contentOriginY
 }

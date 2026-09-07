@@ -84,15 +84,11 @@ func (a *TextMetricsAdapter) Measure(textContent string, style TextStyle) (advan
 	}
 
 	// Calculate line height for ascent/descent
-	lineHeight := style.LineHeight
-	if lineHeight == 0 {
-		// Default line height based on font size
-		lineHeight = style.FontSize * 1.2
-	} else if lineHeight < 10 {
-		// Heuristic: < 10 is a multiplier
-		lineHeight = style.FontSize * lineHeight
-	}
-	// else: >= 10 is absolute pixels
+	// Use the same resolution as the layout engine (resolveLineHeight) so
+	// that a zero or negative LineHeight means "normal" instead of producing
+	// negative ascent/descent.
+	// https://www.w3.org/TR/css-inline-3/#propdef-line-height
+	lineHeight := resolveLineHeight(style.LineHeight, style.FontSize)
 
 	// Standard proportions: 80% ascent, 20% descent
 	ascent = lineHeight * 0.8

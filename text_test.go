@@ -2684,9 +2684,14 @@ func TestWhiteSpacePreWrapVsPreLine(t *testing.T) {
 		}
 	}
 
-	// Pre-line should collapse multiple spaces to one
+	// Pre-line should collapse multiple spaces to one. Like white-space:
+	// normal, pre-line lines go through the UAX #14 line builder, so the
+	// collapsed inter-word space is tracked as TextLine.SpaceCount (needed for
+	// justification, CSS Text 3 §7.3) rather than as a character inside a box.
+	// https://www.w3.org/TR/css-text-3/#white-space-property
 	preLineSpaces := 0
 	for _, line := range nodePreLine.TextLayout.Lines {
+		preLineSpaces += line.SpaceCount
 		for _, box := range line.Boxes {
 			for _, r := range box.Text {
 				if r == ' ' {

@@ -4,10 +4,6 @@ package layout
 // Algorithm based on CSS Box Model Module Level 3: §4: Box Model
 type blockSetup struct {
 	// Container dimensions
-	horizontalPadding       float64
-	verticalPadding         float64
-	horizontalBorder        float64
-	verticalBorder          float64
 	horizontalPaddingBorder float64
 	verticalPaddingBorder   float64
 	contentWidth            float64
@@ -44,23 +40,11 @@ func blockDetermineContainerSize(node *Node, constraints Constraints, ctx *Layou
 	availableWidth := constraints.MaxWidth
 	availableHeight := constraints.MaxHeight
 
-	// Resolve padding and border to pixels
-	paddingLeft := ResolveLength(node.Style.Padding.Left, ctx, currentFontSize)
-	paddingRight := ResolveLength(node.Style.Padding.Right, ctx, currentFontSize)
-	paddingTop := ResolveLength(node.Style.Padding.Top, ctx, currentFontSize)
-	paddingBottom := ResolveLength(node.Style.Padding.Bottom, ctx, currentFontSize)
-	borderLeft := ResolveLength(node.Style.Border.Left, ctx, currentFontSize)
-	borderRight := ResolveLength(node.Style.Border.Right, ctx, currentFontSize)
-	borderTop := ResolveLength(node.Style.Border.Top, ctx, currentFontSize)
-	borderBottom := ResolveLength(node.Style.Border.Bottom, ctx, currentFontSize)
-
-	// Account for padding and border
-	setup.horizontalPadding = paddingLeft + paddingRight
-	setup.verticalPadding = paddingTop + paddingBottom
-	setup.horizontalBorder = borderLeft + borderRight
-	setup.verticalBorder = borderTop + borderBottom
-	setup.horizontalPaddingBorder = setup.horizontalPadding + setup.horizontalBorder
-	setup.verticalPaddingBorder = setup.verticalPadding + setup.verticalBorder
+	// Resolve padding and border to pixels. Only the per-axis sums are needed:
+	// the content box is the border box minus padding and border on each axis
+	// (CSS Box Model Level 3 §4, https://www.w3.org/TR/css-box-3/#box-model).
+	setup.horizontalPaddingBorder = getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
+	setup.verticalPaddingBorder = getVerticalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
 
 	// Clamp content size to >= 0
 	setup.contentWidth = availableWidth - setup.horizontalPaddingBorder

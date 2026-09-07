@@ -60,6 +60,10 @@ jobs:
           go vet -tags no_yaml ./...
 
       - name: staticcheck
+        # staticcheck 2026.2 requires Go 1.26 while the module targets 1.25;
+        # let this step fetch the newer toolchain (setup-go pins GOTOOLCHAIN=local).
+        env:
+          GOTOOLCHAIN: go1.26.0
         run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
 
       - name: go mod tidy is clean

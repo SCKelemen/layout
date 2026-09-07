@@ -1,7 +1,4 @@
-//go:build wpt
-// +build wpt
-
-package examples
+package wpt
 
 import (
 	"strings"

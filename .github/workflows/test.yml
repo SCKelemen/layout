@@ -2,260 +2,101 @@ name: Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
-  # Blocking tests - must pass for build to succeed
-  blocking-tests:
-    name: Blocking Tests (Implemented Features)
+  test:
+    name: Tests + Coverage
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: ['1.25']
-        test-group:
-          - name: 'Flexbox'
-            pattern: 'Flexbox'
-          - name: 'Grid Layout'
-            pattern: 'Grid'
-          - name: 'Text Layout'
-            pattern: 'Text'
-          - name: 'Position Layout'
-            pattern: 'Position'
-          - name: 'Block Layout'
-            pattern: 'Block'
-          - name: 'Box Model'
-            pattern: 'Box|Constraints|Padding|Margin|Border'
-
     steps:
-    - uses: actions/checkout@v7
-      with:
-        path: layout
+      - uses: actions/checkout@v7
 
-    - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/wpt-test-gen
-        path: wpt-test-gen
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
 
-    - name: Checkout text library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/text
-        path: text
+      - name: Test (race, coverage)
+        run: go test -race -coverprofile=coverage.out -covermode=atomic -timeout 10m ./...
 
-    - name: Checkout unicode library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/unicode
-        path: unicode
+      - name: Test without YAML support
+        run: go test -tags no_yaml -timeout 10m ./...
 
-    - name: Set up Go
-      uses: actions/setup-go@v7
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
 
-    - name: Download dependencies
-      working-directory: layout
-      run: go mod download
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7
+        continue-on-error: true
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-layout
 
-    - name: Run ${{ matrix.test-group.name }} tests
-      working-directory: layout
-      run: |
-        echo "Testing: ${{ matrix.test-group.name }}"
-        go test -tags no_yaml -v -run "${{ matrix.test-group.pattern }}" -timeout 5m ./...
-
-  # Comprehensive test run with coverage
-  comprehensive:
-    name: All Tests + Coverage
-    runs-on: ubuntu-latest
-    needs: blocking-tests
-
-    strategy:
-      matrix:
-        go-version: ['1.25']
-
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        path: layout
-
-    - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/wpt-test-gen
-        path: wpt-test-gen
-
-    - name: Checkout text library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/text
-        path: text
-
-    - name: Checkout unicode library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/unicode
-        path: unicode
-
-    - name: Set up Go
-      uses: actions/setup-go@v7
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Download dependencies
-      working-directory: layout
-      run: go mod download
-
-    - name: Run all tests with coverage
-      working-directory: layout
-      run: go test -tags no_yaml -v -coverprofile=coverage.out -covermode=atomic -timeout 10m ./...
-
-    - name: Generate coverage report
-      working-directory: layout
-      run: go tool cover -func=coverage.out
-
-    - name: Upload coverage
-      if: matrix.go-version == '1.25'
-      uses: codecov/codecov-action@v7
-      continue-on-error: true
-      with:
-        file: ./layout/coverage.out
-        flags: unittests
-        name: codecov-layout
-
-  # Non-blocking tests for future/partial features
-  non-blocking-tests:
-    name: Non-Blocking Tests (Future Features)
-    runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail the build
-
-    strategy:
-      matrix:
-        go-version: ['1.25']
-        test-group:
-          - name: 'Subgrid'
-            pattern: 'Subgrid'
-          - name: 'Advanced Text'
-            pattern: 'TextAlignLast|TextJustify|TextDecoration|TextTransform'
-          - name: 'Advanced Sizing'
-            pattern: 'MinContent|MaxContent|FitContent|Intrinsic|AspectRatio'
-          - name: 'Containment'
-            pattern: 'Contain'
-          - name: 'Display Level 3'
-            pattern: 'FlowRoot|Contents|InlineFlex|InlineGrid'
-
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        path: layout
-
-    - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/wpt-test-gen
-        path: wpt-test-gen
-
-    - name: Checkout text library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/text
-        path: text
-
-    - name: Checkout unicode library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/unicode
-        path: unicode
-
-    - name: Set up Go
-      uses: actions/setup-go@v7
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Download dependencies
-      working-directory: layout
-      run: go mod download
-
-    - name: Run ${{ matrix.test-group.name }} tests
-      working-directory: layout
-      continue-on-error: true
-      run: |
-        echo "Testing: ${{ matrix.test-group.name }} (non-blocking)"
-        go test -tags no_yaml -v -run "${{ matrix.test-group.pattern }}" -timeout 5m ./... || echo "⚠️  Some ${{ matrix.test-group.name }} tests failed (expected for unimplemented features)"
-
-  # Code quality checks
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v7
-      with:
-        path: layout
+      - uses: actions/checkout@v7
 
-    - name: Checkout wpt-test-gen dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/wpt-test-gen
-        path: wpt-test-gen
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
 
-    - name: Checkout text library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/text
-        path: text
+      - name: gofmt
+        run: |
+          if [ -n "$(gofmt -s -l .)" ]; then
+            echo "Go files are not formatted:"
+            gofmt -s -l .
+            exit 1
+          fi
 
-    - name: Checkout unicode library dependency
-      uses: actions/checkout@v7
-      with:
-        repository: SCKelemen/unicode
-        path: unicode
+      - name: go vet
+        run: |
+          go vet ./...
+          go vet -tags no_yaml ./...
 
-    - name: Set up Go
-      uses: actions/setup-go@v7
-      with:
-        go-version: '1.25'
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
 
-    - name: Run go fmt
-      working-directory: layout
-      run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-          echo "Go files are not formatted:"
-          gofmt -s -l .
-          exit 1
-        fi
-
-    - name: Run go vet
-      working-directory: layout
-      run: go vet ./...
-
-  # Test summary
-  summary:
-    name: Test Summary
+  examples:
+    name: Examples
     runs-on: ubuntu-latest
-    needs: [blocking-tests, comprehensive, non-blocking-tests]
-    if: always()
-
     steps:
-    - name: Report results
-      run: |
-        echo "## 🧪 Test Results Summary"
-        echo ""
-        echo "### Blocking Tests (Must Pass)"
-        echo "Status: ${{ needs.blocking-tests.result }}"
-        echo ""
-        echo "### Comprehensive Tests"
-        echo "Status: ${{ needs.comprehensive.result }}"
-        echo ""
-        echo "### Non-Blocking Tests (Future Features)"
-        echo "Status: ${{ needs.non-blocking-tests.result }} (failures allowed)"
-        echo ""
-        if [ "${{ needs.blocking-tests.result }}" != "success" ] || [ "${{ needs.comprehensive.result }}" != "success" ]; then
-          echo "❌ Build failed - blocking tests did not pass"
-          exit 1
-        fi
-        echo "✅ All required tests passed!"
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run every example
+        run: |
+          status=0
+          for d in examples/*/ examples/fluent/*/; do
+            if [ -f "$d/main.go" ]; then
+              go run "./$d" > /dev/null || { echo "FAIL $d"; status=1; }
+            fi
+          done
+          exit $status
+
+  wpt:
+    name: WPT Examples (nested module)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: wpt/go.mod
+          cache-dependency-path: wpt/go.sum
+
+      - name: Test
+        working-directory: wpt
+        run: go test -timeout 5m ./...

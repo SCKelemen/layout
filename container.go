@@ -104,16 +104,16 @@ type ContainerName []string
 // production explicitly excludes the CSS-wide keywords plus "none",
 // "and", "not", "or".
 var reservedContainerNames = map[string]struct{}{
-	"none":     {},
-	"and":      {},
-	"not":      {},
-	"or":       {},
-	"initial":  {},
-	"inherit":  {},
-	"unset":    {},
-	"revert":   {},
-	"default":  {},
-	"normal":   {},
+	"none":    {},
+	"and":     {},
+	"not":     {},
+	"or":      {},
+	"initial": {},
+	"inherit": {},
+	"unset":   {},
+	"revert":  {},
+	"default": {},
+	"normal":  {},
 }
 
 // ParseContainerName parses a whitespace-separated list of CSS
@@ -193,15 +193,15 @@ func (n ContainerName) Has(name string) bool {
 //
 // Grammar (per spec):
 //
-//   container: <'container-name'> [ '/' <'container-type'> ]?
+//	container: <'container-name'> [ '/' <'container-type'> ]?
 //
 // Examples:
 //
-//   "card"             → name=["card"], type=Normal
-//   "card / size"      → name=["card"], type=Size
-//   "card / inline-size" → name=["card"], type=InlineSize
-//   "size"             → name=[],        type=Size  (no name, type only)
-//   "none"             → name=[],        type=Normal
+//	"card"             → name=["card"], type=Normal
+//	"card / size"      → name=["card"], type=Size
+//	"card / inline-size" → name=["card"], type=InlineSize
+//	"size"             → name=[],        type=Size  (no name, type only)
+//	"none"             → name=[],        type=Normal
 //
 // Spec: https://www.w3.org/TR/css-contain-3/#container-shorthand
 func ParseContainer(s string) (ContainerName, ContainerType, error) {

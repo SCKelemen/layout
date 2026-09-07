@@ -181,11 +181,12 @@ func UnboundedLength() Length {
 // ResolveLengthInContext, which is the only path that populates
 // units.Context.ContainerWidth / ContainerHeight.
 func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float64 {
-	// Unset length: the Go zero value. units.Length.Resolve would reject the
-	// empty unit and the error path would return l.Value, which is 0 for a
-	// zero-value Length, so the result is identical and allocation-free.
+	// Empty unit: the Go zero value (unset, Value 0) or a hand-built unit-less
+	// literal such as Length{Value: 100}. The units package resolves an empty
+	// unit as pixels, so return the value directly; this keeps the hot unset
+	// path allocation-free and leaves unit-less literals meaning px.
 	if l.Unit == "" {
-		return 0
+		return l.Value
 	}
 	// Layout-specific sentinel: not in CSS, units pkg doesn't know it.
 	if l.Unit == UnboundedUnit {

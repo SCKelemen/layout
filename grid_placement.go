@@ -172,7 +172,12 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 
 	placements := make([]placement, 0, len(node.Children))
 	for _, child := range node.Children {
-		if child.Style.Display == DisplayNone {
+		// display:none children generate no box. Absolutely positioned
+		// children are not grid items (§9): they take no grid cell and do
+		// not advance the auto-placement cursor; LayoutGrid lays them out
+		// separately.
+		// See: https://www.w3.org/TR/css-grid-1/#abspos-items
+		if child.Style.Display == DisplayNone || isOutOfFlow(child) {
 			continue
 		}
 		rowSpan := gridNormalizeSpan(child.Style.GridRowStart, child.Style.GridRowEnd)

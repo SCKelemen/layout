@@ -155,9 +155,9 @@ type Style struct {
 	// Spec: https://www.w3.org/TR/css-grid-1/#repeat-notation
 	GridTemplateRowsRepeat    []RepeatTrack
 	GridTemplateColumnsRepeat []RepeatTrack
-	GridArea            string             // Name of the grid area this item should be placed in (empty means not set)
-	JustifyItems        JustifyItems       // Alignment along inline (row) axis. Default: Stretch
-	JustifySelf         JustifyItems       // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
+	GridArea                  string       // Name of the grid area this item should be placed in (empty means not set)
+	JustifyItems              JustifyItems // Alignment along inline (row) axis. Default: Stretch
+	JustifySelf               JustifyItems // Per-item inline-axis alignment override (0 = use parent's JustifyItems)
 	// AlignItems is used for both Flexbox and Grid (block/column axis alignment)
 	// For Grid: Default is Stretch, but Start for items with aspect-ratio
 	// AlignSelf (defined in Flexbox section) also works for Grid items

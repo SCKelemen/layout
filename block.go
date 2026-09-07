@@ -133,19 +133,7 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	return constrainedSize
 }
 
-func min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
 
-func max(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}
 
 // defaultRootFontSize is the font size used when no LayoutContext is provided
 // (the CSS "medium" font size, 16px).

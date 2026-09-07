@@ -36,13 +36,13 @@ type LengthUnit = units.LengthUnit
 // equivalent; it is used as the upper bound for unconstrained layout passes.
 const (
 	// Absolute length units (CSS reference pixel: 1in = 96px).
-	Pixels  = units.PX // 1px = 1/96 of 1 inch (anchor unit)
-	PtUnit  = units.PT // 1pt = 1/72 of 1 inch
-	PcUnit  = units.PC // 1pc = 12pt = 1/6 inch
-	InUnit  = units.IN // 1in = 96px
-	CmUnit  = units.CM // 1cm = 96/2.54 px
-	MmUnit  = units.MM // 1mm = 1/10 cm
-	QUnit   = units.QQ // 1Q  = 1/40 cm
+	Pixels = units.PX // 1px = 1/96 of 1 inch (anchor unit)
+	PtUnit = units.PT // 1pt = 1/72 of 1 inch
+	PcUnit = units.PC // 1pc = 12pt = 1/6 inch
+	InUnit = units.IN // 1in = 96px
+	CmUnit = units.CM // 1cm = 96/2.54 px
+	MmUnit = units.MM // 1mm = 1/10 cm
+	QUnit  = units.QQ // 1Q  = 1/40 cm
 
 	// Font-relative units.
 	EmUnit  = units.EM  // 1em  = current element font-size

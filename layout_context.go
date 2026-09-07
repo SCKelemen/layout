@@ -61,7 +61,7 @@ func NewLayoutContext(viewportWidth, viewportHeight, rootFontSize float64) *Layo
 		ViewportHeight:  viewportHeight,
 		RootFontSize:    rootFontSize,
 		TextMetrics:     getTextMetrics(), // Use package-level provider
-		ChReferenceChar: '0',         // CSS standard reference character
+		ChReferenceChar: '0',              // CSS standard reference character
 	}
 }
 

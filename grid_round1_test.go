@@ -326,3 +326,61 @@ func TestGridRound1JustifyContentVerticalRL(t *testing.T) {
 	gridRound1Approx(t, "item X (row from right)", root.Children[0].Rect.X, 50)
 	gridRound1Approx(t, "item width (row size)", root.Children[0].Rect.Width, 50)
 }
+
+// TestGridRound1NamedAreasDoNotMutateStyle checks that resolving a named grid
+// area (§7.3) no longer writes GridRow*/GridColumn* into the child's Style,
+// so the same tree laid out again with a different template is placed by the
+// new template.
+//
+// https://www.w3.org/TR/css-grid-1/#grid-template-areas-property
+func TestGridRound1NamedAreasDoNotMutateStyle(t *testing.T) {
+	item := PlaceInArea(&Node{}, "main")
+	// Placement-related fields as set by the user; they must survive layout.
+	type placementFields struct {
+		rowStart, rowEnd, colStart, colEnd int
+		area                               string
+	}
+	snapshot := func() placementFields {
+		return placementFields{
+			item.Style.GridRowStart, item.Style.GridRowEnd,
+			item.Style.GridColumnStart, item.Style.GridColumnEnd,
+			item.Style.GridArea,
+		}
+	}
+	before := snapshot()
+
+	first := NewGridTemplateAreas(2, 2)
+	if err := first.DefineArea("main", 0, 1, 0, 1); err != nil {
+		t.Fatal(err)
+	}
+	root := &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			GridTemplateAreas:   first,
+		},
+		Children: []*Node{item},
+	}
+	ctx := NewLayoutContext(800, 600, 16)
+	LayoutGrid(root, Loose(200, 100), ctx)
+	gridRound1Approx(t, "first layout X", item.Rect.X, 0)
+	gridRound1Approx(t, "first layout Y", item.Rect.Y, 0)
+
+	if got := snapshot(); got != before {
+		t.Errorf("layout mutated the child's Style: before %+v, after %+v", before, got)
+	}
+
+	// Move "main" to the bottom-right cell and lay out again.
+	second := NewGridTemplateAreas(2, 2)
+	if err := second.DefineArea("main", 1, 2, 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	root.Style.GridTemplateAreas = second
+	LayoutGrid(root, Loose(200, 100), ctx)
+	gridRound1Approx(t, "second layout X", item.Rect.X, 100)
+	gridRound1Approx(t, "second layout Y", item.Rect.Y, 50)
+	if got := snapshot(); got != before {
+		t.Errorf("second layout mutated the child's Style: %+v", got)
+	}
+}

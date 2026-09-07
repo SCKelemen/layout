@@ -97,20 +97,18 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 			horizontalPaddingBorder, verticalPaddingBorder)
 	}
 
-	// Step 1: Resolve named grid areas to explicit positions
-	// This must happen before auto-placement so area-based positions are treated as explicit
-	gridResolveAreas(node)
-
-	// Step 2: Place items using grid-auto-flow (§8.5). Placement may grow
-	// the implicit grid; every item's end line is covered afterwards.
-	// Absolutely positioned children are not grid items and are skipped by
-	// placement (§9); they are laid out separately below.
+	// Step 1: Place items using grid-auto-flow (§8.5). Named grid areas
+	// (§7.3) are resolved inside placement to definite positions, without
+	// writing into the children's Style. Placement may grow the implicit
+	// grid; every item's end line is covered afterwards. Absolutely
+	// positioned children are not grid items and are skipped by placement
+	// (§9); they are laid out separately below.
 	gridItems := gridPlaceItems(node, &rows, &columns, node.Style.GridAutoFlow)
 	for _, item := range gridItems {
 		item.margins = gridResolveItemMargins(item.node, writingMode, ctx)
 	}
 
-	// Step 3: Size the columns (§12.5 intrinsic contributions, §12.6
+	// Step 2: Size the columns (§12.5 intrinsic contributions, §12.6
 	// maximize, §12.7 expand flexible tracks).
 	//
 	// Intrinsic column tracks (auto, min-content, max-content, fit-content,
@@ -150,7 +148,7 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	columnSizes, totalColSize := gridDistributeTrackSpace(columnSizes, columns, colAlignSpace, columnGap, justifyContent, ctx, currentFontSize)
 	columnOffsets := gridCalculateTrackOffsets(columnSizes, totalColSize, colAlignSpace, columnGap, justifyContent)
 
-	// Step 4: Measure children against their column-axis size to obtain the
+	// Step 3: Measure children against their column-axis size to obtain the
 	// row-axis contributions.
 	rowContrib := make([]float64, len(rows))
 	for _, item := range gridItems {
@@ -183,12 +181,12 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		gridDistributeContribution(rowContrib, rows, item.rowStart, item.rowEnd, rowGap, rowSize, ctx, currentFontSize)
 	}
 
-	// Step 5: Size the rows. In the block axis an item's min-content and
+	// Step 4: Size the rows. In the block axis an item's min-content and
 	// max-content contributions coincide (both are its size at the resolved
 	// column width), so the same array serves as base size and growth limit.
 	rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, rowContrib, rowContrib, ctx, currentFontSize)
 
-	// Step 6: Apply align-content to the rows (§10.4, §12.8). Free space
+	// Step 5: Apply align-content to the rows (§10.4, §12.8). Free space
 	// exists only when the row axis is definite.
 	alignContent := node.Style.AlignContent
 	rowAlignSpace := Unbounded
@@ -204,7 +202,7 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		rowAxisExtent = rowAxisSize
 	}
 
-	// Step 7: Position children
+	// Step 6: Position children
 	for _, item := range gridItems {
 		// Calculate grid cell position using track offsets
 		cellX := 0.0
@@ -558,7 +556,7 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		}
 	}
 
-	// Step 8: Absolutely positioned children. They are not grid items (§9):
+	// Step 7: Absolutely positioned children. They are not grid items (§9):
 	// they took part in neither placement nor track sizing above. Each is
 	// laid out for its own size against the container's content box and left
 	// at its static position, the content-box origin (§9: the static position

@@ -26,7 +26,9 @@ const (
 	// MaxChildren is the maximum number of children a single node may have.
 	MaxChildren = 65536
 	// MaxNumericValue bounds the magnitude of every finite numeric input.
-	// The "unbounded" length sentinel is the only exception.
+	// The only exception is the unbounded sentinel: the "unbounded" string,
+	// the legacy bare number math.MaxFloat64 (see legacyNumberLength), and
+	// math.MaxFloat64 in Rect fields (see checkRect).
 	MaxNumericValue = 1e12
 )
 
@@ -150,6 +152,14 @@ func (l *LengthJSON) UnmarshalJSON(data []byte) error {
 	var v float64
 	if err := json.Unmarshal(data, &v); err != nil {
 		return fmt.Errorf("length: expected a string like \"10px\" or a number, got %s", trimmed)
+	}
+	// The previous encoder wrote unbounded lengths (the MaxSize of
+	// FractionTrack and AutoTrack) as math.MaxFloat64. Map that sentinel to
+	// "unbounded" here rather than formatting it as a 309-digit pixel
+	// string that parseLength would reject. See legacyNumberLength.
+	if v >= math.MaxFloat64 {
+		*l = "unbounded"
+		return nil
 	}
 	// Validation (NaN/Inf/magnitude) happens when the string is parsed.
 	*l = LengthJSON(strconv.FormatFloat(v, 'f', -1, 64) + "px")
@@ -857,6 +867,12 @@ func parseLength(l LengthJSON) (layout.Length, error) {
 	if strings.EqualFold(s, "unbounded") {
 		return layout.PxUnbounded, nil
 	}
+	// A bare number is the legacy pre-unit form. YAML delivers it as the raw
+	// scalar text, which may carry an exponent (1.7976931348623157e+308)
+	// that units.ParseLength would reject.
+	if v, ok := parseBareNumber(s); ok {
+		return legacyNumberLength(v)
+	}
 	// units.ParseLength rejects NaN, infinities, exponents, and unknown units.
 	parsed, err := units.ParseLength(s)
 	if err != nil {
@@ -866,6 +882,42 @@ func parseLength(l LengthJSON) (layout.Length, error) {
 		return layout.Length{}, fmt.Errorf("length %q exceeds %g", s, MaxNumericValue)
 	}
 	return parsed, nil
+}
+
+// parseBareNumber reports whether s is a plain decimal number, optionally
+// with an exponent, and returns its value. A literal that overflows float64
+// comes back as +/-Inf. Words such as "inf" and "nan", hex floats, and
+// anything carrying a unit are not bare numbers.
+func parseBareNumber(s string) (float64, bool) {
+	for _, r := range s {
+		if (r < '0' || r > '9') && !strings.ContainsRune("+-.eE", r) {
+			return 0, false
+		}
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil && !errors.Is(err, strconv.ErrRange) {
+		return 0, false
+	}
+	return v, true
+}
+
+// legacyNumberLength interprets a bare number from a file written before
+// lengths carried units: the value is in pixels. The previous encoder stored
+// unbounded lengths (the MaxSize of FractionTrack and AutoTrack) as
+// math.MaxFloat64, so that value, and anything larger such as +Inf, is the
+// unbounded sentinel and decodes to layout.PxUnbounded exactly like the
+// "unbounded" string. NaN and every other magnitude above MaxNumericValue
+// are rejected.
+func legacyNumberLength(v float64) (layout.Length, error) {
+	switch {
+	case math.IsNaN(v):
+		return layout.Length{}, errors.New("length is not a number")
+	case v >= math.MaxFloat64:
+		return layout.PxUnbounded, nil
+	case math.Abs(v) > MaxNumericValue:
+		return layout.Length{}, fmt.Errorf("length %v exceeds %g", v, MaxNumericValue)
+	}
+	return layout.Px(v), nil
 }
 
 // checkFloat rejects NaN, infinities, and magnitudes above MaxNumericValue.
@@ -879,11 +931,19 @@ func checkFloat(path string, v float64) error {
 	return nil
 }
 
+// checkRect validates the four Rect fields. Unlike checkFloat it accepts
+// exactly math.MaxFloat64 (layout.Unbounded): the layout pass produces it
+// for boxes measured under unbounded constraints and the previous encoder
+// wrote it verbatim, so ToJSON must not fail on a tree Layout produced and
+// FromJSON must read such files back.
 func checkRect(path string, r *layout.Rect) error {
 	for _, f := range []struct {
 		name string
 		v    float64
 	}{{"x", r.X}, {"y", r.Y}, {"width", r.Width}, {"height", r.Height}} {
+		if f.v == math.MaxFloat64 {
+			continue
+		}
 		if err := checkFloat(path+"."+f.name, f.v); err != nil {
 			return err
 		}

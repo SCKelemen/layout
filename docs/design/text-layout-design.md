@@ -1,3 +1,5 @@
+> **Historical.** This is the original design specification for text layout (v1 MVP scope). The implementation has since superseded it: every deferred feature listed in §2.2 except bidi, inline elements, and dictionary hyphenation is implemented, the layout functions take a `LayoutContext`, and `Width`/`Height` are `Length` values where unset means auto. For the current behavior see [docs/text.md](../text.md); for gaps see [docs/limitations.md](../limitations.md).
+
 # Text Layout Specification
 
 This document specifies the text layout implementation for the Go layout engine, based on the [CSS Text Module Level 3](https://www.w3.org/TR/css-text-3/) and [CSS Text Module Level 4](https://www.w3.org/TR/css-text-4/) specifications.

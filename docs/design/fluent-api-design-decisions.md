@@ -1,6 +1,6 @@
 # Fluent API Design Decisions
 
-This document addresses design decisions and trade-offs in the fluent API implementation, particularly in response to architectural review feedback.
+This document records the design decisions and trade-offs made when the fluent API was introduced, in response to architectural review feedback. It is a historical record; the current API is described in [docs/fluent-api.md](../fluent-api.md).
 
 ## Table of Contents
 
@@ -81,7 +81,7 @@ func (n *Node) WithPadding(amount float64) *Node {
         return nil
     }
     copy := n.Clone()
-    copy.Style.Padding = Uniform(amount)
+    copy.Style.Padding = Uniform(Px(amount))
     return copy
 }
 ```
@@ -178,9 +178,9 @@ func (n *Node) Find(predicate func(*Node) bool) (*Node, bool)
 **Current Implementation:**
 We provide high-level constructor helpers:
 ```go
-func HStack(children ...*Node) *Node  // Flex row
-func VStack(children ...*Node) *Node  // Flex column
-func Grid(rows, cols int) *Node       // Grid layout
+func HStack(children ...*Node) *Node                          // Flex row
+func VStack(children ...*Node) *Node                          // Flex column
+func Grid(rows, cols int, rowSize, colSize float64) *Node     // Grid with fixed tracks
 ```
 
 **Usage:**
@@ -202,7 +202,9 @@ card := VStack(
 func Fixed(width, height float64) *Node
 func HStack(children ...*Node) *Node
 func VStack(children ...*Node) *Node
-func Grid(rows, cols int) *Node
+func Grid(rows, cols int, rowSize, colSize float64) *Node
+func GridAuto(rows, cols int) *Node
+func GridFractional(rows, cols int) *Node
 ```
 
 **Future Consideration:**
@@ -364,12 +366,12 @@ func (n *Node) TransformMut(predicate, transform func(*Node) *Node) *Node {
 
 #### 4. Generic Fold Return Type
 
-Once Go 1.18+ is baseline, use generics for Fold:
+Use generics for Fold instead of `interface{}`:
 ```go
-func Fold[T any](n *Node, initial T, fn func(T, *Node) T) T
+func FoldNodes[T any](n *Node, init T, fn func(acc T, node *Node) T) T
 ```
 
-**Decision:** Keep interface{} for now for compatibility
+**Decision:** Implemented as the package-level `FoldNodes` (the module requires Go 1.25). `Node.Fold` and `FoldWithContext` are kept for compatibility.
 
 ### Compatibility Guarantees
 

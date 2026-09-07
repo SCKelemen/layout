@@ -1,240 +1,199 @@
 # Usage Patterns
 
-This guide shows different ways to use the layout library in your Go code.
+Different ways to build layout trees. All snippets assume `import "github.com/SCKelemen/layout"`.
 
-## Pattern 1: Direct Node Creation (Low-level, CSS-like)
+## Pattern 1: direct `Node` construction (CSS-like)
 
-This is the most flexible approach, similar to CSS:
+The most explicit form; every property is visible.
 
 ```go
-import "github.com/SCKelemen/layout"
-
 root := &layout.Node{
-    Style: layout.Style{
-        Display: layout.DisplayFlex,
-        FlexDirection: layout.FlexDirectionRow,
-        Padding: layout.Uniform(10),
-    },
-    Children: []*layout.Node{
-        {
-            Style: layout.Style{
-                Width:  100,
-                Height: 50,
-            },
-        },
-    },
+	Style: layout.Style{
+		Display:       layout.DisplayFlex,
+		FlexDirection: layout.FlexDirectionRow,
+		Padding:       layout.Uniform(layout.Px(10)),
+	},
+	Children: []*layout.Node{
+		{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
+	},
 }
-
-constraints := layout.Loose(800, 600)
-size := layout.Layout(root, constraints)
+size := layout.LayoutSimple(root, layout.Loose(800, 600))
+_ = size
 ```
 
-**Use when**: You need precise control over all layout properties.
+**Use when** you need control over every property.
 
-## Pattern 2: High-level API (SwiftUI/Flutter-like)
-
-Use the helper functions for simpler, more ergonomic code:
+## Pattern 2: high-level helpers (SwiftUI/Flutter-like)
 
 ```go
-import "github.com/SCKelemen/layout"
-
 root := layout.HStack(
-    layout.Fixed(100, 50),
-    layout.Spacer(),
-    layout.Fixed(100, 50),
+	layout.Fixed(100, 50),
+	layout.Spacer(),
+	layout.Text("Right-aligned label"),
 )
-
-constraints := layout.Loose(800, 600)
-size := layout.Layout(root, constraints)
+layout.Padding(root, 10)
+layout.LayoutSimple(root, layout.Loose(800, 600))
 ```
 
-**Use when**: You want simple, readable code for common layouts.
+`HStack`, `VStack`, `ZStack`, `Grid`, `GridAuto`, `GridFractional`, `Fixed`, `Spacer`, `Text`, plus the mutating helpers `Padding`, `PaddingCustom`, `Margin`, `Frame`, `FrameLength`, `MinWidth`, `MinHeight`, `AspectRatio`, `PlaceInArea`, and the intrinsic sizing helpers.
 
-## Pattern 3: Embedding Node in Your Types
+**Use when** you want short, readable code for common layouts.
 
-You can embed `layout.Node` in your own types to add domain-specific data:
+## Pattern 3: fluent, immutable API
+
+```go
+card := layout.VStack().
+	WithWidthLength(layout.Px(300)).
+	WithPadding(16).
+	WithMargin(8).
+	AddChildren(
+		layout.Text("Title").WithHeight(32),
+		layout.Text("Body").WithFlexGrow(1),
+	)
+
+compact := card.WithPadding(8) // card is unchanged
+```
+
+See the [Fluent API guide](fluent-api.md).
+
+**Use when** you build variants of a tree or query and transform existing trees.
+
+## Pattern 4: embedding `Node` in your types
 
 ```go
 type Card struct {
-    layout.Node
-    Title   string
-    Content string
+	layout.Node
+	Title   string
+	Content string
 }
 
 func NewCard(title, content string) *Card {
-    card := &Card{
-        Title:   title,
-        Content: content,
-    }
-    card.Style.Width = 200
-    card.Style.Height = 150
-    card.Style.Padding = layout.Uniform(10)
-    return card
+	card := &Card{Title: title, Content: content}
+	card.Style.Width = layout.Px(200)
+	card.Style.Height = layout.Px(150)
+	card.Style.Padding = layout.Uniform(layout.Px(10))
+	return card
 }
-
-// Usage
-cards := []*Card{
-    NewCard("Card 1", "Content 1"),
-    NewCard("Card 2", "Content 2"),
-}
-
-// Convert to layout nodes
-nodes := make([]*layout.Node, len(cards))
-for i, card := range cards {
-    nodes[i] = &card.Node
-}
-
-root := layout.HStack(nodes...)
 ```
 
-**Use when**: You want to combine layout with domain-specific data.
+```go
+cards := []*Card{NewCard("Card 1", "Content 1"), NewCard("Card 2", "Content 2")}
+nodes := make([]*layout.Node, len(cards))
+for i, card := range cards {
+	nodes[i] = &card.Node
+}
+root := layout.HStack(nodes...)
+layout.LayoutSimple(root, layout.Loose(800, 600))
+// cards[0].Rect is populated because it is the same Node
+```
 
-## Pattern 4: Builder Pattern
+**Use when** layout data and domain data belong together.
 
-Create a builder for your specific use case:
+## Pattern 5: a builder for your domain
 
 ```go
 type LayoutBuilder struct {
-    node *layout.Node
+	node *layout.Node
 }
 
 func NewBuilder() *LayoutBuilder {
-    return &LayoutBuilder{
-        node: &layout.Node{},
-    }
+	return &LayoutBuilder{node: &layout.Node{}}
 }
 
 func (b *LayoutBuilder) Flex() *LayoutBuilder {
-    b.node.Style.Display = layout.DisplayFlex
-    return b
+	b.node.Style.Display = layout.DisplayFlex
+	return b
 }
 
 func (b *LayoutBuilder) Row() *LayoutBuilder {
-    b.node.Style.FlexDirection = layout.FlexDirectionRow
-    return b
+	b.node.Style.FlexDirection = layout.FlexDirectionRow
+	return b
 }
 
-func (b *LayoutBuilder) Padding(p float64) *LayoutBuilder {
-    b.node.Style.Padding = layout.Uniform(p)
-    return b
+func (b *LayoutBuilder) Padding(p layout.Length) *LayoutBuilder {
+	b.node.Style.Padding = layout.Uniform(p)
+	return b
 }
 
 func (b *LayoutBuilder) AddChild(child *layout.Node) *LayoutBuilder {
-    b.node.Children = append(b.node.Children, child)
-    return b
+	b.node.Children = append(b.node.Children, child)
+	return b
 }
 
 func (b *LayoutBuilder) Build() *layout.Node {
-    return b.node
+	return b.node
 }
-
-// Usage
-root := NewBuilder().
-    Flex().
-    Row().
-    Padding(10).
-    AddChild(layout.Fixed(100, 50)).
-    AddChild(layout.Fixed(100, 50)).
-    Build()
 ```
 
-**Use when**: You want a fluent API for building layouts.
+```go
+root := NewBuilder().
+	Flex().
+	Row().
+	Padding(layout.Em(1)).
+	AddChild(layout.Fixed(100, 50)).
+	AddChild(layout.Fixed(100, 50)).
+	Build()
+```
 
-## Pattern 5: Functional Options
+**Use when** your application has a fixed vocabulary of layouts.
 
-Use functional options for configuration:
+## Pattern 6: functional options
 
 ```go
 type Option func(*layout.Node)
 
-func WithPadding(p float64) Option {
-    return func(n *layout.Node) {
-        n.Style.Padding = layout.Uniform(p)
-    }
+func WithPadding(p layout.Length) Option {
+	return func(n *layout.Node) { n.Style.Padding = layout.Uniform(p) }
 }
 
-func WithWidth(w float64) Option {
-    return func(n *layout.Node) {
-        n.Style.Width = w
-    }
+func WithWidth(w layout.Length) Option {
+	return func(n *layout.Node) { n.Style.Width = w }
 }
 
 func NewNode(opts ...Option) *layout.Node {
-    node := &layout.Node{}
-    for _, opt := range opts {
-        opt(node)
-    }
-    return node
+	node := &layout.Node{}
+	for _, opt := range opts {
+		opt(node)
+	}
+	return node
 }
-
-// Usage
-root := NewNode(
-    WithPadding(10),
-    WithWidth(200),
-)
 ```
-
-**Use when**: You want flexible configuration with optional parameters.
-
-## Pattern 6: Domain-Specific Wrappers
-
-Create domain-specific wrappers for your use case:
 
 ```go
-// For GitHub README card layouts
-type CardLayout struct {
-    *layout.Node
-}
-
-func NewCardLayout() *CardLayout {
-    return &CardLayout{
-        Node: &layout.Node{
-            Style: layout.Style{
-                Display: layout.DisplayGrid,
-                GridTemplateColumns: []layout.GridTrack{
-                    layout.FixedTrack(150),
-                    layout.FixedTrack(150),
-                },
-                GridGap: 20,
-            },
-        },
-    }
-}
-
-func (c *CardLayout) AddCard(title string) *CardLayout {
-    card := &layout.Node{
-        Style: layout.Style{
-            Width:  150,
-            Height: 100,
-        },
-    }
-    c.Children = append(c.Children, card)
-    return c
-}
+root := NewNode(WithPadding(layout.Px(10)), WithWidth(layout.Px(200)))
 ```
 
-**Use when**: You have a specific domain (e.g., card layouts) with common patterns.
+**Use when** you want optional configuration with defaults.
+
+## Pattern 7: serialized trees
+
+Layouts can be described as JSON or YAML and loaded with the `serialize` package, which is handy for fixtures, design tools, and debugging:
+
+```go
+data, err := serialize.ToJSON(root) // after layout, includes every Rect
+if err != nil {
+	log.Fatal(err)
+}
+restored, err := serialize.FromJSON(data)
+if err != nil {
+	log.Fatal(err)
+}
+_ = restored
+```
+
+(`serialize` is `github.com/SCKelemen/layout/serialize`.) See [serialize/README.md](../serialize/README.md).
 
 ## Recommendations
 
-1. **For simple layouts**: Use the high-level API (`HStack`, `VStack`, `Spacer`)
-2. **For complex layouts**: Use direct Node creation with CSS-like properties
-3. **For reusable components**: Embed Node in your types
-4. **For domain-specific needs**: Create custom builders or wrappers
+1. Simple layouts: helpers (`HStack`, `VStack`, `Text`).
+2. Complex layouts: direct `Node` construction.
+3. Variants and analysis: the fluent API.
+4. Reusable components: embed `Node`.
 
-## Best Practices
+## Best practices
 
-1. **Don't modify nodes after layout**: Once `Layout()` is called, the `Rect` field contains the computed layout. Modifying styles after layout won't update positions.
-
-2. **Reuse nodes carefully**: If you reuse the same node in multiple places, create new instances or deep copy.
-
-3. **Handle positioned elements**: Use `LayoutWithPositioning()` if you have absolutely/fixed positioned elements.
-
-4. **For SVG rendering**: Use `GetSVGTransform()` and `GetFinalRect()` to get final positions and transforms.
-
-5. **Use appropriate constraints**: 
-   - `Loose()` for maximum size
-   - `Tight()` for exact size
-   - `Unconstrained()` when size doesn't matter
-
-
+1. **Lay out once per frame.** `Rect` and `TextLayout` are outputs; changing a style afterwards does not update them until you call layout again.
+2. **Do not share a node between two parents.** Layout writes into the node; use `CloneDeep` for copies.
+3. **Choose the right entry point.** `LayoutSimple` for plain trees, `Layout` with a `LayoutContext` for viewport/font/text-metrics control, `LayoutWithPositioning` when any node is positioned.
+4. **Pick constraints deliberately.** `Tight` for a fixed canvas, `Loose(w, Unbounded)` for content-sized height, `Unconstrained()` for intrinsic measurement.
+5. **Prefer `Length` constructors over `Length{}` literals**, and remember that unset means auto while `Px(0)` is zero.

@@ -13,6 +13,7 @@
 
 ### Changed
 
+- **Documentation consolidated.** The root-level status documents (`CSS_VALUES_STATUS.md`, `GAP_ANALYSIS.md`, `SPECIFICATION_GAPS.md`, `SPEC_COMPLIANCE_STATUS.md`, `TEXT_FEATURES_STATUS.md`, `TEXT_PROPERTIES.md`, `TEXT_LAYOUT_ISSUES.md`, `TEST_ORGANIZATION.md`, `WPT_INTEGRATION.md`, `release_v1.1.0.md`) were removed; their still-accurate content lives in `docs/text.md`, `docs/spec-compliance.md`, `docs/limitations.md` (the single gaps list), `docs/wpt-testing.md`, and `CONTRIBUTING.md`. `TEXT_LAYOUT_DESIGN.md` and the fluent design notes moved to `docs/design/`. Every guide was rewritten against the current API (`Length` constructors, `LayoutSimple`/`Layout(root, constraints, ctx)`, unset-means-auto) and every snippet compiles. Doc comments that described stale behavior (`GridRowGap`/`GridColumnGap` fallback, `Style.WritingMode` inheritance, the `TextMetricsAdapter` example) were corrected; no code changed.
 - **Direction resolution:** text layout reads `Style.Direction` first and falls back to `TextStyle.Direction`, the same way `WritingMode` is resolved. `text-align: start` (`TextAlignDefault`) therefore resolves to the right in RTL when either field is set.
 - Removed the unused internal helpers `getInlineSize` (text.go) and `findLineBreakOpportunities` (uax14.go); `findLineBreakOpportunitiesWithHyphens` is the single entry point.
 - **Flexbox: `Width`/`Height`/`FlexBasis` follow the unset-means-auto convention (behavior change).** A flex container or item size is `auto` only when the `Length` was never set (`Unit == ""`) or is negative; `Px(0)` is now a real zero. `Width: Px(0)` on a container gives a 0 main/cross size, `Width: Px(0)` on an item is a definite 0 main size, and `FlexBasis: Px(0)` is a zero flex base size, so two items with `FlexGrow: 1, FlexBasis: Px(0)` in a 400px container are 200/200 regardless of content (previously a zero basis fell back to the content size, giving 300/100). `align-items: stretch` likewise treats `Height: Px(0)` (row) or `Width: Px(0)` (column) as an explicit cross size and keeps it (CSS Flexbox §9.4 step 11). `layout.Text()` nodes leave their size unset and continue to size to their content.
@@ -120,7 +121,7 @@ Patch release fixing one MEDIUM bug in `ResolveLengthInContext` caught by an ext
 
 - New `TestResolveLengthInContextCqZeroContainerReturnsZero` guards the fix across `cqw`, `cqh`, and `cqmin`.
 
-## [1.2.0] - 2026-05-18
+## [v1.2.0] - 2026-05-18
 
 ### Added
 - Full CSS Values Level 4 length-unit coverage via integration with `github.com/SCKelemen/units` v1.2.0. All 44 L4 length units (lh, cap, ic, vi, vb, sv*, lv*, dv*, cqw, cqh, cqi, cqb, cqmin, cqmax, plus the existing absolute/em/rem/ch/vh/vw/vmin/vmax set) now resolvable through `ResolveLength`.
@@ -140,10 +141,30 @@ Patch release fixing one MEDIUM bug in `ResolveLengthInContext` caught by an ext
 - `github.com/SCKelemen/units` promoted from indirect to direct dependency at `v1.2.0`.
 
 ### Fixed
-- Documentation reconciled with actual implementation (`docs/limitations.md`, `docs/CSS_VALUES_STATUS.md`).
+- Documentation reconciled with actual implementation (`docs/limitations.md` and the CSS values status document, since folded into `docs/api-reference.md`).
 - Removed mid-flight debug block and stale `test_user/` and `debug/` directories.
 
 ### CI
 - `actions/checkout` v4 → v6.
 - `actions/setup-go` v5 → v6.
 - `codecov/codecov-action` v4 → v6.
+
+## [v1.1.4] - 2026-03-11
+
+- Docs: update the CEL/WPT documentation; bump `wpt-test-gen`.
+
+## [v1.1.3] - 2026-03-10
+
+- Bump `github.com/SCKelemen/text` to v1.1.3.
+
+## [v1.1.2] - 2026-03-10
+
+- Bump the `text`, `unicode`, and `units` dependencies.
+
+## [v1.1.1] - 2026-02-20
+
+- Standardize the Go toolchain and pin released dependencies.
+
+## [v1.1.0] - 2025-12-14
+
+CSS length type system (breaking change): `Style` sizing, spacing, gap, offset, and `GridTrack` fields moved from `float64` pixels to the `Length` type with unit constructors (`Px`, `Em`, `Rem`, ...), resolved through the new `LayoutContext` (`NewLayoutContext(viewportWidth, viewportHeight, rootFontSize)`); every layout function gained a `*LayoutContext` parameter. Migration: wrap literals in `Px(...)`, read pixel values through `.Value`, and pass a context (or use `LayoutSimple`). Also: enhanced WPT test integration with CEL assertions and the first fluent API release.

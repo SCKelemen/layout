@@ -1012,6 +1012,12 @@ func getVerticalPaddingBorder(padding, border Spacing, ctx *LayoutContext, curre
 // convertToContentSize converts a width/height from border-box to content-box
 // If boxSizing is content-box, returns the value unchanged
 // If boxSizing is border-box, subtracts padding and border to get content size
+//
+// When the border-box size is smaller than the padding and border, the content
+// size is clamped to 0 rather than going negative. A negative result would be
+// misread as the auto sentinel (Value < 0) by callers. This matches CSS Box
+// Sizing Level 3 §3.1: "the used value of the content-box size is floored at
+// zero" (https://www.w3.org/TR/css-sizing-3/#box-sizing).
 func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
 	if size < 0 {
 		// Auto values are passed through unchanged
@@ -1019,11 +1025,16 @@ func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBo
 	}
 	if boxSizing == BoxSizingBorderBox {
 		// border-box: size includes padding + border, so subtract to get content size
+		var converted float64
 		if isWidth {
-			return size - horizontalPaddingBorder
+			converted = size - horizontalPaddingBorder
 		} else {
-			return size - verticalPaddingBorder
+			converted = size - verticalPaddingBorder
 		}
+		if converted < 0 {
+			return 0
+		}
+		return converted
 	}
 	// content-box: size is already content size
 	return size

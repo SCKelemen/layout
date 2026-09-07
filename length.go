@@ -159,7 +159,13 @@ func UnboundedLength() Length {
 //
 //   - UnboundedUnit short-circuits to math.MaxFloat64. It is a layout-only
 //     sentinel; the units package has no concept of it.
-//   - Unknown / unsupported units (e.g. cq*, vi/vb when the corresponding
+//   - Container-relative units (cqw, cqh, cqi, cqb, cqmin, cqmax) resolve to
+//     0 here, because ResolveLength has no ancestor information and therefore
+//     no query container size. This is the same fallback ResolveLengthInContext
+//     applies when no container size is available, so a cq* value is never
+//     misread as pixels. CSS Containment Level 3 §5.4:
+//     https://www.w3.org/TR/css-contain-3/#container-lengths
+//   - Other unknown / unsupported units (e.g. vi/vb when the corresponding
 //     context fields are unset) preserve the pre-migration default-case
 //     behavior of returning l.Value unchanged.
 //
@@ -175,6 +181,11 @@ func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float6
 	uctx := buildUnitsContext(ctx, currentFontSize)
 	resolved, err := l.Resolve(uctx)
 	if err != nil {
+		if l.IsContainerRelative() {
+			// No query container size is known on this path; a raw cq* value
+			// is a percentage of an unknown size, not pixels.
+			return 0
+		}
 		// Resolution failure (unknown unit, missing context field).
 		// Preserve pre-migration default-case behavior: "return value as-is".
 		return l.Value

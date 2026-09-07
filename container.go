@@ -388,11 +388,11 @@ const (
 
 // inlineAxisFallback returns the physical pixel value to plug into
 // units.Context for the inline-axis container dimension. Uses the
-// container's Rect if available; otherwise falls back to the viewport
-// dimension on the requested physical axis.
+// container's content box if available; otherwise falls back to the
+// viewport dimension on the requested physical axis.
 func inlineAxisFallback(c *Node, ctx *LayoutContext, axis physicalAxis) float64 {
 	if c != nil {
-		return rectAxis(c.Rect, axis)
+		return containerContentAxis(c, ctx, axis)
 	}
 	return viewportAxis(ctx, axis)
 }
@@ -403,9 +403,37 @@ func inlineAxisFallback(c *Node, ctx *LayoutContext, axis physicalAxis) float64 
 // triggered by inline-axis cq* units, the other by block-axis ones).
 func blockAxisFallback(c *Node, ctx *LayoutContext, axis physicalAxis) float64 {
 	if c != nil {
-		return rectAxis(c.Rect, axis)
+		return containerContentAxis(c, ctx, axis)
 	}
 	return viewportAxis(ctx, axis)
+}
+
+// containerContentAxis returns the size of the query container's content
+// box on the requested physical axis.
+//
+// CSS Containment Level 3 §5.4: container query length units are relative
+// to the query container's size, and size queries evaluate against the
+// container's content box (§5.1). Rect holds the border-box size, so the
+// container's padding and border are subtracted; the result is floored at 0
+// and an indefinite (unbounded) Rect yields 0.
+// https://www.w3.org/TR/css-contain-3/#container-lengths
+func containerContentAxis(c *Node, ctx *LayoutContext, axis physicalAxis) float64 {
+	size := rectAxis(c.Rect, axis)
+	if size <= 0 || size >= Unbounded {
+		return 0
+	}
+	fontSize := getCurrentFontSize(c, ctx)
+	var paddingBorder float64
+	if axis == axisWidth {
+		paddingBorder = getHorizontalPaddingBorder(c.Style.Padding, c.Style.Border, ctx, fontSize)
+	} else {
+		paddingBorder = getVerticalPaddingBorder(c.Style.Padding, c.Style.Border, ctx, fontSize)
+	}
+	size -= paddingBorder
+	if size < 0 {
+		return 0
+	}
+	return size
 }
 
 func rectAxis(r Rect, axis physicalAxis) float64 {

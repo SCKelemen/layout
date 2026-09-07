@@ -83,10 +83,21 @@ func blockDetermineContainerSize(node *Node, constraints Constraints, ctx *Layou
 	setup.specifiedWidth = convertToContentSize(widthValue, node.Style.BoxSizing, setup.horizontalPaddingBorder, setup.verticalPaddingBorder, true)
 	setup.specifiedHeight = convertToContentSize(heightValue, node.Style.BoxSizing, setup.horizontalPaddingBorder, setup.verticalPaddingBorder, false)
 
-	// Determine if dimensions are auto
-	// CRITICAL FIX: Treat 0 as auto when aspect ratio is set (Go zero value issue)
-	setup.isAutoWidth = setup.specifiedWidth < 0 || (setup.specifiedWidth == 0 && node.Style.AspectRatio > 0 && setup.specifiedHeight == 0)
-	setup.isAutoHeight = setup.specifiedHeight < 0 || (setup.specifiedHeight == 0 && node.Style.AspectRatio > 0 && setup.specifiedWidth == 0)
+	// Determine if dimensions are auto.
+	//
+	// A dimension is auto when:
+	//   - the Length is the Go zero value (Unit == ""), i.e. the caller never
+	//     set Width/Height. This matches the flexbox and grid conventions,
+	//     where an unspecified size is "auto", not "0px". An explicit Px(0)
+	//     remains a real zero size. See CSS 2.1 §10.3.3: the initial value of
+	//     width is auto (https://www.w3.org/TR/CSS21/visudet.html#blockwidth).
+	//   - the resolved value is negative (the Px(-1) auto sentinel), or
+	//   - the value is 0 while an aspect ratio is set and the other dimension
+	//     is also 0 (legacy heuristic kept for callers that use Px(0) + AspectRatio).
+	setup.isAutoWidth = isUnsetLength(node.Style.Width) || setup.specifiedWidth < 0 ||
+		(setup.specifiedWidth == 0 && node.Style.AspectRatio > 0 && setup.specifiedHeight == 0)
+	setup.isAutoHeight = isUnsetLength(node.Style.Height) || setup.specifiedHeight < 0 ||
+		(setup.specifiedHeight == 0 && node.Style.AspectRatio > 0 && setup.specifiedWidth == 0)
 
 	// Resolve min/max constraints to pixels
 	minWidthValue := ResolveLength(node.Style.MinWidth, ctx, currentFontSize)
@@ -102,4 +113,31 @@ func blockDetermineContainerSize(node *Node, constraints Constraints, ctx *Layou
 	setup.maxHeightContent = convertMinMaxToContentSize(maxHeightValue, node.Style.BoxSizing, setup.horizontalPaddingBorder, setup.verticalPaddingBorder, false)
 
 	return setup
+}
+
+// isUnsetLength reports whether a Length is the Go zero value, meaning the
+// caller never assigned it. Block layout treats an unset Width/Height as
+// "auto" (the CSS initial value), while an explicit Px(0) stays a real zero.
+// Only Unit is inspected: a Length constructed via Px/Em/... always carries
+// a unit, so Unit == "" can only come from a zero-value struct.
+func isUnsetLength(l Length) bool {
+	return l.Unit == ""
+}
+
+// clampMinMax applies a max constraint followed by a min constraint, so that
+// when min > max the min value wins.
+//
+// CSS 2.1 §10.4: "If the computed value of min-width is greater than the value
+// of max-width, max-width is set to the value of min-width."
+// https://www.w3.org/TR/CSS21/visudet.html#min-max-widths
+//
+// A max of 0 or >= Unbounded means "none"; a min <= 0 is a no-op.
+func clampMinMax(value, minValue, maxValue float64) float64 {
+	if maxValue > 0 && maxValue < Unbounded && value > maxValue {
+		value = maxValue
+	}
+	if minValue > 0 && value < minValue {
+		value = minValue
+	}
+	return value
 }

@@ -124,7 +124,7 @@ func round1Block(children ...*Node) *Node {
 	return &Node{Style: Style{Display: DisplayBlock, Width: Px(200)}, Children: children}
 }
 
-func round1Layout(root *Node) {
+func blockRound1Layout(root *Node) {
 	Layout(root, Loose(500, 500), NewLayoutContext(500, 500, 16))
 }
 
@@ -143,7 +143,7 @@ func TestBlockRound1ParentChildMarginsCollapse(t *testing.T) {
 	child := &Node{Style: Style{Display: DisplayBlock, Height: Px(50), Margin: Spacing{Top: Px(20), Bottom: Px(30)}}}
 	parent := &Node{Style: Style{Display: DisplayBlock}, Children: []*Node{child}}
 	root := round1Block(parent)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "child.Y (margin collapsed through parent)", child.Rect.Y, 0)
 	round1Expect(t, "parent.Height", parent.Rect.Height, 50)
@@ -160,7 +160,7 @@ func TestBlockRound1CollapsedThroughMarginMeetsSibling(t *testing.T) {
 	}}
 	b := &Node{Style: Style{Display: DisplayBlock, Height: Px(10), Margin: Spacing{Top: Px(20)}}}
 	root := round1Block(a, b)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "a.Height", a.Rect.Height, 10)
 	round1Expect(t, "b.Y", b.Rect.Y, 40)
@@ -173,7 +173,7 @@ func TestBlockRound1PaddingBlocksCollapse(t *testing.T) {
 	child := &Node{Style: Style{Display: DisplayBlock, Height: Px(50), Margin: Spacing{Top: Px(20), Bottom: Px(30)}}}
 	parent := &Node{Style: Style{Display: DisplayBlock, Padding: Spacing{Top: Px(1)}}, Children: []*Node{child}}
 	root := round1Block(parent)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "child.Y (1px padding + 20px margin inside)", child.Rect.Y, 21)
 	round1Expect(t, "parent.Y", parent.Rect.Y, 0)
@@ -183,7 +183,7 @@ func TestBlockRound1PaddingBlocksCollapse(t *testing.T) {
 	// Border on the bottom edge keeps the bottom margin inside instead.
 	parent.Style.Padding = Spacing{}
 	parent.Style.Border = Spacing{Bottom: Px(2)}
-	round1Layout(root)
+	blockRound1Layout(root)
 	round1Expect(t, "border-bottom: child.Y", child.Rect.Y, 0)
 	round1Expect(t, "border-bottom: parent.Y (top collapsed through)", parent.Rect.Y, 20)
 	round1Expect(t, "border-bottom: parent.Height (50 + 30 + 2)", parent.Rect.Height, 82)
@@ -197,7 +197,7 @@ func TestBlockRound1ExplicitHeightOrMinHeightBlocksBottomCollapse(t *testing.T) 
 	child := &Node{Style: Style{Display: DisplayBlock, Height: Px(50), Margin: Spacing{Top: Px(20), Bottom: Px(30)}}}
 	parent := &Node{Style: Style{Display: DisplayBlock, Height: Px(100)}, Children: []*Node{child}}
 	root := round1Block(parent)
-	round1Layout(root)
+	blockRound1Layout(root)
 	round1Expect(t, "explicit height: child.Y", child.Rect.Y, 0)
 	round1Expect(t, "explicit height: parent.Y", parent.Rect.Y, 20)
 	round1Expect(t, "explicit height: parent.Height", parent.Rect.Height, 100)
@@ -205,7 +205,7 @@ func TestBlockRound1ExplicitHeightOrMinHeightBlocksBottomCollapse(t *testing.T) 
 
 	parent.Style.Height = Length{}
 	parent.Style.MinHeight = Px(10)
-	round1Layout(root)
+	blockRound1Layout(root)
 	round1Expect(t, "min-height: child.Y", child.Rect.Y, 0)
 	round1Expect(t, "min-height: parent.Height (50 + 30 inside)", parent.Rect.Height, 80)
 	round1Expect(t, "min-height: root.Height", root.Rect.Height, 100)
@@ -220,7 +220,7 @@ func TestBlockRound1FormattingContextRootsDoNotCollapseThrough(t *testing.T) {
 		item := &Node{Style: Style{Display: DisplayBlock, Width: Px(50), Height: Px(50), Margin: Spacing{Top: Px(20)}}}
 		container := &Node{Style: Style{Display: display, Width: Px(200)}, Children: []*Node{item}}
 		root := round1Block(container)
-		round1Layout(root)
+		blockRound1Layout(root)
 		if container.Rect.Y != 0 {
 			t.Errorf("display %v: container.Y = %.2f, want 0 (item margin must stay inside)", display, container.Rect.Y)
 		}
@@ -239,7 +239,7 @@ func TestBlockRound1CollapseThroughSeveralLevels(t *testing.T) {
 	mid := &Node{Style: Style{Display: DisplayBlock, Margin: Spacing{Top: Px(-10)}}, Children: []*Node{leaf}}
 	parent := &Node{Style: Style{Display: DisplayBlock, Margin: Spacing{Top: Px(25)}}, Children: []*Node{mid}}
 	root := round1Block(parent)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "leaf.Y", leaf.Rect.Y, 0)
 	round1Expect(t, "mid.Y", mid.Rect.Y, 0)
@@ -257,7 +257,7 @@ func TestBlockRound1EmptyContainerIsSelfCollapsing(t *testing.T) {
 	}}
 	b := &Node{Style: Style{Display: DisplayBlock, Height: Px(10), Margin: Spacing{Top: Px(5)}}}
 	root := round1Block(empty, b)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "empty.Height", empty.Rect.Height, 0)
 	round1Expect(t, "b.Y (max of 10, 20, 5)", b.Rect.Y, 20)
@@ -272,7 +272,7 @@ func TestBlockRound1OutOfFlowChildStaticPositionAtCollapsedStart(t *testing.T) {
 	child := &Node{Style: Style{Display: DisplayBlock, Height: Px(50), Margin: Spacing{Top: Px(20)}}}
 	parent := &Node{Style: Style{Display: DisplayBlock}, Children: []*Node{abs, child}}
 	root := round1Block(parent)
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "abs.Y (static position)", abs.Rect.Y, 0)
 	round1Expect(t, "child.Y", child.Rect.Y, 0)
@@ -289,7 +289,7 @@ func TestBlockRound1CollapseThroughVerticalWritingMode(t *testing.T) {
 	child := &Node{Style: Style{Display: DisplayBlock, WritingMode: WritingModeVerticalLR, Width: Px(50), Margin: Spacing{Left: Px(20), Right: Px(30)}}}
 	parent := &Node{Style: Style{Display: DisplayBlock, WritingMode: WritingModeVerticalLR}, Children: []*Node{child}}
 	root := &Node{Style: Style{Display: DisplayBlock, WritingMode: WritingModeVerticalLR, Height: Px(200)}, Children: []*Node{parent}}
-	round1Layout(root)
+	blockRound1Layout(root)
 
 	round1Expect(t, "child.X", child.Rect.X, 0)
 	round1Expect(t, "parent.X (collapsed start margin)", parent.Rect.X, 20)

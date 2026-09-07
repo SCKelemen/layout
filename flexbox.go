@@ -238,18 +238,28 @@ type flexItem struct {
 	measuredHeight float64
 }
 
-// flexboxRelayoutResizedItem lays out a container item again with tight
-// constraints when its final flexed/stretched size differs from the size it was
-// measured at, so its own children are positioned against the final size.
-// Positions set by the parent's alignment are preserved. Text leaves and
-// childless nodes are left alone; unbounded sizes are never used as constraints.
+// flexboxRelayoutResizedItem lays out an item again with tight constraints
+// when its final flexed/stretched size differs from the size it was measured
+// at, so its contents are positioned against the final size.
+//
+// Container items (flex, grid, block) need this so their own children are laid
+// out against the final size. Text items need it so their lines re-wrap: a
+// text item's flex base size is its max-content size (CSS Flexbox §9.2 step
+// 3E), and once flexing has shrunk or grown it the line boxes must be
+// recomputed at the used main size.
+// https://www.w3.org/TR/css-flexbox-1/#algo-main-item
+//
+// Positions set by the parent's alignment are preserved. Childless non-text
+// nodes are left alone; unbounded sizes are never used as constraints.
 func flexboxRelayoutResizedItem(item *flexItem, ctx *LayoutContext) {
 	child := item.node
-	if len(child.Children) == 0 {
-		return
-	}
 	switch child.Style.Display {
+	case DisplayInlineText:
+		// Text leaves have no children but must re-wrap at the final size.
 	case DisplayFlex, DisplayGrid, DisplayBlock:
+		if len(child.Children) == 0 {
+			return
+		}
 	default:
 		return
 	}

@@ -136,7 +136,10 @@ The serialized JSON includes:
   (`[]layout.RepeatTrack`). `count` is either an integer in
   `[1, MaxRepeatCount]` (10000), written as a number, or one of the keywords
   `"auto-fill"` / `"auto-fit"`, written as a string. Each pattern needs at
-  least one track. Example:
+  least one track and may expand to at most `MaxRepeatTracks` (10000) tracks
+  (`count × len(tracks)`, or `len(tracks)` for the keywords); an axis holds
+  at most `MaxRepeats` (100) patterns. Both limits wrap `ErrLimitExceeded`.
+  Example:
   ```json
   "gridTemplateColumnsRepeat": [
     { "count": "auto-fill", "tracks": [{ "minSize": "100px", "maxSize": "100px" }] },

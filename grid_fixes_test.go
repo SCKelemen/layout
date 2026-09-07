@@ -478,8 +478,8 @@ func TestGridFixAutoRepeatCountBounds(t *testing.T) {
 	if got := calculateAutoRepeatCount(fixed, math.NaN(), 10); got != 1 {
 		t.Errorf("NaN size: expected 1 repetition, got %d", got)
 	}
-	if got := calculateAutoRepeatCount(fixed, 1e300, 0); got != gridMaxAutoRepeat {
-		t.Errorf("huge size: expected cap %d, got %d", gridMaxAutoRepeat, got)
+	if got := calculateAutoRepeatCount(fixed, 1e300, 0); got != gridMaxTracks {
+		t.Errorf("huge size: expected cap %d, got %d", gridMaxTracks, got)
 	}
 
 	minmax := RepeatTrack{Count: RepeatCountAutoFill, Tracks: []GridTrack{MinMaxTrack(Px(50), Px(200))}}
@@ -488,13 +488,13 @@ func TestGridFixAutoRepeatCountBounds(t *testing.T) {
 	}
 
 	// Expansion with an indefinite size terminates with a single repetition.
-	tracks := expandAutoRepeatTracks([]RepeatTrack{fixed}, nil, Unbounded, 10)
+	tracks, _, _ := expandAutoRepeatTracks([]RepeatTrack{fixed}, nil, Unbounded, 10)
 	if len(tracks) != 1 {
 		t.Errorf("indefinite expansion: expected 1 track, got %d", len(tracks))
 	}
-	tracks = expandAutoRepeatTracks([]RepeatTrack{fixed}, nil, 1e300, 0)
-	if len(tracks) != gridMaxAutoRepeat {
-		t.Errorf("huge expansion: expected %d tracks, got %d", gridMaxAutoRepeat, len(tracks))
+	tracks, _, _ = expandAutoRepeatTracks([]RepeatTrack{fixed}, nil, 1e300, 0)
+	if len(tracks) != gridMaxTracks {
+		t.Errorf("huge expansion: expected %d tracks, got %d", gridMaxTracks, len(tracks))
 	}
 }
 

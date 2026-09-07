@@ -741,7 +741,7 @@ func breakIntoLines(text string, maxInlineSize float64, style TextStyle, metrics
 // softHyphen is U+00AD SOFT HYPHEN: an invisible hyphenation opportunity that
 // is rendered as a hyphen only when a line is broken at it.
 // https://www.w3.org/TR/css-text-3/#hyphens-property
-const softHyphen = "Â\u00ad"
+const softHyphen = "\u00ad"
 
 // uax14LineBuilder accumulates boxes for the line currently being built by
 // breakIntoLinesUAX14.

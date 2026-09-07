@@ -287,7 +287,7 @@ func TestRound1PreTabStops(t *testing.T) {
 func TestRound1SoftHyphen(t *testing.T) {
 	setupFakeMetrics()
 	ctx := NewLayoutContext(800, 600, 16).WithTextMetrics(&fakeMetrics{charWidth: 6})
-	const word = "abcÂ\u00addef"
+	const word = "abc\u00addef"
 
 	t.Run("no break: invisible", func(t *testing.T) {
 		node := Text(word, Style{TextStyle: &TextStyle{FontSize: 16, Hyphens: HyphensManual}})
@@ -301,7 +301,7 @@ func TestRound1SoftHyphen(t *testing.T) {
 		if strings.Join(got, "/") != "abc|def" {
 			t.Errorf("boxes: got %q, want [abc|def]", got)
 		}
-		if strings.Contains(strings.Join(got, ""), "Â\u00ad") {
+		if strings.Contains(strings.Join(got, ""), "\u00ad") {
 			t.Errorf("box text must not contain U+00AD: %q", got)
 		}
 		if box := node.TextLayout.Lines[0].Boxes[0]; box.SpaceAfter {
@@ -330,7 +330,7 @@ func TestRound1SoftHyphen(t *testing.T) {
 	t.Run("hyphen width participates in the fit test", func(t *testing.T) {
 		// "xy ab-" is 30px with the hyphen; at 28px the break must happen
 		// before "ab" so the hyphenated line does not overflow.
-		node := Text("xy abÂ\u00adcd", Style{Width: Px(28), TextStyle: &TextStyle{FontSize: 16, Hyphens: HyphensManual}})
+		node := Text("xy ab\u00adcd", Style{Width: Px(28), TextStyle: &TextStyle{FontSize: 16, Hyphens: HyphensManual}})
 		round1Layout(t, node, 28, ctx)
 		for i, line := range node.TextLayout.Lines {
 			if line.Width > 28 {

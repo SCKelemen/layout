@@ -110,7 +110,12 @@ The serialized JSON includes:
   `layout.PxUnbounded` and `layout.UnboundedLength()` are written as
   `"unbounded"` and read back as `layout.PxUnbounded`.
   For backward compatibility a bare number (`"width": 200`) is still
-  accepted on input and interpreted as pixels.
+  accepted on input and interpreted as pixels. The previous encoder wrote
+  unbounded lengths (the `maxSize` of `fr` and `auto` tracks) as the bare
+  number `1.7976931348623157e+308` (`math.MaxFloat64`); that sentinel is
+  read back as unbounded (`layout.PxUnbounded`), exactly like
+  `"unbounded"`. The same value is accepted in `rect` fields, where it
+  stays `layout.Unbounded`.
 - **Enum Values**: Enums are serialized as CSS keywords (e.g. `"flex"`,
   `"grid"`, `"inline-text"`, `"none"`, `"row-reverse"`, `"space-evenly"`).
   Unknown keywords are rejected with an error rather than silently mapped to
@@ -125,10 +130,17 @@ The serialized JSON includes:
   components (a, b, c, d, e, f).
 - **Validation**: `FromJSON`/`FromYAML` treat input as untrusted. They reject
   NaN or infinite numbers, magnitudes above `MaxNumericValue` (1e12, except
-  the `"unbounded"` sentinel), unknown enum keywords, fractional or
-  overflowing integers, trees deeper than `MaxTreeDepth` (1024), and nodes
-  with more than `MaxChildren` (65536) children. Limit violations wrap
-  `ErrLimitExceeded`.
+  the unbounded sentinel described above), unknown enum keywords,
+  fractional or overflowing integers, trees deeper than `MaxTreeDepth`
+  (1024), and nodes with more than `MaxChildren` (65536) children. Limit
+  violations wrap `ErrLimitExceeded`.
+- **Encoding errors**: `ToJSON`/`ToYAML` return an error (they never did
+  before) for trees that cannot be represented faithfully: NaN or infinite
+  numbers, magnitudes above `MaxNumericValue`, unknown enum values, and
+  trees deeper than `MaxTreeDepth`, which is how a cyclic tree fails instead
+  of overflowing the stack. A tree produced by `layout.Layout` from valid
+  styles never triggers these; in particular `layout.Unbounded` in `rect`
+  fields is accepted.
 
 ## YAML Support
 

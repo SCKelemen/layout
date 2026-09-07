@@ -185,24 +185,24 @@ func TestFitContentTrack(t *testing.T) {
 func TestIntrinsicSizingAPIHelpers(t *testing.T) {
 	node := &Node{}
 
-	// Test MinContentWidth
+	// Test MinContentWidth (sets WidthSizing, leaves Width unset)
 	MinContentWidth(node)
-	if node.Style.Width.Value != SizeMinContent {
-		t.Errorf("MinContentWidth should set Width to SizeMinContent")
+	if node.Style.WidthSizing != IntrinsicSizeMinContent || node.Style.Width.Unit != "" {
+		t.Errorf("MinContentWidth should set WidthSizing to min-content and leave Width unset")
 	}
 
 	// Test MaxContentWidth
 	node2 := &Node{}
 	MaxContentWidth(node2)
-	if node2.Style.Width.Value != SizeMaxContent {
-		t.Errorf("MaxContentWidth should set Width to SizeMaxContent")
+	if node2.Style.WidthSizing != IntrinsicSizeMaxContent || node2.Style.Width.Unit != "" {
+		t.Errorf("MaxContentWidth should set WidthSizing to max-content and leave Width unset")
 	}
 
 	// Test FitContentWidth
 	node3 := &Node{}
 	FitContentWidth(node3, 500)
-	if node3.Style.Width.Value != SizeFitContent {
-		t.Errorf("FitContentWidth should set Width to SizeFitContent")
+	if node3.Style.WidthSizing != IntrinsicSizeFitContent || node3.Style.Width.Unit != "" {
+		t.Errorf("FitContentWidth should set WidthSizing to fit-content and leave Width unset")
 	}
 	if node3.Style.FitContentWidth.Value != 500 {
 		t.Errorf("FitContentWidth should set FitContentWidth to 500")

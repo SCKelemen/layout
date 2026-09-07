@@ -1,11 +1,11 @@
 package layout
 
-// GetSVGTransform returns the SVG transform attribute string for a node
-// This is useful when rendering layouts to SVG
+// GetSVGTransform returns the SVG transform attribute string for a node, or
+// "" when the node has no transform.
+//
+// Deprecated: use node.Style.Transform.ToSVGString(), which has the same
+// behavior (it also returns "" for the identity). Kept for compatibility.
 func GetSVGTransform(node *Node) string {
-	if node.Style.Transform.IsIdentity() {
-		return ""
-	}
 	return node.Style.Transform.ToSVGString()
 }
 
@@ -24,11 +24,11 @@ func GetFinalRect(node *Node) Rect {
 	return rect
 }
 
-// CollectNodesForSVG collects all nodes in the tree with their final positions
-// Useful for iterating over all elements when rendering to SVG
+// CollectNodesForSVG appends root and all of its descendants, in depth-first
+// order, to *nodes.
+//
+// Deprecated: use root.DescendantsAndSelf(), which returns the same nodes in
+// the same order without the out-parameter. Kept for compatibility.
 func CollectNodesForSVG(root *Node, nodes *[]*Node) {
-	*nodes = append(*nodes, root)
-	for _, child := range root.Children {
-		CollectNodesForSVG(child, nodes)
-	}
+	*nodes = append(*nodes, root.DescendantsAndSelf()...)
 }

@@ -97,16 +97,15 @@ func main() {
 	fmt.Println("Card positions for SVG rendering:")
 	fmt.Println("=====================================")
 
-	// Collect all nodes for SVG rendering
-	var nodes []*layout.Node
-	layout.CollectNodesForSVG(root, &nodes)
+	// Collect all nodes for SVG rendering (root first, then depth-first)
+	nodes := root.DescendantsAndSelf()
 
 	for i, node := range nodes {
 		if i == 0 {
 			continue // Skip root
 		}
 		rect := layout.GetFinalRect(node)
-		transform := layout.GetSVGTransform(node)
+		transform := node.Style.Transform.ToSVGString()
 
 		fmt.Printf("Card %d:\n", i)
 		fmt.Printf("  Position: (%.2f, %.2f)\n", rect.X, rect.Y)
@@ -126,7 +125,7 @@ func main() {
 			continue // Skip root
 		}
 		rect := node.Rect
-		transform := layout.GetSVGTransform(node)
+		transform := node.Style.Transform.ToSVGString()
 
 		// Example: render as rounded rectangles
 		fmt.Printf(`  <rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="5" fill="#4CAF50"`,

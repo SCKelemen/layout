@@ -59,8 +59,18 @@ func VStack(children ...*Node) *Node {
 // Children are positioned absolutely, allowing them to overlap.
 // Use LayoutWithPositioning to properly layout ZStack children.
 //
+// Because absolutely positioned children take no space in normal flow
+// (CSS 2.1 §9.3), a block with only absolute children would otherwise be
+// 0×0. ZStack therefore gives the container an intrinsic size: the union of
+// its children's explicit pixel sizes, each offset by the child's pixel
+// Left/Top. Children whose Width/Height (or offsets) are unset or use a
+// non-pixel unit contribute nothing to that union, and a union of zero
+// leaves the dimension unset (auto). Override the computed size with Frame
+// or FrameLength after construction.
+//
 // MDN Guide: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout
 func ZStack(children ...*Node) *Node {
+	var unionWidth, unionHeight float64
 	// Make all children absolutely positioned
 	for _, child := range children {
 		child.Style.Position = PositionAbsolute
@@ -78,13 +88,44 @@ func ZStack(children ...*Node) *Node {
 		if child.Style.Top.Value == 0 && child.Style.Top.Unit == "" {
 			child.Style.Top = Px(0)
 		}
+
+		if w, ok := pixelExtent(child.Style.Left, child.Style.Width); ok && w > unionWidth {
+			unionWidth = w
+		}
+		if h, ok := pixelExtent(child.Style.Top, child.Style.Height); ok && h > unionHeight {
+			unionHeight = h
+		}
 	}
-	return &Node{
+	root := &Node{
 		Style: Style{
 			Position: PositionRelative, // Container needs to be positioned for absolute children
 		},
 		Children: children,
 	}
+	if unionWidth > 0 {
+		root.Style.Width = Px(unionWidth)
+	}
+	if unionHeight > 0 {
+		root.Style.Height = Px(unionHeight)
+	}
+	return root
+}
+
+// pixelExtent returns offset + size when both are pixel lengths (an unset
+// offset counts as 0) and the size is set. It reports false when the size is
+// unset or either value uses a unit that cannot be resolved without a
+// LayoutContext.
+func pixelExtent(offset, size Length) (float64, bool) {
+	if size.Unit != Pixels {
+		return 0, false
+	}
+	switch offset.Unit {
+	case "":
+		return size.Value, true
+	case Pixels:
+		return offset.Value + size.Value, true
+	}
+	return 0, false
 }
 
 // Spacer creates a flexible spacer that grows to fill available space.
@@ -410,7 +451,11 @@ func SnapToGrid(nodes []*Node, snapSize, originX, originY float64) {
 	}
 }
 
-// Frame sets the width and/or height of a node
+// Frame sets the width and/or height of a node in pixels.
+//
+// A width or height <= 0 is skipped and leaves that dimension untouched, so
+// Frame(node, 200, 0) sets only the width. This means Frame cannot express an
+// explicit zero size or reset a dimension to auto; use FrameLength for that.
 func Frame(node *Node, width, height float64) *Node {
 	if width > 0 {
 		node.Style.Width = Px(width)
@@ -421,8 +466,26 @@ func Frame(node *Node, width, height float64) *Node {
 	return node
 }
 
-// Background is a placeholder for styling (not layout-related)
-// This would be used by rendering code, not layout
+// FrameLength sets the width and height of a node to exactly the given
+// lengths, with no special-casing: Px(0) is a real zero size and the zero
+// value Length{} resets the dimension to auto (unset). Any unit is accepted.
+//
+// Example:
+//
+//	layout.FrameLength(node, layout.Em(10), layout.Length{}) // width 10em, height auto
+//	layout.FrameLength(node, layout.Px(0), layout.Px(0))     // explicit 0×0
+func FrameLength(node *Node, width, height Length) *Node {
+	node.Style.Width = width
+	node.Style.Height = height
+	return node
+}
+
+// Background is a placeholder for styling (not layout-related).
+// It returns the node unchanged.
+//
+// Deprecated: Background has never done anything; the layout engine has no
+// notion of fill or color. Store visual properties alongside the tree in
+// your own renderer instead. It is kept for source compatibility.
 func Background(node *Node) *Node {
 	return node
 }
@@ -588,9 +651,10 @@ func GridFractional(rows, cols int) *Node {
 //     (-2): an empty, non-nil slice is returned. RepeatTracks cannot expand
 //     auto-repeat because the number of repetitions depends on the container
 //     size, and a plain []GridTrack cannot carry the auto-repeat intent.
-//     Use AutoFillTracks/AutoFitTracks to build a RepeatTrack instead; note
-//     that LayoutGrid does not yet expand auto-fill/auto-fit (the algorithm
-//     lives in grid_auto_repeat.go but is not wired into layout).
+//     Put a RepeatTrack (from AutoFillTracks/AutoFitTracks, or a literal with
+//     an integer Count) in Style.GridTemplateColumnsRepeat /
+//     GridTemplateRowsRepeat instead; those are expanded against the
+//     available size during grid layout.
 //
 // See: CSS Grid Layout Module Level 1 §5.1.2 (repeat() notation)
 // https://www.w3.org/TR/css-grid-1/#repeat-notation
@@ -697,6 +761,15 @@ func PlaceInArea(node *Node, areaName string) *Node {
 	return node
 }
 
+// The intrinsic sizing helpers below set Style.WidthSizing / HeightSizing
+// and leave Style.Width / Height untouched. Before v1.5.0 they stored the
+// deprecated SizeMinContent/SizeMaxContent/SizeFitContent sentinels in
+// Width/Height, which the engine still honors for code that sets them
+// directly, but which can collide with genuinely negative resolved lengths
+// (see the sentinel docs in types.go). A Width/Height already present on the
+// node is not cleared; the sizing mode takes precedence in every layout
+// algorithm, so reset it with FrameLength if you need it gone.
+
 // MinContentWidth sets a node's width to use min-content intrinsic sizing.
 // The node will be as narrow as possible without overflowing content.
 //
@@ -706,7 +779,7 @@ func PlaceInArea(node *Node, areaName string) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.1 (min-content)
 func MinContentWidth(node *Node) *Node {
-	node.Style.Width = Px(SizeMinContent)
+	node.Style.WidthSizing = IntrinsicSizeMinContent
 	return node
 }
 
@@ -719,12 +792,13 @@ func MinContentWidth(node *Node) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.2 (max-content)
 func MaxContentWidth(node *Node) *Node {
-	node.Style.Width = Px(SizeMaxContent)
+	node.Style.WidthSizing = IntrinsicSizeMaxContent
 	return node
 }
 
 // FitContentWidth sets a node's width to use fit-content intrinsic sizing.
-// The width will be max-content clamped to the specified maximum size.
+// The width will be max-content clamped to the specified maximum size
+// (stored in Style.FitContentWidth as pixels).
 //
 // Example:
 //
@@ -732,26 +806,27 @@ func MaxContentWidth(node *Node) *Node {
 //
 // See: CSS Sizing Module Level 3 §4.3 (fit-content)
 func FitContentWidth(node *Node, maxSize float64) *Node {
-	node.Style.Width = Px(SizeFitContent)
+	node.Style.WidthSizing = IntrinsicSizeFitContent
 	node.Style.FitContentWidth = Px(maxSize)
 	return node
 }
 
 // MinContentHeight sets a node's height to use min-content intrinsic sizing.
 func MinContentHeight(node *Node) *Node {
-	node.Style.Height = Px(SizeMinContent)
+	node.Style.HeightSizing = IntrinsicSizeMinContent
 	return node
 }
 
 // MaxContentHeight sets a node's height to use max-content intrinsic sizing.
 func MaxContentHeight(node *Node) *Node {
-	node.Style.Height = Px(SizeMaxContent)
+	node.Style.HeightSizing = IntrinsicSizeMaxContent
 	return node
 }
 
-// FitContentHeight sets a node's height to use fit-content intrinsic sizing.
+// FitContentHeight sets a node's height to use fit-content intrinsic sizing,
+// clamped to maxSize pixels (stored in Style.FitContentHeight).
 func FitContentHeight(node *Node, maxSize float64) *Node {
-	node.Style.Height = Px(SizeFitContent)
+	node.Style.HeightSizing = IntrinsicSizeFitContent
 	node.Style.FitContentHeight = Px(maxSize)
 	return node
 }
@@ -806,13 +881,18 @@ func FitContentTrack(maxSize float64) GridTrack {
 // Example:
 //
 //	// CSS: grid-template-columns: repeat(auto-fill, 100px);
-//	repeat := layout.AutoFillTracks(layout.FixedTrack(layout.Px(100)))
+//	grid := &layout.Node{Style: layout.Style{
+//	    Display: layout.DisplayGrid,
+//	    GridTemplateColumnsRepeat: []layout.RepeatTrack{
+//	        layout.AutoFillTracks(layout.FixedTrack(layout.Px(100))),
+//	    },
+//	}}
 //
-// Status: auto-fill/auto-fit expansion is implemented in grid_auto_repeat.go
-// (expandAutoRepeatTracks) but is NOT yet wired into LayoutGrid, and Style has
-// no field that accepts a RepeatTrack. Until that lands, a RepeatTrack is only
-// a description of intent; RepeatTracks(RepeatCountAutoFill, ...) returns an
-// empty slice rather than expanding it.
+// The repeat is expanded against the container's available size when the
+// grid is laid out; the generated tracks are appended after
+// Style.GridTemplateColumns. Auto-repeat patterns must use definite track
+// sizes (no fr or auto), per the spec. RepeatTracks(RepeatCountAutoFill, ...)
+// returns an empty slice because a plain []GridTrack cannot carry the intent.
 //
 // See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fill)
 // https://www.w3.org/TR/css-grid-1/#auto-repeat
@@ -829,14 +909,18 @@ func AutoFillTracks(tracks ...GridTrack) RepeatTrack {
 // Example:
 //
 //	// CSS: grid-template-columns: repeat(auto-fit, 100px);
-//	repeat := layout.AutoFitTracks(layout.FixedTrack(layout.Px(100)))
+//	grid := &layout.Node{Style: layout.Style{
+//	    Display: layout.DisplayGrid,
+//	    GridTemplateColumnsRepeat: []layout.RepeatTrack{
+//	        layout.AutoFitTracks(layout.FixedTrack(layout.Px(100))),
+//	    },
+//	}}
 //
 // The difference between auto-fill and auto-fit:
 //   - auto-fill: keeps all generated tracks, even if empty
 //   - auto-fit: collapses empty tracks to zero size
 //
-// Status: see AutoFillTracks; auto-repeat expansion is not yet wired into
-// LayoutGrid and Style has no field that accepts a RepeatTrack.
+// See AutoFillTracks for how the pattern is expanded during layout.
 //
 // See: CSS Grid Layout Module Level 1 §7.2.3 (auto-fit)
 // https://www.w3.org/TR/css-grid-1/#auto-repeat

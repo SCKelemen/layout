@@ -236,7 +236,7 @@ depthMap := root.FoldWithContext(
 ## Next Steps
 
 - Read the [Fluent API Guide](../../docs/fluent-api.md) for complete documentation
-- Review [Design Decisions](../../docs/fluent-api-design-decisions.md) for rationale
+- Review [Design Decisions](../../docs/design/fluent-api-design-decisions.md) for rationale
 - Check [Integration Tests](../../fluent_integration_test.go) for equivalence verification
 - See main [README](../../README.md) for overview
 

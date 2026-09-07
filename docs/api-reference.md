@@ -1,716 +1,110 @@
 # API Reference
 
-Complete reference for all exported functions and types.
+A map of the exported API grouped by topic. Signatures and field-level documentation live in the source and on [pkg.go.dev/github.com/SCKelemen/layout](https://pkg.go.dev/github.com/SCKelemen/layout) (`go doc github.com/SCKelemen/layout` locally); this page tells you which identifiers exist and when to reach for them.
 
-## Learning Resources
+## Core types
 
-This library implements CSS specifications. For deeper understanding, see these MDN guides:
+| Type | Role |
+|------|------|
+| `Node` | Tree node: `Style`, `Children`, `Text`, `Baseline`; `Rect` and `TextLayout` are outputs of layout |
+| `Style` | Every layout property: display, flex, grid, sizing, spacing, positioning, transform, writing mode, container queries, `TextStyle` |
+| `TextStyle` | Text properties (font, alignment, spacing, wrapping, decoration metadata, direction) |
+| `Spacing` | `Top`/`Right`/`Bottom`/`Left` lengths for padding, margin, border; built with `Uniform`, `Horizontal`, `Vertical` |
+| `Constraints` | Available space; built with `Tight`, `Loose`, `Unconstrained`; `Constrain(Size)` clamps |
+| `Size`, `Point`, `Rect` | Plain geometry; `Unbounded` (`math.MaxFloat64`) marks an indefinite axis |
+| `GridTrack`, `RepeatTrack`, `GridArea`, `GridTemplateAreas` | Grid track definitions and named areas |
+| `Transform` | 2D affine matrix; the zero value is the identity |
+| `TextLayout`, `TextLine`, `InlineBox` | Line boxes produced by `LayoutText` (see [Text](text.md)) |
 
-- [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
-- [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
-- [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
-- [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
-- [CSS Box Sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing)
-- [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)
-- [CSS Display](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display)
+## Lengths
 
-## Core Types
+`Length` and `LengthUnit` are aliases of `units.Length` / `units.LengthUnit` from `github.com/SCKelemen/units`, so they carry that package's methods (`Add`, `Sub`, `Mul`, `Div`, `IsAbsolute`, `IsFontRelative`, `IsViewportRelative`, `IsContainerRelative`, `String`, ...).
 
-### Node
+| Constructors | Units |
+|--------------|-------|
+| `Px`, `Pt`, `Pc`, `In`, `Cm`, `Mm`, `Q` | absolute |
+| `Em`, `Rem`, `Ch` | font-relative |
+| `Vw`, `Vh`, `Vmin`, `Vmax` | viewport |
+| `Cqw`, `Cqh`, `Cqi`, `Cqb`, `Cqmin`, `Cqmax` | container query (resolve with `ResolveLengthInContext`) |
+| `UnboundedLength()`, `PxUnbounded` | layout-only "no limit" sentinel (`UnboundedUnit`) |
 
-Represents a node in the layout tree.
+Semantics: the zero value (`Unit == ""`) is unset and means `auto` (or "fall back to the shorthand" for gap longhands); `Px(0)` is an explicit zero. Negative values are legal for margins and offsets.
 
-```go
-type Node struct {
-    Style    Style
-    Rect     Rect      // Computed after Layout()
-    Children []*Node
-}
-```
+The remaining CSS Values Level 4 units (`lh`, `rlh`, `ex`, `cap`, `ic`, `vi`, `vb`, `sv*`/`lv*`/`dv*`, `rch`, `rex`, ...) have no `layout.` constructor but are accepted everywhere a `Length` is: use the `units` constructors (`units.Lh(2)`, `units.Ic(1)`) or a literal `layout.Length{Value: 2, Unit: "lh"}`. In this engine `ex`, `cap`, and `lh` resolve to the current font size, `rlh` to the root font size, and `ic` to twice the `ch` advance. The `LayoutContext` carries only `ViewportWidth`/`ViewportHeight`, so `vi`, `vb`, and the `sv*`/`lv*`/`dv*` variants resolve to 0; use `vw`/`vh`/`vmin`/`vmax`. Unit constants are re-exported as `Pixels`, `EmUnit`, `RemUnit`, `ChUnit`, `VwUnit`, `VhUnit`, `VminUnit`, `VmaxUnit`, `PtUnit`, `PcUnit`, `InUnit`, `CmUnit`, `MmUnit`, `QUnit`.
 
-### Style
+Resolution:
 
-Contains all layout properties.
+- `ResolveLength(l, ctx, fontSize) float64`: pixels for any unit except `cq*`, which yield 0 here. Viewport units yield 0 when the context has no viewport size.
+- `ResolveLengthInContext(l, ctx, fontSize, nctx) float64`: as above, plus container-query units resolved against the nearest qualifying `Style.ContainerType` ancestor of `nctx` (a `NodeContext`), falling back to the viewport.
 
-```go
-type Style struct {
-    // Display
-    Display Display
-    
-    // Flexbox
-    FlexDirection  FlexDirection
-    FlexWrap       FlexWrap
-    JustifyContent JustifyContent
-    AlignItems     AlignItems
-    AlignContent   AlignContent
-    FlexGrow       float64
-    FlexShrink     float64
-    FlexBasis      float64  // -1 means auto
-    
-    // Grid
-    GridTemplateRows    []GridTrack
-    GridTemplateColumns []GridTrack
-    GridAutoRows        GridTrack
-    GridAutoColumns     GridTrack
-    GridGap             float64
-    GridRowGap          float64
-    GridColumnGap       float64
-    GridRowStart        int  // -1 means auto
-    GridRowEnd          int  // -1 means auto
-    GridColumnStart     int  // -1 means auto
-    GridColumnEnd       int  // -1 means auto
-    
-    // Sizing
-    Width      float64  // -1 means auto
-    Height     float64  // -1 means auto
-    MinWidth   float64
-    MinHeight  float64
-    MaxWidth   float64
-    MaxHeight  float64
-    AspectRatio float64  // Width/Height ratio (0 means not set). Example: 16/9 = 1.777...
-    
-    // Spacing
-    Padding Spacing
-    Margin  Spacing  // Supported in Flexbox and Grid layouts
-    Border  Spacing
-    
-    // Box Model
-    BoxSizing BoxSizing
-    
-    // Positioning
-    Position Position
-    Top      float64  // -1 means auto
-    Right    float64  // -1 means auto
-    Bottom   float64  // -1 means auto
-    Left     float64  // -1 means auto
-    ZIndex   int
-    
-    // Transform
-    Transform Transform
-}
-```
+## LayoutContext
 
-### Constraints
+`NewLayoutContext(viewportWidth, viewportHeight, rootFontSize)` returns a context with the package-level text metrics and `'0'` as the `ch` reference glyph. `WithTextMetrics(provider)` and `WithChReferenceChar(r)` return modified copies. Fields: `ViewportWidth`, `ViewportHeight`, `RootFontSize` (px), `TextMetrics`, `ChReferenceChar`. A nil context is tolerated by the layout functions (root font 16px, no viewport).
 
-Defines available space for layout.
+## Layout functions
 
-```go
-type Constraints struct {
-    MinWidth  float64
-    MaxWidth  float64
-    MinHeight float64
-    MaxHeight float64
-}
-```
+| Function | Use |
+|----------|-----|
+| `LayoutSimple(root, constraints) Size` | Normal flow with a context derived from the constraints (viewport = max sizes, 16px root font; an unbounded axis gives a 0 viewport dimension) |
+| `Layout(root, constraints, ctx) Size` | Normal flow with your context; dispatches on `root.Style.Display`; nil root yields a zero `Size` |
+| `LayoutWithPositioning(root, constraints, viewportRect, ctx) Size` | Normal flow followed by the positioning pass for relative/absolute/fixed/sticky boxes |
+| `LayoutBlock`, `LayoutFlexbox`, `LayoutGrid`, `LayoutText` | The individual algorithms; `Layout` calls these |
+| `LayoutPositioned(node, containingBlock, viewportRect, ctx)` | Position a single node; `LayoutWithPositioning` drives this recursively |
+| `CalculateIntrinsicWidth`, `CalculateIntrinsicHeight` | min-/max-/fit-content measurements (`IntrinsicSize` argument) |
 
-### Rect
+## Building trees
 
-Position and size of a laid-out node.
+Constructors and mutating helpers (they return the node they were given):
 
-```go
-type Rect struct {
-    X      float64
-    Y      float64
-    Width  float64
-    Height float64
-}
-```
+- Containers: `HStack`, `VStack`, `ZStack`, `Grid(rows, cols, rowSize, colSize)`, `GridAuto`, `GridFractional`.
+- Leaves: `Fixed(width, height)`, `Spacer()`, `Text(text, style...)`.
+- Sizing: `Frame(node, w, h)` (skips values `<= 0`), `FrameLength(node, w, h Length)` (exact; `Length{}` resets to auto), `MinWidth`, `MinHeight`, `AspectRatio`, `MinContentWidth`, `MaxContentWidth`, `FitContentWidth(node, max)`, `MinContentHeight`, `MaxContentHeight`, `FitContentHeight(node, max)`.
+- Spacing: `Padding`, `PaddingCustom(node, top, right, bottom, left)`, `Margin`.
+- Grid: `FixedTrack`, `FractionTrack`, `MinMaxTrack`, `AutoTrack`, `MinContentTrack`, `MaxContentTrack`, `FitContentTrack`, `RepeatTracks`, `AutoFillTracks`, `AutoFitTracks`, `NewGridTemplateAreas` + `DefineArea`, `PlaceInArea`.
+- Deprecated: `Background` (no-op), `GetSVGTransform` (use `Transform.ToSVGString`), `CollectNodesForSVG` (use `Node.DescendantsAndSelf`).
 
-### Size
+## Fluent API
 
-Width and height.
+Methods on `*Node`, all nil-safe and copy-on-write (see the [Fluent API guide](fluent-api.md)):
 
-```go
-type Size struct {
-    Width  float64
-    Height float64
-}
-```
+- Navigation: `Descendants`, `DescendantsAndSelf`, `FirstChild`, `LastChild`, `ChildAt`, `ChildCount`.
+- Queries: `Find`, `FindAll`, `Where`, `Any`, `All`, `OfDisplayType`.
+- Copies: `Clone` (shallow), `CloneDeep`.
+- Style: `WithStyle`, `WithPadding`, `WithPaddingCustom`, `WithMargin`, `WithMarginCustom`, `WithWidth`, `WithHeight` (pixels), `WithWidthLength`, `WithHeightLength` (any `Length`), `WithText`, `WithDisplay`, `WithFlexGrow`, `WithFlexShrink`.
+- Children: `WithChildren`, `AddChild`, `AddChildren`, `RemoveChildAt`, `ReplaceChildAt`, `InsertChildAt`.
+- Transformations: `Transform`, `Map`, `Filter`, `FilterDeep`, `Fold`, `FoldWithContext`, and the generic `FoldNodes[T](n, init, fn)`.
+- Parent navigation: `NewContext(root) *NodeContext` with `Parent`, `Ancestors`, `AncestorsAndSelf`, `Root`, `Siblings`, `Children`, `ChildAt`, `Depth`, `IsRoot`, `HasParent`, `HasChildren`, `FindUp`, `FindDown`, `FindDownAll`, `Unwrap`.
 
-## Layout Functions
+## Post-layout helpers
 
-### Layout
+`AlignNodes(nodes, AlignEdge)` (`AlignLeft`, `AlignRight`, `AlignTop`, `AlignBottom`, `AlignCenterX`, `AlignCenterY`), `DistributeNodes(nodes, DistributeHorizontal|DistributeVertical)`, `SnapNodes(nodes, snapSize)`, `SnapToGrid(nodes, snapSize, originX, originY)`. They edit `Rect` after layout; intended for block and absolutely positioned boxes.
 
-Main layout function. Routes to appropriate layout algorithm based on display type.
+## Transforms
 
-```go
-func Layout(root *Node, constraints Constraints) Size
-```
+`IdentityTransform`, `Translate`, `Scale`, `Rotate` (radians), `RotateDegrees`, `SkewX`, `SkewY`, `Matrix`; methods `Multiply` (right operand applies first), `Apply`, `ApplyToRect`, `IsIdentity`, `ToSVGString` (empty string for the identity). `GetFinalRect(node)` returns the transformed bounding box.
 
-Performs normal flow layout only. For positioned elements, use `LayoutWithPositioning`.
+## Text metrics
 
-### LayoutWithPositioning
-
-Performs layout including positioned elements (absolute, relative, fixed, sticky).
-
-```go
-func LayoutWithPositioning(root *Node, constraints Constraints, viewport Rect) Size
-```
-
-This performs a two-pass layout:
-1. Normal flow layout
-2. Positioned elements layout
-
-### LayoutFlexbox
-
-Flexbox layout algorithm.
-
-```go
-func LayoutFlexbox(node *Node, constraints Constraints) Size
-```
-
-### LayoutGrid
-
-Grid layout algorithm.
-
-```go
-func LayoutGrid(node *Node, constraints Constraints) Size
-```
-
-### LayoutBlock
-
-Block layout algorithm.
-
-```go
-func LayoutBlock(node *Node, constraints Constraints) Size
-```
-
-## Constraint Helpers
-
-### Tight
-
-Creates tight constraints (exact size required).
-
-```go
-func Tight(width, height float64) Constraints
-```
-
-### Loose
-
-Creates loose constraints (maximum size, can be smaller).
-
-```go
-func Loose(width, height float64) Constraints
-```
-
-### Unconstrained
-
-Creates unconstrained constraints (no size limits).
-
-```go
-func Unconstrained() Constraints
-```
-
-## Grid Track Helpers
-
-### FixedTrack
-
-Creates a fixed-size grid track.
-
-```go
-func FixedTrack(size float64) GridTrack
-```
-
-### FractionTrack
-
-Creates a fractional grid track (fr unit).
-
-```go
-func FractionTrack(fraction float64) GridTrack
-```
-
-### MinMaxTrack
-
-Creates a grid track with min/max constraints.
-
-```go
-func MinMaxTrack(min, max float64) GridTrack
-```
-
-### AutoTrack
-
-Creates an auto-sized grid track.
-
-```go
-func AutoTrack() GridTrack
-```
-
-## Spacing Helpers
-
-### Uniform
-
-Creates uniform spacing on all sides.
-
-```go
-func Uniform(value float64) Spacing
-```
-
-### Horizontal
-
-Creates horizontal spacing (left and right).
-
-```go
-func Horizontal(value float64) Spacing
-```
-
-### Vertical
-
-Creates vertical spacing (top and bottom).
-
-```go
-func Vertical(value float64) Spacing
-```
-
-## High-Level API
-
-### HStack
-
-Creates a horizontal stack (row flexbox container).
-
-**MDN Guide:** [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
-
-```go
-func HStack(children ...*Node) *Node
-```
-
-### VStack
-
-Creates a vertical stack (column flexbox container).
-
-**MDN Guide:** [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)
-
-```go
-func VStack(children ...*Node) *Node
-```
-
-### ZStack
-
-Creates a stack with overlapping children (absolute positioning).
-
-**MDN Guide:** [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)
-
-```go
-func ZStack(children ...*Node) *Node
-```
-
-Use `LayoutWithPositioning` to properly layout ZStack children.
-
-### Spacer
-
-Creates a flexible spacer that grows to fill available space.
-
-```go
-func Spacer() *Node
-```
-
-### Fixed
-
-Creates a node with fixed width and height.
-
-```go
-func Fixed(width, height float64) *Node
-```
-
-### Padding
-
-Adds uniform padding to a node.
-
-**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
-
-```go
-func Padding(node *Node, padding float64) *Node
-```
-
-### PaddingCustom
-
-Adds custom padding to a node.
-
-**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
-
-```go
-func PaddingCustom(node *Node, top, right, bottom, left float64) *Node
-```
-
-### Margin
-
-Adds uniform margin to a node. Margins are fully supported in Flexbox and Grid layouts.
-
-**MDN Guide:** [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)
-
-```go
-func Margin(node *Node, margin float64) *Node
-```
-
-Example:
-```go
-item := layout.Fixed(100, 50)
-item = layout.Margin(item, 10) // 10px margin on all sides
-
-// Or use with HStack/VStack
-stack := layout.HStack(
-    layout.Margin(layout.Fixed(100, 50), 10),
-    layout.Margin(layout.Fixed(100, 50), 10),
-)
-```
-
-**Note**: Margins don't collapse in Flexbox or Grid (CSS-compliant behavior).
-
-### Frame
-
-Sets the width and/or height of a node.
-
-```go
-func Frame(node *Node, width, height float64) *Node
-```
-
-### AspectRatio
-
-Sets the aspect ratio (width/height) for a node. This helps elements reserve space correctly when one dimension is auto.
-
-**Specification**: [CSS Box Sizing Module Level 4](https://www.w3.org/TR/css-sizing-4/#aspect-ratio)
-
-```go
-func AspectRatio(node *Node, ratio float64) *Node
-```
-
-**Common aspect ratios**:
-- `16.0/9.0` = 1.777... (widescreen video)
-- `4.0/3.0` = 1.333... (traditional TV)
-- `1.0` (square)
-- `3.0/2.0` = 1.5 (photo)
-
-**How it works**:
-- If width is set and height is auto: calculates height from width and aspect ratio
-- If height is set and width is auto: calculates width from height and aspect ratio
-- If both are auto: uses available space and maintains aspect ratio
-- If both are explicitly set: aspect ratio is ignored (CSS behavior)
-
-**Example**:
-```go
-// Image that maintains 16:9 aspect ratio
-image := &layout.Node{
-    Style: layout.Style{
-        Width: 800, // Width is set
-        // Height will be calculated: 800 / 1.777... = 450
-    },
-}
-image = layout.AspectRatio(image, 16.0/9.0)
-
-// Element that fills available width and maintains aspect ratio
-video := &layout.Node{
-    Style: layout.Style{
-        // Both width and height are auto
-        // Will use available width and calculate height from aspect ratio
-    },
-}
-video = layout.AspectRatio(video, 16.0/9.0)
-```
-
-**Use cases**:
-- Images and videos that need to maintain proportions
-- Cards with consistent aspect ratios
-- Responsive elements that size based on available space
-- Fixing space reservation issues for auto-sized elements
-
-## Post-Layout Alignment and Distribution
-
-These functions operate on nodes **after** layout has been computed. They modify the `Rect` positions directly, similar to design tools like Figma or Sketch.
-
-**Note**: Call `Layout()` first to compute initial positions, then use these functions to adjust positions.
-
-### AlignNodes
-
-Aligns multiple nodes to a common reference point (edge or center).
-
-**MDN Guide:** [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
-
-```go
-func AlignNodes(nodes []*Node, edge AlignEdge)
-```
-
-**Alignment Edges**:
-- `AlignLeft`: Align all nodes to the leftmost edge
-- `AlignRight`: Align all nodes to the rightmost edge
-- `AlignTop`: Align all nodes to the topmost edge
-- `AlignBottom`: Align all nodes to the bottommost edge
-- `AlignCenterX`: Align all nodes to a common horizontal center (average of all centers)
-- `AlignCenterY`: Align all nodes to a common vertical center (average of all centers)
-
-**Example**:
-```go
-// After layout, align all items to the left edge
-items := []*layout.Node{item1, item2, item3}
-layout.Layout(root, constraints)
-layout.AlignNodes(items, layout.AlignLeft)
-
-// Align to vertical center
-layout.AlignNodes(items, layout.AlignCenterY)
-```
-
-**Use cases**:
-- SVG rendering: Aligning multiple elements
-- Design tool-like operations
-- Post-layout adjustments
-
-### DistributeNodes
-
-Evenly spaces multiple nodes horizontally or vertically, based on their centers.
-
-**MDN Guide:** [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)
-
-```go
-func DistributeNodes(nodes []*Node, direction DistributeDirection)
-```
-
-**Directions**:
-- `DistributeHorizontal`: Evenly space nodes horizontally
-- `DistributeVertical`: Evenly space nodes vertically
-
-**Behavior**:
-- Requires at least 3 nodes
-- The leftmost/topmost and rightmost/bottommost nodes stay fixed
-- Middle nodes are evenly spaced between them
-- Nodes are automatically sorted by position before distribution
-
-**Example**:
-```go
-// After layout, evenly space items horizontally
-items := []*layout.Node{item1, item2, item3, item4}
-layout.Layout(root, constraints)
-layout.DistributeNodes(items, layout.DistributeHorizontal)
-
-// Evenly space vertically
-layout.DistributeNodes(items, layout.DistributeVertical)
-```
-
-**Use cases**:
-- Creating evenly spaced button groups
-- Distributing labels or icons
-- Design tool-like distribution operations
-
-**Note**: These functions are based on the [CSS Box Alignment Module Level 3](https://www.w3.org/TR/css-align-3/) specification concepts, but operate as post-layout utilities rather than container-based alignment (which is handled by Flexbox/Grid `justify-content` and `align-items`).
-
-### SnapNodes
-
-Snaps multiple nodes to a grid boundary for pixel-perfect alignment.
-
-```go
-func SnapNodes(nodes []*Node, snapSize float64)
-```
-
-**Important**: Snapping is primarily intended for **block layouts** and **absolutely positioned elements**. Snapping items within Flexbox or Grid containers may break the layout algorithm's intended positioning and cause overlaps or misalignment.
-
-**Example**:
-```go
-// For block/absolute layouts - snap to 10px grid
-items := []*layout.Node{item1, item2, item3}
-layout.Layout(root, constraints)
-layout.SnapNodes(items, 10.0) // All positions snap to 10px boundaries
-```
-
-**Use cases**:
-- Pixel-perfect alignment in block layouts
-- Snapping absolutely positioned elements
-- Design tool-like grid snapping
-- SVG rendering with precise positioning
-
-**When NOT to use**:
-- Items in Flexbox containers (use `justify-content` and `align-items` instead)
-- Items in Grid containers (use grid alignment properties instead)
-- Items that need to maintain responsive spacing
-
-### SnapToGrid
-
-Snaps nodes to a specific grid with an origin point, allowing snapping to a subgrid or offset grid.
-
-```go
-func SnapToGrid(nodes []*Node, snapSize, originX, originY float64)
-```
-
-**Important**: Snapping is primarily intended for **block layouts** and **absolutely positioned elements**. Snapping items within Flexbox or Grid containers may break the layout algorithm's intended positioning.
-
-**Example**:
-```go
-// Snap to a 10px grid offset by (5, 5)
-items := []*layout.Node{item1, item2, item3}
-layout.Layout(root, constraints)
-layout.SnapToGrid(items, 10.0, 5.0, 5.0) // Grid at (5, 5) with 10px spacing
-```
-
-**Use cases**:
-- Snapping to a subgrid within a larger layout
-- Offset grid alignment
-- Design tool-like subgrid snapping
-
-## Grid Helpers
-
-**MDN Guide:** [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
-
-### Grid
-
-Creates a grid container with the specified number of rows and columns using fixed track sizes.
-
-```go
-func Grid(rows, cols int, rowSize, colSize float64) *Node
-```
-
-Example:
-```go
-grid := layout.Grid(4, 4, 150, 200) // 4 rows x 4 columns, rows=150px, cols=200px
-grid.Style.GridGap = 10
-```
-
-### GridAuto
-
-Creates a grid container with auto-sized tracks.
-
-```go
-func GridAuto(rows, cols int) *Node
-```
-
-Example:
-```go
-grid := layout.GridAuto(3, 4) // 3 rows x 4 columns, auto-sized
-```
-
-### GridFractional
-
-Creates a grid container with fractional (fr) tracks that share space equally.
-
-```go
-func GridFractional(rows, cols int) *Node
-```
-
-Example:
-```go
-grid := layout.GridFractional(2, 3) // 2 rows x 3 columns, all equal fractional units
-```
-
-## SVG Helpers
-
-### GetSVGTransform
-
-Gets the SVG transform string for a node's transform.
-
-```go
-func GetSVGTransform(node *Node) string
-```
-
-### GetFinalRect
-
-Gets the final rectangle after applying transforms.
-
-```go
-func GetFinalRect(node *Node) Rect
-```
-
-### CollectNodesForSVG
-
-Collects all nodes in a tree for SVG rendering.
-
-```go
-func CollectNodesForSVG(root *Node, nodes *[]*Node)
-```
-
-Usage:
-```go
-var nodes []*Node
-CollectNodesForSVG(root, &nodes)
-```
-
-## Transform Functions
-
-### Translate
-
-Creates a translation transform.
-
-```go
-func Translate(x, y float64) Transform
-```
-
-### Scale
-
-Creates a scale transform.
-
-```go
-func Scale(x, y float64) Transform
-```
-
-### Rotate
-
-Creates a rotation transform (radians).
-
-```go
-func Rotate(angle float64) Transform
-```
-
-### RotateDegrees
-
-Creates a rotation transform (degrees).
-
-```go
-func RotateDegrees(angle float64) Transform
-```
-
-### SkewX
-
-Creates a horizontal skew transform.
-
-```go
-func SkewX(angle float64) Transform
-```
-
-### SkewY
-
-Creates a vertical skew transform.
-
-```go
-func SkewY(angle float64) Transform
-```
-
-### Matrix
-
-Creates a matrix transform.
-
-```go
-func Matrix(a, b, c, d, e, f float64) Transform
-```
+`TextMetricsProvider` (interface: `Measure(text, style) (advance, ascent, descent)`), `SetTextMetricsProvider` (package-level, safe for concurrent use), `LayoutContext.WithTextMetrics` (per-layout, honored by all text measurement), `TextMetricsAdapter` with `NewTerminalTextMetrics()` and `NewTextMetricsAdapter(text.Config)` wrapping `github.com/SCKelemen/text`.
 
 ## Enums
 
-### Display
+Every CSS-like enum has `String()` returning the CSS keyword and a `Parse<Enum>(string)` function returning an error that lists the valid keywords: `Display`, `FlexDirection`, `FlexWrap`, `JustifyContent`, `AlignItems`, `JustifyItems`, `AlignContent`, `GridAutoFlow`, `BoxSizing`, `Position`, `TextAlign`, `TextAlignLast`, `TextJustify`, `WhiteSpace`, `TextOverflow`, `OverflowWrap`, `WordBreak`, `TextTransform`, `Hyphens`, `HangingPunctuation`, `Direction`, `WritingMode`, `FontStyle`, `TextDecorationStyle`, `VerticalAlign`, `IntrinsicSize`, `InlineBoxKind`, plus `ContainerType`. Matching is exact and lowercase; the css-align-3 aliases `start`/`end` parse for the alignment enums and `JustifyContentStart`/`AlignItemsEnd`-style constants format as `flex-start`/`flex-end`. Out-of-range values format as `Display(7)`.
 
 ```go
-const (
-    DisplayBlock Display = iota
-    DisplayFlex
-    DisplayGrid
-    DisplayNone
-)
+fmt.Println(layout.JustifyContentSpaceBetween.String()) // space-between
+v, err := layout.ParseAlignItems("end")                  // AlignItemsFlexEnd, nil
+_, err = layout.ParseDisplay("table")                    // layout: invalid display "table" (valid: block, flex, grid, inline-text, none)
+_ = v
+_ = err
 ```
 
-### FlexDirection
+`WritingMode` also has `IsVertical`, `IsHorizontal`, `IsSideways`, `IsRightToLeft`; `TextDecoration` is a bitmask with `Has`. `ContainerName` has `Has(name)`; `ParseContainerName` and `ParseContainer` parse the `container-name` and `container` shorthand.
 
-```go
-const (
-    FlexDirectionRow FlexDirection = iota
-    FlexDirectionRowReverse
-    FlexDirectionColumn
-    FlexDirectionColumnReverse
-)
-```
+## UAX #14
 
-### Position
+`BreakClass` constants (`ClassAL`, `ClassID`, `ClassSP`, ...) and `BreakAction` are exported from the line-breaking implementation used by text layout.
 
-```go
-const (
-    PositionStatic Position = iota
-    PositionRelative
-    PositionAbsolute
-    PositionFixed
-    PositionSticky
-)
-```
+## serialize package
 
-See godoc for complete enum definitions: `go doc layout`
-
+`serialize.ToJSON`, `FromJSON`, `ToYAML`, `FromYAML` (the YAML pair is excluded with `-tags no_yaml`); limits `MaxTreeDepth`, `MaxChildren`, `MaxNumericValue`, `MaxRepeatCount`; errors `ErrLimitExceeded`, `ErrNullInput`. Lengths are written as unit strings (`"10px"`, `"2em"`, `"unbounded"`); bare numbers load as pixels. See [serialize/README.md](../serialize/README.md).

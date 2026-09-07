@@ -19,10 +19,10 @@ import (
 //	layout.SetTextMetricsProvider(adapter)
 //
 //	// Now all text layout uses accurate Unicode measurements
-//	node := layout.Text("Hello 世界 😀", layout.TextStyle{
-//	    FontSize: 16,
+//	node := layout.Text("Hello 世界 😀", layout.Style{
+//	    TextStyle: &layout.TextStyle{FontSize: 16},
 //	})
-//	layout.Layout(node, layout.Loose(800, 600))
+//	layout.LayoutSimple(node, layout.Loose(800, 600))
 type TextMetricsAdapter struct {
 	text *text.Text
 }

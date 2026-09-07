@@ -1,54 +1,21 @@
 # Layout
 
-A pure Go implementation of CSS Grid and CSS Flexbox layout engines with accurate Unicode text support. This library provides a reusable layout system that can be used for terminal UIs (like Bubble Tea), web layouts, or offscreen rendering.
+A pure Go implementation of CSS Flexbox, Grid, Block, positioned, and text layout. The engine computes positions and sizes only; rendering is left to the caller, so the same tree can drive a terminal UI, an SVG, a PDF, or an image.
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/SCKelemen/layout.svg)](https://pkg.go.dev/github.com/SCKelemen/layout)
 
 ## Features
 
-- **CSS Flexbox Layout** ([Specification](https://www.w3.org/TR/css-flexbox-1/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout)): Complete flexbox implementation with support for:
-  - Flex direction (row, column, reverse)
-  - Flex wrap
-  - Justify content
-  - Align items
-  - Flex grow/shrink/basis
-  - Gap spacing
-
-- **CSS Grid Layout** ([Specification](https://www.w3.org/TR/css-grid-1/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)): Grid layout implementation with support for:
-  - **Multiple columns** via GridTemplateColumns array
-  - Grid template rows/columns
-  - Auto rows/columns
-  - Fractional units (fr)
-  - Min/max track sizing
-  - Grid gaps
-  - Grid item positioning and spanning
-  - **Bento box / mosaic layouts** - items spanning multiple rows/columns
-
-- **Block Layout** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display)): Basic block layout for non-flex/grid elements
-
-- **Aspect Ratio** ([CSS Spec](https://www.w3.org/TR/css-sizing-4/#aspect-ratio) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing)): Maintain consistent width-to-height ratios for responsive elements
-  - Helps elements reserve space correctly when one dimension is auto
-
-- **Post-Layout Alignment & Distribution** ([CSS Spec](https://www.w3.org/TR/css-align-3/) | [MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment)): Design-tool-like operations for aligning and distributing nodes after layout:
-  - Align to edges (left, right, top, bottom) or centers
-  - Distribute with even spacing
-  - Snap to grid boundaries (primarily for block/absolute layouts)
-
-- **Box Model** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model)): Full support for padding, margin, and border spacing
-
-- **Positioned Layout** ([MDN Guide](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout)): Absolute, relative, fixed, and sticky positioning
-
-- **Serialization** (optional `serialize` package): JSON/YAML serialization for debugging and persistence
-  - Inspect layout trees
-  - Save and load layout configurations
-  - Useful for testing and documentation
-
-- **Accurate Unicode Text Support** (via [github.com/SCKelemen/text](https://github.com/SCKelemen/text)): Production-ready text measurement and rendering
-  - ✅ **UAX #29** (Grapheme Clustering) - Proper emoji and combining character support
-  - ✅ **UAX #14** (Line Breaking) - Correct line break opportunities
-  - ✅ **UAX #11** (East Asian Width) - Accurate CJK character width
-  - ✅ **UAX #9** (Bidirectional Text) - RTL and mixed-direction text
-  - ✅ **UTS #51** (Emoji Sequences) - Flags, ZWJ sequences, modifiers
-  - ✅ **100% Conformance** - All 297,981 Unicode tests passing
-  - Perfect for terminal UIs where character cell width matters
+- **Flexbox** ([css-flexbox-1](https://www.w3.org/TR/css-flexbox-1/)): direction, wrap, `justify-content`, `align-items`/`align-self`/`align-content`, grow/shrink/basis, gaps, `order`, baseline alignment.
+- **Grid** ([css-grid-1](https://www.w3.org/TR/css-grid-1/)): fixed, `fr`, `auto`, `minmax()`, min-/max-/fit-content tracks, `repeat(auto-fill | auto-fit)`, named areas, auto-placement (including dense), spanning, gaps, all alignment properties.
+- **Block** ([CSS 2.1 §9–10](https://www.w3.org/TR/CSS21/visuren.html)): vertical flow, margin collapsing, auto sizing, min/max, `box-sizing`, `aspect-ratio`.
+- **Text** ([css-text-3](https://www.w3.org/TR/css-text-3/)): UAX #14 line breaking, `white-space`, alignment and justification, `text-indent`, spacing, `text-overflow`, `text-transform`, hanging punctuation, soft hyphens, `direction: rtl`, vertical and sideways writing modes with UAX #50 orientation. Measurement is pluggable (`TextMetricsProvider`).
+- **Positioned layout** ([css-position-3](https://www.w3.org/TR/css-position-3/)): relative, absolute, fixed; sticky behaves as relative without a scroll offset.
+- **CSS lengths** ([css-values-4](https://www.w3.org/TR/css-values-4/)): every Level 4 length unit via [`github.com/SCKelemen/units`](https://github.com/SCKelemen/units), resolved through a `LayoutContext`; container-query units via `ResolveLengthInContext`.
+- **Intrinsic sizing** ([css-sizing-3](https://www.w3.org/TR/css-sizing-3/)): min-content, max-content, fit-content for widths, heights, and grid tracks.
+- **Fluent API**: immutable `With*`, `Find*`, `Transform`, `Map`, `Filter`, `FoldNodes`, and `NodeContext` for parent navigation.
+- **Serialization** (`serialize` package): JSON and YAML round-tripping of trees with unit-preserving lengths.
+- **Post-layout helpers**: `AlignNodes`, `DistributeNodes`, `SnapNodes`, 2D `Transform` for SVG output.
 
 ## Installation
 
@@ -56,599 +23,135 @@ A pure Go implementation of CSS Grid and CSS Flexbox layout engines with accurat
 go get github.com/SCKelemen/layout
 ```
 
-## Usage
+## Quick start
 
-### Basic Example
+Sizes are `Length` values built with `Px`, `Em`, `Rem`, `Vw`, and friends. A `Length` that is never set means `auto`; `Px(0)` is a real zero. `LayoutSimple` derives a `LayoutContext` (viewport = constraints, 16px root font) for you; use `Layout(root, constraints, ctx)` when you need to control the viewport, root font size, or text metrics.
 
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/SCKelemen/layout"
-)
-
-func main() {
-    // Create a flex container
-    root := &layout.Node{
-        Style: layout.Style{
-            Display:        layout.DisplayFlex,
-            FlexDirection:  layout.FlexDirectionRow,
-            JustifyContent: layout.JustifyContentSpaceBetween,
-            AlignItems:     layout.AlignItemsCenter,
-            Padding:        layout.Uniform(layout.Px(10)),
-        },
-        Children: []*layout.Node{
-            {
-                Style: layout.Style{
-                    Width:  layout.Px(100),
-                    Height: layout.Px(50),
-                },
-            },
-            {
-                Style: layout.Style{
-                    Width:  layout.Px(100),
-                    Height: layout.Px(50),
-                },
-            },
-        },
-    }
-
-    // Perform layout
-    constraints := layout.Loose(800, 600)
-    // LayoutSimple derives a LayoutContext from the constraints;
-    // use layout.Layout(root, constraints, ctx) to supply your own.
-    size := layout.LayoutSimple(root, constraints)
-
-    fmt.Printf("Layout size: %.2f x %.2f\n", size.Width, size.Height)
-    fmt.Printf("Child 1 position: (%.2f, %.2f)\n", root.Children[0].Rect.X, root.Children[0].Rect.Y)
-}
-```
-
-### Flexbox Example
-
-```go
-root := &layout.Node{
-    Style: layout.Style{
-        Display:        layout.DisplayFlex,
-        FlexDirection:  layout.FlexDirectionColumn,
-        JustifyContent: layout.JustifyContentCenter,
-        AlignItems:     layout.AlignItemsStretch,
-        Padding:        layout.Uniform(layout.Px(20)),
-    },
-    Children: []*layout.Node{
-        {
-            Style: layout.Style{
-                FlexGrow: 1,
-                Height:   layout.Px(100),
-            },
-        },
-        {
-            Style: layout.Style{
-                FlexGrow: 2,
-                Height:   layout.Px(100),
-            },
-        },
-    },
-}
-
-constraints := layout.Tight(400, 600)
-layout.LayoutSimple(root, constraints)
-```
-
-### Grid Example
-
-```go
-root := &layout.Node{
-    Style: layout.Style{
-        Display: layout.DisplayGrid,
-        GridTemplateRows: []layout.GridTrack{
-            layout.FixedTrack(layout.Px(100)),
-            layout.FractionTrack(1),
-            layout.FixedTrack(layout.Px(50)),
-        },
-        GridTemplateColumns: []layout.GridTrack{
-            layout.FractionTrack(1),
-            layout.FractionTrack(2),
-        },
-        GridGap: layout.Px(10),
-        Padding: layout.Uniform(layout.Px(10)),
-    },
-    Children: []*layout.Node{
-        {
-            Style: layout.Style{
-                GridRowStart:    0,
-                GridRowEnd:      1,
-                GridColumnStart: 0,
-                GridColumnEnd:   2,
-            },
-        },
-        {
-            Style: layout.Style{
-                GridRowStart:    1,
-                GridRowEnd:      2,
-                GridColumnStart: 0,
-                GridColumnEnd:   1,
-            },
-        },
-        {
-            Style: layout.Style{
-                GridRowStart:    1,
-                GridRowEnd:      2,
-                GridColumnStart: 1,
-                GridColumnEnd:   2,
-            },
-        },
-    },
-}
-
-constraints := layout.Loose(600, 400)
-layout.LayoutSimple(root, constraints)
-```
-
-### Unicode Text Integration
-
-For accurate Unicode text measurement (essential for terminal UIs), use the text library integration:
+### Flexbox
 
 ```go
 package main
 
 import (
-    "fmt"
-    "github.com/SCKelemen/layout"
-)
-
-func main() {
-    // Set up accurate Unicode text metrics
-    metrics := layout.NewTerminalTextMetrics()
-    layout.SetTextMetricsProvider(metrics)
-
-    // Now all text layout uses accurate Unicode measurements
-    root := layout.Text("Hello 世界 😀", layout.Style{
-        TextStyle: &layout.TextStyle{
-            FontSize:   16,
-            LineHeight: 1.5,
-            TextAlign:  layout.TextAlignCenter,
-        },
-        Width: layout.Px(200),
-    })
-
-    size := layout.Layout(root, layout.Loose(200, 600), nil)
-    fmt.Printf("Layout size: %.1f x %.1f\n", size.Width, size.Height)
-
-    // Access text operations directly
-    txt := metrics.Text()
-    fmt.Printf("Text width: %.1f cells\n", txt.Width("Hello 世界 😀"))
-    fmt.Printf("Graphemes: %v\n", txt.Graphemes("Hello👋🏻"))
-}
-```
-
-**What you get:**
-- ✅ Accurate width for ASCII, CJK, emoji, and mixed content
-- ✅ Proper emoji sequence handling (flags, modifiers, ZWJ sequences)
-- ✅ Grapheme cluster awareness for correct character boundaries
-- ✅ Bidirectional text support for RTL languages
-
-See [examples/text_integration](examples/text_integration/main.go) for a complete example.
-
-## Fluent API
-
-The library provides a **Roslyn-style fluent API** for working with layout trees. This API offers immutable operations, powerful querying, and elegant tree transformations.
-
-### Two API Styles
-
-You can use either the classic mutable style or the new fluent immutable style:
-
-```go
-// Classic style (still supported)
-node := &layout.Node{Style: layout.Style{Width: layout.Px(100)}}
-layout.Padding(node, 10)
-
-// Fluent style
-fluent := (&layout.Node{}).WithWidth(100).WithPadding(10)
-```
-
-### Navigation & Querying
-
-Find and traverse nodes in your layout tree:
-
-```go
-root := layout.HStack(
-    layout.Fixed(100, 50).WithText("Item 1"),
-    layout.Fixed(200, 50).WithText("Item 2"),
-    layout.Fixed(150, 50).WithText("Item 3"),
-)
-
-// Find all nodes with text
-textNodes := root.FindAll(func(n *layout.Node) bool {
-    return n.Text != ""
-})
-
-// Find first wide node
-wide := root.Find(func(n *layout.Node) bool {
-    return n.Style.Width.Value > 150
-})
-
-// Check if any child is flex
-hasFlex := root.Any(func(n *layout.Node) bool {
-    return n.Style.Display == layout.DisplayFlex
-})
-
-// Get all descendants
-allNodes := root.Descendants()
-
-// Filter by display type
-grids := root.OfDisplayType(layout.DisplayGrid)
-```
-
-### Immutable Modifications
-
-Create modified copies without changing the original:
-
-```go
-original := layout.HStack(
-    layout.Fixed(100, 50),
-    layout.Fixed(200, 50),
-)
-
-// Create variants without modifying original
-padded := original.WithPadding(16)
-withMargin := original.WithMargin(8)
-wider := original.WithWidth(500)
-
-// Method chaining
-styled := original.
-    WithPadding(16).
-    WithMargin(8).
-    WithDisplay(layout.DisplayFlex).
-    AddChild(layout.Fixed(100, 50))
-
-// Original unchanged
-fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top.Value) // 0
-fmt.Printf("Variant padding: %.0f\n", padded.Style.Padding.Top.Value)    // 16
-```
-
-### Parent Navigation with Context
-
-Walk up the tree to find ancestors:
-
-```go
-root := layout.VStack(
-    layout.HStack(
-        layout.Fixed(100, 50).WithText("Target"),
-    ),
-)
-
-// Wrap root in context for parent tracking
-ctx := layout.NewContext(root)
-
-// Find a node and walk up to find container
-targetCtx := ctx.FindDown(func(n *layout.Node) bool {
-    return n.Text == "Target"
-})
-
-// Find containing flex container
-flexCtx := targetCtx.FindUp(func(n *layout.Node) bool {
-    return n.Style.Display == layout.DisplayFlex
-})
-
-// Get all ancestors
-ancestors := targetCtx.Ancestors()
-fmt.Printf("Found %d ancestors\n", len(ancestors))
-
-// Get depth in tree
-depth := targetCtx.Depth()
-fmt.Printf("Node is %d levels deep\n", depth)
-
-// Get siblings
-siblings := targetCtx.Siblings()
-```
-
-### Transformations
-
-Apply operations across the tree:
-
-```go
-root := layout.HStack(
-    layout.Fixed(100, 50),
-    layout.Fixed(200, 100),
-    layout.Fixed(150, 75),
-)
-
-// Transform: Selectively modify nodes
-doubled := root.Transform(
-    func(n *layout.Node) bool {
-        return n.Style.Width.Value > 0 && n.Style.Width.Value < 200
-    },
-    func(n *layout.Node) *layout.Node {
-        return n.WithWidth(n.Style.Width.Value * 2)
-    },
-)
-
-// Map: Apply to all nodes
-scaled := root.Map(func(n *layout.Node) *layout.Node {
-    return n.
-        WithWidth(n.Style.Width.Value * 1.5).
-        WithHeight(n.Style.Height.Value * 1.5)
-})
-
-// Filter: Keep only matching children (shallow)
-wide := root.Filter(func(n *layout.Node) bool {
-    return n.Style.Width.Value >= 150
-})
-
-// FilterDeep: Recursive filtering
-visible := root.FilterDeep(func(n *layout.Node) bool {
-    return n.Style.Display != layout.DisplayNone
-})
-
-// Fold: Reduce tree to single value
-totalWidth := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
-    return acc.(float64) + n.Style.Width.Value
-}).(float64)
-
-count := root.Fold(0, func(acc interface{}, n *layout.Node) interface{} {
-    return acc.(int) + 1
-}).(int)
-
-// FoldWithContext: With depth information
-depthMap := root.FoldWithContext(
-    make(map[int]int),
-    func(acc interface{}, n *layout.Node, depth int) interface{} {
-        m := acc.(map[int]int)
-        m[depth]++
-        return m
-    },
-).(map[int]int)
-```
-
-### Practical Examples
-
-#### Building a Card Layout with Fluent API
-
-```go
-func CreateCard(title, body string, width float64) *layout.Node {
-    return layout.VStack().
-        WithWidth(width).
-        WithPadding(16).
-        WithMargin(8).
-        AddChildren(
-            layout.Fixed(0, 32).WithText(title),
-            layout.Fixed(0, 0).WithText(body),
-        )
-}
-
-// Create multiple cards
-cards := []*layout.Node{
-    CreateCard("Title 1", "Body 1", 200),
-    CreateCard("Title 2", "Body 2", 200),
-    CreateCard("Title 3", "Body 3", 200),
-}
-
-container := layout.HStack().
-    WithPadding(20).
-    AddChildren(cards...)
-```
-
-#### Conditional Styling
-
-```go
-func ApplyTheme(root *layout.Node, darkMode bool) *layout.Node {
-    padding := 8.0
-    margin := 4.0
-
-    if darkMode {
-        padding = 12.0
-        margin = 6.0
-    }
-
-    return root.Map(func(n *layout.Node) *layout.Node {
-        return n.WithPadding(padding).WithMargin(margin)
-    })
-}
-
-lightTheme := ApplyTheme(root, false)
-darkTheme := ApplyTheme(root, true)
-```
-
-#### Statistics and Analysis
-
-```go
-// Count nodes by display type
-displayCounts := root.FoldWithContext(
-    make(map[layout.Display]int),
-    func(acc interface{}, n *layout.Node, depth int) interface{} {
-        m := acc.(map[layout.Display]int)
-        m[n.Style.Display]++
-        return m
-    },
-).(map[layout.Display]int)
-
-// Find maximum depth
-maxDepth := root.FoldWithContext(
-    0,
-    func(acc interface{}, n *layout.Node, depth int) interface{} {
-        current := acc.(int)
-        if depth > current {
-            return depth
-        }
-        return current
-    },
-).(int)
-
-// Sum all padding
-totalPadding := root.Fold(0.0, func(acc interface{}, n *layout.Node) interface{} {
-    sum := acc.(float64)
-    return sum + n.Style.Padding.Top.Value + n.Style.Padding.Right.Value +
-           n.Style.Padding.Bottom.Value + n.Style.Padding.Left.Value
-}).(float64)
-```
-
-#### Tree Manipulation
-
-```go
-// Remove all hidden nodes
-visible := root.FilterDeep(func(n *layout.Node) bool {
-    return n.Style.Display != layout.DisplayNone
-})
-
-// Add padding to all containers
-padded := root.Transform(
-    func(n *layout.Node) bool {
-        return len(n.Children) > 0
-    },
-    func(n *layout.Node) *layout.Node {
-        return n.WithPadding(10)
-    },
-)
-
-// Clone tree and modify
-variant := root.CloneDeep().
-    WithPadding(20).
-    Map(func(n *layout.Node) *layout.Node {
-        return n.WithMargin(5)
-    })
-```
-
-## Documentation
-
-- [Getting Started](docs/getting-started.md) - Installation and quick examples
-- [Layout Systems](docs/layout-systems.md) - Flexbox, Grid, Block, and Positioned layouts
-- [API Reference](docs/api-reference.md) - Complete API documentation
-- [Usage Patterns](docs/usage-patterns.md) - Different ways to use the library
-- [Common Gotchas](docs/gotchas.md) - Common pitfalls and how to avoid them ⚠️
-- [SVG Rendering](docs/svg-rendering.md) - Rendering layouts to SVG
-- [Limitations](docs/limitations.md) - Known limitations and design decisions
-- [WPT Integration](WPT_INTEGRATION.md) - Web Platform Tests integration and tracking
-
-## Learning Resources
-
-This library implements CSS specifications. For deeper understanding of layout concepts, see these MDN guides:
-
-- [CSS Flexible Box Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout) - Learn about flexbox
-- [CSS Grid Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout) - Learn about grid layout
-- [CSS Box Alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment) - Alignment in flexbox and grid
-- [CSS Box Model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model) - Padding, margin, and borders
-- [CSS Box Sizing](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_sizing) - Box sizing and aspect ratios
-- [CSS Positioned Layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout) - Absolute, relative, fixed positioning
-- [CSS Display](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_display) - Display modes and formatting contexts
-
-## Use Cases
-
-- **Terminal UIs**: Use with Bubble Tea or other TUI libraries
-- **SVG Rendering**: Generate card layouts and graphs for images
-- **Web Layouts**: Server-side layout generation
-- **PDF Generation**: Layout content for PDFs
-- **Game UIs**: Layout game interface elements
-- **Offscreen Rendering**: Layout for image generation
-
-## Testing & Quality
-
-- Comprehensive automated test suites running in CI 🎉
-- Comprehensive CSS spec compliance
-- [Spec Compliance Status](SPEC_COMPLIANCE_STATUS.md)
-- [Specification Gaps](SPECIFICATION_GAPS.md)
-- CI test workflow: [.github/workflows/test.yml](.github/workflows/test.yml)
-
-Run tests:
-```bash
-go test -v ./...
-```
-
-## License
-
-MIT
-
-
-## WPT Testing with CEL Assertions
-
-This library integrates with [wpt-test-gen](https://github.com/SCKelemen/wpt-test-gen) for Web Platform Test-style testing using [CEL (Common Expression Language)](https://github.com/google/cel-spec) assertions.
-
-### Using CEL Assertions in Tests
-
-```go
-import (
-	"testing"
+	"fmt"
 
 	"github.com/SCKelemen/layout"
-	"github.com/SCKelemen/wpt-test-gen/pkg/cel"
 )
 
-func TestFlexboxLayout(t *testing.T) {
-	// Build your layout
+func main() {
 	root := &layout.Node{
 		Style: layout.Style{
 			Display:        layout.DisplayFlex,
 			JustifyContent: layout.JustifyContentSpaceBetween,
-			Width:          layout.Px(600),
-			Height:         layout.Px(100),
+			AlignItems:     layout.AlignItemsCenter,
+			Padding:        layout.Uniform(layout.Px(10)),
 		},
 		Children: []*layout.Node{
 			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
 			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
-			{Style: layout.Style{Width: layout.Px(100), Height: layout.Px(50)}},
 		},
 	}
 
-	// Run layout
-	ctx := layout.NewLayoutContext(800, 600, 16)
-	layout.Layout(root, layout.Tight(600, 100), ctx)
-
-	// Create CEL environment
-	env, err := cel.NewLayoutCELEnv(root)
-	if err != nil {
-		t.Fatalf("failed to create CEL environment: %v", err)
-	}
-
-	// Define assertions using CEL expressions
-	assertions := []cel.CELAssertion{
-		{
-			Type:       "layout",
-			Expression: "getX(child(root(), 0)) == 0.0",
-			Message:    "first-child-at-start",
-		},
-		{
-			Type:       "layout",
-			Expression: "getRight(child(root(), 2)) == getWidth(root())",
-			Message:    "last-child-at-end",
-		},
-	}
-
-	// Evaluate assertions
-	results := env.EvaluateAll(assertions)
-
-	for _, result := range results {
-		if !result.Passed {
-			t.Errorf("Assertion '%s' failed: %s", result.Assertion.Message, result.Error)
-		}
-	}
+	size := layout.LayoutSimple(root, layout.Loose(800, 600))
+	fmt.Printf("%.0f x %.0f\n", size.Width, size.Height) // 800 x 600
+	fmt.Printf("second child at (%.0f, %.0f)\n",
+		root.Children[1].Rect.X, root.Children[1].Rect.Y) // second child at (690, 275)
 }
 ```
 
-### Available CEL Functions
+### Grid
 
-- **Node access**: `root()`, `child(node, index)`, `childCount(node)`
-- **Position**: `getX(node)`, `getY(node)`, `getTop(node)`, `getLeft(node)`
-- **Size**: `getWidth(node)`, `getHeight(node)`
-- **Edges**: `getRight(node)`, `getBottom(node)`
+```go
+grid := &layout.Node{
+	Style: layout.Style{
+		Display: layout.DisplayGrid,
+		GridTemplateColumns: []layout.GridTrack{
+			layout.FixedTrack(layout.Px(200)), // sidebar
+			layout.FractionTrack(1),           // main
+		},
+		GridTemplateRows: []layout.GridTrack{
+			layout.FixedTrack(layout.Px(60)), // header
+			layout.FractionTrack(1),
+		},
+		GridGap: layout.Px(10),
+	},
+	Children: []*layout.Node{
+		{Style: layout.Style{GridRowStart: 0, GridRowEnd: 1, GridColumnStart: 0, GridColumnEnd: 2}}, // header spans both columns
+		{Style: layout.Style{GridRowStart: 1, GridRowEnd: 2, GridColumnStart: 0, GridColumnEnd: 1}},
+		{Style: layout.Style{GridRowStart: 1, GridRowEnd: 2, GridColumnStart: 1, GridColumnEnd: 2}},
+	},
+}
 
-### Language-Agnostic Testing
-
-For testing from other languages (JavaScript, Python, Rust, etc.), use the `wptest eval` command:
-
-```bash
-# Install wptest CLI
-go install github.com/SCKelemen/wpt-test-gen/cmd/wptest@latest
-
-# Test via JSON stdin/stdout
-echo '{
-  "layout": {"display": "flex", "width": 600, ...},
-  "assertions": [{"expression": "getX(root()) == 0.0", ...}]
-}' | wptest eval
+layout.LayoutSimple(grid, layout.Tight(600, 400))
+// header: 600 x 60 at (0, 0); sidebar: 200 x 330 at (0, 70); main: 390 x 330 at (210, 70)
 ```
 
-See [wpt-test-gen examples](https://github.com/SCKelemen/wpt-test-gen/tree/main/examples/cross-language) for JavaScript, Python, and Rust examples.
+### Text
 
-### Example Test
+```go
+text := layout.Text("The quick brown fox jumps over the lazy dog", layout.Style{
+	Width: layout.Px(120),
+	TextStyle: &layout.TextStyle{
+		FontSize:   16,
+		LineHeight: 1.5,
+		TextAlign:  layout.TextAlignCenter,
+	},
+})
 
-See [layout_wpt_example_test.go](layout_wpt_example_test.go) for complete examples of testing flexbox and grid layouts with CEL assertions.
+size := layout.LayoutSimple(text, layout.Loose(400, 400))
+fmt.Printf("%.0f x %.0f, %d lines\n", size.Width, size.Height, len(text.TextLayout.Lines))
+// 120 x 96, 4 lines
+for _, line := range text.TextLayout.Lines {
+	fmt.Printf("y=%.0f x=%.1f width=%.1f\n", line.OffsetY, line.OffsetX, line.Width)
+}
+```
+
+`layout.Text` creates a `DisplayInlineText` leaf; `node.TextLayout` holds the line boxes for your renderer. For accurate Unicode widths (CJK, emoji, terminal cells) install `layout.NewTerminalTextMetrics()` with `SetTextMetricsProvider` or `ctx.WithTextMetrics`. See [docs/text.md](docs/text.md).
+
+## Fluent API
+
+Every `*Node` has immutable, chainable methods:
+
+```go
+card := layout.VStack().
+	WithWidth(300).
+	WithPadding(16).
+	AddChildren(
+		layout.Text("Title"),
+		layout.Text("Body"),
+	)
+
+wide := card.FindAll(func(n *layout.Node) bool { return n.Style.Width.Value > 200 })
+count := layout.FoldNodes(card, 0, func(acc int, _ *layout.Node) int { return acc + 1 })
+```
+
+`WithWidth`/`WithHeight` take pixels; `WithWidthLength`/`WithHeightLength` take any `Length` (and `Length{}` resets to auto). See the [Fluent API guide](docs/fluent-api.md).
+
+## Documentation
+
+| Document | Contents |
+|----------|----------|
+| [Getting started](docs/getting-started.md) | Nodes, styles, lengths, constraints, `LayoutSimple` vs `Layout` |
+| [Layout systems](docs/layout-systems.md) | Flexbox, Grid, Block, Text, positioned layout, container queries, intrinsic sizing |
+| [Text](docs/text.md) | Text properties, line boxes, writing modes, text metrics |
+| [API reference](docs/api-reference.md) | Curated map of the exported API, with a link to pkg.go.dev |
+| [Fluent API](docs/fluent-api.md) | Immutable tree building, querying, and transformation |
+| [Usage patterns](docs/usage-patterns.md) | Embedding `Node`, builders, functional options |
+| [SVG rendering](docs/svg-rendering.md) | Turning a laid-out tree into SVG |
+| [Gotchas](docs/gotchas.md) | Behaviors that surprise people, including the v1.4.0 semantics |
+| [Spec compliance](docs/spec-compliance.md) | Per-module matrix of what is implemented |
+| [Limitations](docs/limitations.md) | The single list of known gaps |
+| [WPT testing](docs/wpt-testing.md) | The `wpt/` nested module and CEL assertions |
+| [serialize/README.md](serialize/README.md) | JSON/YAML format and limits |
+| [CHANGELOG.md](CHANGELOG.md) | Release notes, including behavior changes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Tests, linters, CI, commit conventions |
+
+Runnable programs live in [`examples/`](examples/) (`go run ./examples/grid`, `go run ./examples/fluent/dashboard`, ...).
+
+## Learning resources
+
+- [MDN: Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_flexible_box_layout), [Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout), [Box alignment](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_alignment), [Box model](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_box_model), [Positioned layout](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout), [Writing modes](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_writing_modes)
+
+## License
+
+MIT

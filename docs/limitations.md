@@ -1,170 +1,56 @@
-# Limitations and Design Decisions
+# Limitations
 
-This document outlines known limitations and design decisions for the layout library.
+The single list of known gaps and inexpressible values. Anything not listed here and described in [Spec compliance](spec-compliance.md) as implemented is expected to work; please open an issue if it does not. Planned fixes for the API-shape items are collected in [docs/design/v2-api.md](design/v2-api.md).
 
-## Known Limitations
+## Not implemented
 
-### Margin Support
+| Gap | Detail | Workaround |
+|-----|--------|------------|
+| Inline formatting context | Text nodes are leaves. There is no `inline-block`, no spans, no inline images, no mixing of text runs with different styles on one line, and `vertical-align` does not move anything. `InlineBoxInlineNode` is reserved but unused. | One text node per run; stack runs with flex or block |
+| `display: contents`, `flow-root`, `inline-flex`, `inline-grid`, `inline-block` | `Display` has block, flex, grid, inline-text, none | |
+| Tables | | Use grid |
+| CSS multi-column (`column-count`, `column-width`) | Flowing text into columns | Split text yourself into grid columns |
+| Floats | | |
+| Grid subgrid (Level 2) | | Nest grids with matching tracks |
+| UAX #9 bidirectional algorithm | `direction: rtl` swaps alignment, `text-indent`, and offset resolution; runs are not reordered and mixed-direction text is laid out in logical order | Reorder runs before layout |
+| `hyphens: auto` dictionaries | `Auto` behaves as `Manual`: only U+00AD soft hyphens create hyphenation points | Insert soft hyphens |
+| `line-break`, `text-orientation`, `text-combine-upright` | Orientation in vertical modes is decided by UAX #50 only (`InlineBox.Orientations`); it cannot be forced upright or sideways | |
+| `unicode-bidi`, `text-shadow`, `text-emphasis`, `font-variant`, `font-stretch` | Not in `TextStyle` | Keep them in your renderer's model |
+| `contain-intrinsic-size` (css-sizing-4) | | |
+| `@container` rules | Only the property model (`ContainerType`, `ContainerName`) and unit resolution exist | Evaluate queries in your code using `Rect` |
+| Percentages | `Length` has no `%` unit | `fr` tracks, `FlexGrow`, `vw`/`vh`, or `cq*` |
+| `vi`, `vb`, `sv*`, `lv*`, `dv*` units | Resolve to 0; `LayoutContext` only has one viewport size | `vw`/`vh`/`vmin`/`vmax` |
 
-**Status**: ✅ **Margin is fully supported across all three layout systems.**
+## Partial behavior
 
-**Implementation**:
-- **Flexbox**: margins are accounted for in item positioning and spacing.
-- **Grid**: margins are applied within grid cells, reducing the available space
-  for items.
-- **Block**: margins are applied between siblings and between parent/first
-  child; adjacent vertical margins collapse using the CSS `max(margin1, margin2)`
-  rule. See `block_children.go` and `block_margin_collapsing_test.go`.
+| Area | Behavior |
+|------|----------|
+| Sticky positioning | Behaves as `relative`. Sticking needs a scroll offset, which the engine does not have. |
+| `z-index` | Stored on `Style`; layout does not sort or stack by it. |
+| Transforms | Do not affect layout; `GetFinalRect` / `Transform.ApplyToRect` give renderers the transformed box. |
+| Text decorations, `font-style`, `font-weight`, `vertical-align` | Metadata for renderers; only `FontSize`, `LetterSpacing`, `WordSpacing`, and `FontFamily`/`FontWeight` (through your `TextMetricsProvider`) influence measurement. |
+| `writing-mode` | Not inherited. Set `Style.WritingMode` on every node that needs a vertical mode; `InlineBox.Orientations` is additionally driven by `TextStyle.WritingMode`. |
+| Container-query units in layout | `Layout`/`LayoutSimple` resolve `cq*` to 0 (they have no ancestor information). Resolve them yourself with `ResolveLengthInContext` and a `NodeContext`, or pre-resolve them into `Px` before layout. |
+| `ex`, `cap`, `lh`, `rlh`, `ic` | Approximated (font size, root font size, 2 x `ch`) because terminal metrics have no x-height or cap-height. |
+| Tab stops | Measured from the start of the line box, not from the start of the block, so indented lines see shifted stops. |
+| UAX #14 | No tailoring, no emoji-modifier or regional-indicator rules, no dictionary-based breaking (Thai, Lao, Khmer). |
+| Grapheme clusters | Only with a `github.com/SCKelemen/text` provider (`NewTerminalTextMetrics`); the default provider counts runes. |
+| Flex intrinsic sizes | Simplified §9.9: sum of items for rows, largest item for columns. |
 
-**Usage**:
-```go
-// Add margins to items in HStack/VStack
-item := layout.Fixed(100, 50)
-item.Style.Margin = layout.Uniform(10) // 10px margin on all sides
+## Inexpressible values (API shape)
 
-// Or use the Margin helper
-layout.Margin(item, 10)
-```
+These follow from Go zero values standing in for "unset":
 
-**Note**: Margins do not collapse in Flexbox or Grid (only in block layout),
-which matches CSS behavior.
+| Value | Why | Effect |
+|-------|-----|--------|
+| `flex-shrink: 0` | `FlexShrink == 0` is read as the initial value 1 | Items always shrink; give them a `MinWidth`/`MinHeight` instead |
+| `align-self: stretch` overriding a non-stretch parent | `AlignSelf == 0` (`AlignItemsStretch`) means "use the parent's `AlignItems`" | Only non-stretch overrides are possible; the same applies to `JustifySelf` |
+| `letter-spacing` / `word-spacing: normal` vs `0` | `-1` is the "normal" sentinel and `0` adds zero spacing; the two coincide in practice but the sentinel leaks into `TextStyle` values and serialization | Treat `-1` and `0` as equivalent |
+| `line-height: 12` as a multiplier | Values `< 10` are multipliers, `>= 10` are pixels | Use `LineHeight: 12 * fontSize` or a multiplier below 10 |
+| `tab-size` 0 | `TabSize <= 0` means 8 | |
+| `grid-row-start: 0 / auto` vs unset | Line 0 with no end is auto-placed | Set `GridRowEnd: 1` (or `-1` for auto explicitly) |
+| `Frame(node, 0, 0)` | `Frame` skips values `<= 0` | `FrameLength(node, Px(0), Px(0))`, and `Length{}` to reset to auto |
 
-### Box-Sizing
+## Concurrency
 
-**Status**: ✅ **`box-sizing: content-box` and `box-sizing: border-box` are
-both implemented and tested.**
-
-**Implementation**:
-- `content-box` (the default) — `Style.Width` / `Style.Height` define the
-  content box; padding and border are added on top.
-- `border-box` — `Style.Width` / `Style.Height` include padding and border;
-  the content box shrinks accordingly. Min/max constraints follow the same
-  rule.
-
-The conversion is handled by `convertToContentSize`,
-`convertFromContentSize`, and `convertMinMaxToContentSize` in `types.go`, and
-is invoked from `block_setup.go`, `flexbox_setup.go`, `grid_setup.go`,
-`grid.go`, and `text.go`. Test coverage lives in `box_sizing_test.go` (10
-passing tests covering content-box, border-box, auto sizing, min/max,
-aspect-ratio, and nested flex/grid items).
-
-### Inline Layout
-
-**Status**: Not implemented.
-
-**What's missing**:
-- Text flow and line breaking
-- Inline elements
-- Baseline alignment
-
-**Impact**: This library focuses on block-level layouts. For text layout, you'll need to handle text measurement and line breaking separately.
-
-**Workaround**: Use fixed-size containers for text, or measure text separately and use those measurements for layout.
-
-### Table Layout
-
-**Status**: Not implemented.
-
-**Impact**: For table-like layouts, use Grid instead. Grid provides all the functionality needed for tabular data.
-
-### CSS Multi-column Layout
-
-**Status**: Not implemented.
-
-**Note**: This is **different** from Grid columns! CSS Multi-column Layout is for flowing text into columns (like a newspaper), not for grid-based layouts.
-
-**Impact**: If you need text flowing into multiple columns, you'll need to handle this separately.
-
-**Clarification**: Grid **does** support multiple columns via `GridTemplateColumns`. See [Layout Systems](layout-systems.md) for details.
-
-### Sticky Positioning
-
-**Status**: Partially implemented.
-
-**Current behavior**: Sticky positioning is defined but may not fully match CSS behavior in all cases.
-
-**Impact**: For most use cases, `PositionAbsolute` or `PositionFixed` will work better.
-
-## Design Decisions
-
-### Block Layout is Minimal
-
-Block layout is intentionally kept simple because:
-1. It's primarily a fallback for non-flex/grid elements
-2. Grid and Flexbox are the primary layout systems
-3. Most use cases don't need full CSS block layout features
-
-### High-Level API vs CSS-like API
-
-The library provides both:
-- **High-level API**: Easier to use, SwiftUI/Flutter-like
-- **CSS-like API**: More control, lower-level
-
-**Decision**: Keep both to serve different needs:
-- Simple layouts → High-level API
-- Complex layouts → CSS-like API
-
-### No Built-in Text Layout
-
-**Decision**: Focus on layout, not text rendering.
-
-**Rationale**: Text layout is complex and depends on fonts, rendering engines, etc. This library focuses on spatial layout, leaving text to rendering code.
-
-### Transform Support
-
-**Status**: Full transform support is implemented.
-
-**Decision**: Include transforms because they're useful for SVG rendering and visual effects.
-
-## Test Coverage
-
-- **68+ tests** covering all major features
-- All tests passing
-- Good coverage of edge cases
-
-## Compatibility
-
-### CSS Compatibility
-
-This library is **not** a full CSS implementation. It implements:
-- ✅ Core layout algorithms (Flexbox, Grid, Block)
-- ✅ Positioning (absolute, relative, fixed)
-- ✅ Transforms
-- ✅ Margin (with block-layout vertical margin collapsing)
-- ✅ Box-sizing (`content-box` and `border-box`)
-- ❌ Not implemented: Inline layout, table layout, multi-column text
-
-### Use Case Compatibility
-
-**Comprehensive for**:
-- ✅ Terminal UIs (Bubble Tea)
-- ✅ SVG rendering (card layouts, graphs)
-- ✅ Web layouts (server-side)
-- ✅ PDF generation
-- ✅ Game UIs
-- ✅ Offscreen rendering
-- ✅ Image generation
-
-**Not comprehensive for**:
-- ⚠️ Full CSS compatibility
-- ⚠️ Text-heavy layouts
-- ⚠️ Complex inline formatting
-
-## Recommendations
-
-1. **Use Grid or Flexbox** for most layouts
-2. **Use Grid gaps** instead of margins for spacing
-3. **Handle text separately** - measure text, then use measurements for layout
-4. **Use positioned layout** for overlapping elements
-5. **Check examples** in `examples/` directory for patterns
-
-## Future Considerations
-
-Potential future additions (not currently planned):
-- Improved sticky positioning
-- Text measurement helpers (separate from layout)
-- Inline formatting context
-- RTL / vertical writing modes
-
-If you need features that aren't implemented, please open an issue or contribute!
-
+`SetTextMetricsProvider` stores the package-level provider in an atomic pointer and is safe to call concurrently with layout. A single tree, however, must not be laid out by two goroutines at once: layout writes `Rect` and `TextLayout` in place.

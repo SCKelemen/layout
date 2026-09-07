@@ -106,6 +106,9 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// Absolutely positioned children are not grid items and are skipped by
 	// placement (§9); they are laid out separately below.
 	gridItems := gridPlaceItems(node, &rows, &columns, node.Style.GridAutoFlow)
+	for _, item := range gridItems {
+		item.margins = gridResolveItemMargins(item.node, writingMode, ctx)
+	}
 
 	// Step 3: Size the columns (§12.5 intrinsic contributions, §12.6
 	// maximize, §12.7 expand flexible tracks).
@@ -123,6 +126,11 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		for _, item := range gridItems {
 			maxSize := gridMeasureItemAxis(item.node, isVerticalWritingMode, ctx)
 			minSize := gridMeasureItemMinAxis(item.node, isVerticalWritingMode, maxSize, ctx)
+			// §12.5: a contribution is the item's outer size, so its
+			// column-axis margins count toward the track.
+			// https://www.w3.org/TR/css-grid-1/#algo-content
+			maxSize += item.margins.col()
+			minSize += item.margins.col()
 			gridDistributeContribution(colMinContrib, columns, item.colStart, item.colEnd, columnGap, minSize, ctx, currentFontSize)
 			gridDistributeContribution(colMaxContrib, columns, item.colStart, item.colEnd, columnGap, maxSize, ctx, currentFontSize)
 		}
@@ -135,7 +143,12 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	// row-axis contributions.
 	rowContrib := make([]float64, len(rows))
 	for _, item := range gridItems {
-		itemColSize := gridSpanSize(columnSizes, item.colStart, item.colEnd, columnGap)
+		// The item's available column-axis size is its grid area minus its
+		// column-axis margins (the margin box fills the area).
+		itemColSize := gridSpanSize(columnSizes, item.colStart, item.colEnd, columnGap) - item.margins.col()
+		if itemColSize < 0 {
+			itemColSize = 0
+		}
 
 		// The column-axis size constrains the physical width in
 		// horizontal-tb and the physical height in vertical modes.
@@ -149,12 +162,13 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// Store measured (physical) size for use in positioning phase
 		item.measuredSize = childSize
 
-		// Row-axis contribution. childSize does NOT include margins - margins
-		// are handled separately in positioning.
+		// Row-axis contribution: the item's outer size (§12.5), so its
+		// row-axis margins are added to the measured border-box size.
 		rowSize := childSize.Height
 		if isVerticalWritingMode {
 			rowSize = childSize.Width
 		}
+		rowSize += item.margins.row()
 		gridDistributeContribution(rowContrib, rows, item.rowStart, item.rowEnd, rowGap, rowSize, ctx, currentFontSize)
 	}
 
@@ -210,15 +224,18 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// Position item within grid cell, accounting for margins
 		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
 		// However, if an item has an aspect ratio, it should maintain that ratio while fitting within the cell
-		// Get item's font size for margin resolution
+		// Item font size for explicit size resolution.
 		itemFontSize := getCurrentFontSize(item.node, ctx)
-		marginLeft := ResolveLength(item.node.Style.Margin.Left, ctx, itemFontSize)
-		marginRight := ResolveLength(item.node.Style.Margin.Right, ctx, itemFontSize)
-		marginTop := ResolveLength(item.node.Style.Margin.Top, ctx, itemFontSize)
-		marginBottom := ResolveLength(item.node.Style.Margin.Bottom, ctx, itemFontSize)
 
-		maxItemWidth := cellWidth - marginLeft - marginRight
-		maxItemHeight := cellHeight - marginTop - marginBottom
+		// Margins in logical terms: colStart/colEnd sit along the column
+		// axis, rowStart/rowEnd along the row axis (see gridResolveItemMargins).
+		marginColStart, marginColEnd := item.margins.colStart, item.margins.colEnd
+		marginRowStart, marginRowEnd := item.margins.rowStart, item.margins.rowEnd
+
+		// The item's available area is its grid area minus its margins; the
+		// variables below are logical (width = column axis, height = row axis).
+		maxItemWidth := cellWidth - marginColStart - marginColEnd
+		maxItemHeight := cellHeight - marginRowStart - marginRowEnd
 
 		// Clamp to >= 0 to prevent negative sizes
 		if maxItemWidth < 0 {
@@ -439,20 +456,20 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		}
 
 		// Calculate total item size including margins for alignment
-		totalItemWidth := itemWidth + marginLeft + marginRight
-		totalItemHeight := itemHeight + marginTop + marginBottom
+		totalItemWidth := itemWidth + marginColStart + marginColEnd
+		totalItemHeight := itemHeight + marginRowStart + marginRowEnd
 
 		switch justifyItems {
 		case JustifyItemsStart:
-			itemX = cellX + marginLeft
+			itemX = cellX + marginColStart
 		case JustifyItemsEnd:
-			// Align item+margin box to end, then item starts at margin.Left from that
-			itemX = cellX + cellWidth - totalItemWidth + marginLeft
+			// Align item+margin box to end, then item starts at its start margin from that
+			itemX = cellX + cellWidth - totalItemWidth + marginColStart
 		case JustifyItemsCenter:
-			// Center the item+margin box, then item starts at margin.Left from that
-			itemX = cellX + (cellWidth-totalItemWidth)/2 + marginLeft
+			// Center the item+margin box, then item starts at its start margin from that
+			itemX = cellX + (cellWidth-totalItemWidth)/2 + marginColStart
 		case JustifyItemsStretch:
-			itemX = cellX + marginLeft
+			itemX = cellX + marginColStart
 		}
 
 		// Handle align-items positioning (block/column axis)
@@ -474,24 +491,24 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 
 		switch alignItems {
 		case AlignItemsFlexStart: // Start
-			itemY = cellY + marginTop
+			itemY = cellY + marginRowStart
 		case AlignItemsFlexEnd: // End
-			// Align item+margin box to end, then item starts at margin.Top from that
-			itemY = cellY + cellHeight - totalItemHeight + marginTop
+			// Align item+margin box to end, then item starts at its start margin from that
+			itemY = cellY + cellHeight - totalItemHeight + marginRowStart
 		case AlignItemsCenter:
-			// Center the item+margin box, then item starts at margin.Top from that
-			itemY = cellY + (cellHeight-totalItemHeight)/2 + marginTop
+			// Center the item+margin box, then item starts at its start margin from that
+			itemY = cellY + (cellHeight-totalItemHeight)/2 + marginRowStart
 		case AlignItemsBaseline:
 			// For grid baseline alignment, align item's baseline to a reference
 			// In CSS Grid, baseline alignment aligns items within their row
 			// For simplicity, we align to the first baseline in the cell (top + baseline)
 			// NOTE: For proper CSS Grid baseline alignment, we'd need to calculate the max baseline
 			// across all items in the same row, similar to flexbox. For now, we use a simpler approach.
-			itemY = cellY + marginTop
+			itemY = cellY + marginRowStart
 		case AlignItemsStretch:
-			itemY = cellY + marginTop
+			itemY = cellY + marginRowStart
 		default:
-			itemY = cellY + marginTop
+			itemY = cellY + marginRowStart
 		}
 
 		// Position item within grid cell, accounting for margins, padding, and border
@@ -580,6 +597,59 @@ type gridItem struct {
 	autoRow      bool // Row position came from auto-placement
 	autoCol      bool // Column position came from auto-placement
 	measuredSize Size // Store measured (physical) size from first pass
+	margins      gridItemMargins
+}
+
+// gridItemMargins holds a grid item's resolved margins in logical grid terms:
+// colStart/colEnd lie along the column axis (the grid's inline axis) and
+// rowStart/rowEnd along the row axis (the block axis).
+type gridItemMargins struct {
+	colStart, colEnd float64
+	rowStart, rowEnd float64
+}
+
+// col returns the total margin along the column axis.
+func (m gridItemMargins) col() float64 { return m.colStart + m.colEnd }
+
+// row returns the total margin along the row axis.
+func (m gridItemMargins) row() float64 { return m.rowStart + m.rowEnd }
+
+// gridResolveItemMargins resolves an item's physical margins and maps them
+// onto the grid's logical axes for the container's writing mode:
+//
+//   - horizontal-tb: columns run along X, so left/right are the column-axis
+//     margins and top/bottom the row-axis margins;
+//   - vertical-lr / vertical-rl: columns run along Y, so top/bottom are the
+//     column-axis margins and left/right the row-axis margins. In vertical-rl
+//     rows progress right-to-left, so the row-start margin is the right one.
+//
+// Margins are resolved against the item's own font size; auto margins are
+// not supported and resolve to 0. Negative or non-finite results are
+// clamped to 0 so an area can never grow from a margin.
+//
+// See: https://www.w3.org/TR/css-writing-modes-3/#logical-to-physical
+// See: https://www.w3.org/TR/css-grid-1/#algo-content (outer size)
+func gridResolveItemMargins(n *Node, writingMode WritingMode, ctx *LayoutContext) gridItemMargins {
+	fontSize := getCurrentFontSize(n, ctx)
+	resolve := func(l Length) float64 {
+		v := ResolveLength(l, ctx, fontSize)
+		if math.IsNaN(v) || v < 0 || v >= Unbounded {
+			return 0
+		}
+		return v
+	}
+	left := resolve(n.Style.Margin.Left)
+	right := resolve(n.Style.Margin.Right)
+	top := resolve(n.Style.Margin.Top)
+	bottom := resolve(n.Style.Margin.Bottom)
+
+	if !writingMode.IsVertical() {
+		return gridItemMargins{colStart: left, colEnd: right, rowStart: top, rowEnd: bottom}
+	}
+	if writingMode.IsRightToLeft() {
+		return gridItemMargins{colStart: top, colEnd: bottom, rowStart: right, rowEnd: left}
+	}
+	return gridItemMargins{colStart: top, colEnd: bottom, rowStart: left, rowEnd: right}
 }
 
 // gridResolveContainerAxis determines the grid container's content size in
@@ -702,9 +772,10 @@ func gridLayoutItem(child *Node, childConstraints Constraints, ctx *LayoutContex
 	}
 }
 
-// gridMeasureItemAxis returns an item's max-content contribution along the
-// column axis (physical width in horizontal-tb, physical height in vertical
-// writing modes) by laying it out without constraints.
+// gridMeasureItemAxis returns an item's max-content size along the column
+// axis (physical width in horizontal-tb, physical height in vertical writing
+// modes) by laying it out without constraints. The result is the border-box
+// size; LayoutGrid adds the item's margins to form the §12.5 contribution.
 //
 // A block with an auto size fills its (unbounded) available space, which
 // shows up as a value of Unbounded magnitude; such values carry no content

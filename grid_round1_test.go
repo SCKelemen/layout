@@ -126,3 +126,76 @@ func TestGridRound1ItemIntrinsicWidthAlignedEnd(t *testing.T) {
 	gridRound1Approx(t, "item width", item.Rect.Width, 50)
 	gridRound1Approx(t, "item X", item.Rect.X, 150)
 }
+
+// TestGridRound1MarginsInTrackContributions checks that an item's margins
+// count toward the intrinsic size of the tracks it occupies (§12.5 uses the
+// item's outer, margin-box size). A 50px item with 10px margins in an auto
+// column makes that column 70px, and the auto row 30px.
+//
+// https://www.w3.org/TR/css-grid-1/#algo-content
+func TestGridRound1MarginsInTrackContributions(t *testing.T) {
+	item := &Node{Style: Style{Width: Px(50), Height: Px(10), Margin: Uniform(Px(10))}}
+	root := &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(50)), AutoTrack()},
+			GridTemplateRows:    []GridTrack{AutoTrack()},
+		},
+		Children: []*Node{
+			{Style: Style{GridRowStart: 0, GridColumnStart: 0}},
+			item,
+		},
+	}
+	size := LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "container width", size.Width, 120)
+	gridRound1Approx(t, "container height", size.Height, 30)
+	gridRound1Approx(t, "item X", item.Rect.X, 60)
+	gridRound1Approx(t, "item Y", item.Rect.Y, 10)
+	gridRound1Approx(t, "item width", item.Rect.Width, 50)
+	gridRound1Approx(t, "item height", item.Rect.Height, 10)
+}
+
+// TestGridRound1MarginsLogicalInVerticalModes checks that margins follow the
+// grid's logical axes in vertical writing modes: top/bottom margins lie along
+// the column axis (physical Y) and left/right along the row axis, with the
+// row-start margin being the right one in vertical-rl.
+//
+// https://www.w3.org/TR/css-writing-modes-3/#logical-to-physical
+func TestGridRound1MarginsLogicalInVerticalModes(t *testing.T) {
+	build := func(mode WritingMode) (*Node, *Node) {
+		item := &Node{Style: Style{
+			Width:     Px(20), // row axis (physical width) in vertical modes
+			AlignSelf: AlignItemsStart,
+			Margin:    Spacing{Top: Px(5), Bottom: Px(15), Left: Px(10), Right: Px(40)},
+		}}
+		root := &Node{
+			Style: Style{
+				Display:             DisplayGrid,
+				WritingMode:         mode,
+				GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+				GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
+			},
+			Children: []*Node{item},
+		}
+		return root, item
+	}
+
+	root, item := build(WritingModeVerticalLR)
+	LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+	// Column axis is Y: top margin 5, stretched height 100-5-15.
+	gridRound1Approx(t, "vertical-lr item Y", item.Rect.Y, 5)
+	gridRound1Approx(t, "vertical-lr item height", item.Rect.Height, 80)
+	// Row axis is X, rows start at the left: left margin 10.
+	gridRound1Approx(t, "vertical-lr item X", item.Rect.X, 10)
+	gridRound1Approx(t, "vertical-lr item width", item.Rect.Width, 20)
+
+	root, item = build(WritingModeVerticalRL)
+	LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "vertical-rl item Y", item.Rect.Y, 5)
+	gridRound1Approx(t, "vertical-rl item height", item.Rect.Height, 80)
+	// Rows start at the right edge: right margin 40, so the item's right edge
+	// is at 60 and its left at 40.
+	gridRound1Approx(t, "vertical-rl item X", item.Rect.X, 40)
+	gridRound1Approx(t, "vertical-rl item width", item.Rect.Width, 20)
+}

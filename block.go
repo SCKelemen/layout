@@ -133,8 +133,6 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	return constrainedSize
 }
 
-
-
 // defaultRootFontSize is the font size used when no LayoutContext is provided
 // (the CSS "medium" font size, 16px).
 const defaultRootFontSize = 16.0

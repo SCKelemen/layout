@@ -143,10 +143,11 @@ func TestLegacyBareNumberLengthsAreReadAsPx(t *testing.T) {
 }
 
 func TestLegacyBareNumberLengthsAreReadAsPxYAML(t *testing.T) {
+	skipIfNoYAML(t)
 	legacy := "style:\n  display: flex\n  width: 200\n  height: 1.5\n  padding:\n    top: 10\n"
-	out, err := FromYAML([]byte(legacy))
+	out, err := yamlDecode([]byte(legacy))
 	if err != nil {
-		t.Fatalf("FromYAML(legacy): %v", err)
+		t.Fatalf("yamlDecode(legacy): %v", err)
 	}
 	if out.Style.Width != layout.Px(200) || out.Style.Height != layout.Px(1.5) || out.Style.Padding.Top != layout.Px(10) {
 		t.Errorf("got width %+v height %+v padding.top %+v", out.Style.Width, out.Style.Height, out.Style.Padding.Top)
@@ -326,6 +327,7 @@ func TestFullStyleRoundTrip(t *testing.T) {
 }
 
 func TestYAMLRoundTrip(t *testing.T) {
+	skipIfNoYAML(t)
 	in := &layout.Node{
 		Text: "yaml",
 		Style: layout.Style{
@@ -339,7 +341,7 @@ func TestYAMLRoundTrip(t *testing.T) {
 		},
 		Children: []*layout.Node{{Style: layout.Style{Height: layout.Px(50)}}},
 	}
-	data, err := ToYAML(in)
+	data, err := yamlEncode(in)
 	if err != nil {
 		t.Fatalf("ToYAML: %v", err)
 	}
@@ -347,7 +349,7 @@ func TestYAMLRoundTrip(t *testing.T) {
 	if !strings.Contains(string(data), "flexDirection: column") || strings.Contains(string(data), "margin") {
 		t.Errorf("unexpected YAML:\n%s", data)
 	}
-	out, err := FromYAML(data)
+	out, err := yamlDecode(data)
 	if err != nil {
 		t.Fatalf("FromYAML: %v\n%s", err, data)
 	}
@@ -397,7 +399,7 @@ func TestFromJSONRejectsNonFiniteAndAbsurdFloats(t *testing.T) {
 	}
 	// YAML can express non-finite floats directly.
 	for _, input := range []string{"style:\n  flexGrow: .nan\n", "style:\n  aspectRatio: .inf\n", "style:\n  width: .inf\n"} {
-		if _, err := FromYAML([]byte(input)); err == nil {
+		if _, err := yamlDecode([]byte(input)); err == nil {
 			t.Errorf("expected error for YAML %q", input)
 		}
 	}

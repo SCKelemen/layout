@@ -64,14 +64,16 @@ func TestLegacyBareNumberForms(t *testing.T) {
 			t.Errorf("JSON %s: width %+v, gridAutoRows.maxSize %+v, want %+v", tc.in, out.Style.Width, out.Style.GridAutoRows.MaxSize, tc.want)
 		}
 
-		yamlIn := "style:\n  width: " + tc.in + "\n  gridAutoRows:\n    minSize: 0\n    maxSize: " + tc.in + "\n"
-		out, err = FromYAML([]byte(yamlIn))
-		if err != nil {
-			t.Errorf("FromYAML(%s): %v", tc.in, err)
-			continue
-		}
-		if out.Style.Width != tc.want || out.Style.GridAutoRows.MaxSize != tc.want {
-			t.Errorf("YAML %s: width %+v, gridAutoRows.maxSize %+v, want %+v", tc.in, out.Style.Width, out.Style.GridAutoRows.MaxSize, tc.want)
+		if yamlAvailable {
+			yamlIn := "style:\n  width: " + tc.in + "\n  gridAutoRows:\n    minSize: 0\n    maxSize: " + tc.in + "\n"
+			out, err = yamlDecode([]byte(yamlIn))
+			if err != nil {
+				t.Errorf("yamlDecode(%s): %v", tc.in, err)
+				continue
+			}
+			if out.Style.Width != tc.want || out.Style.GridAutoRows.MaxSize != tc.want {
+				t.Errorf("YAML %s: width %+v, gridAutoRows.maxSize %+v, want %+v", tc.in, out.Style.Width, out.Style.GridAutoRows.MaxSize, tc.want)
+			}
 		}
 	}
 
@@ -84,13 +86,15 @@ func TestLegacyBareNumberForms(t *testing.T) {
 		t.Errorf("legacy MaxFloat64 resolved to %v, want Unbounded", layout.ResolveLength(out.Style.MaxWidth, nil, 16))
 	}
 
-	// A YAML literal that overflows float64 parses to +Inf and is unbounded too.
-	out, err = FromYAML([]byte("style:\n  maxWidth: 1e309\n"))
-	if err != nil {
-		t.Fatalf("FromYAML(1e309): %v", err)
-	}
-	if out.Style.MaxWidth != layout.PxUnbounded {
-		t.Errorf("YAML 1e309 read as %+v, want PxUnbounded", out.Style.MaxWidth)
+	if yamlAvailable {
+		// A YAML literal that overflows float64 parses to +Inf and is unbounded too.
+		out, err = yamlDecode([]byte("style:\n  maxWidth: 1e309\n"))
+		if err != nil {
+			t.Fatalf("yamlDecode(1e309): %v", err)
+		}
+		if out.Style.MaxWidth != layout.PxUnbounded {
+			t.Errorf("YAML 1e309 read as %+v, want PxUnbounded", out.Style.MaxWidth)
+		}
 	}
 }
 
@@ -113,13 +117,13 @@ func TestLegacyBareNumbersOutOfRangeStillRejected(t *testing.T) {
 		if _, err := FromJSON([]byte(`{"style":{"gridTemplateRows":[{"maxSize":` + n + `}]}}`)); err == nil {
 			t.Errorf("JSON maxSize %s: expected error", n)
 		}
-		if _, err := FromYAML([]byte("style:\n  width: " + n + "\n")); err == nil {
+		if _, err := yamlDecode([]byte("style:\n  width: " + n + "\n")); err == nil {
 			t.Errorf("YAML width %s: expected error", n)
 		}
 	}
 	// Non-numeric words are not bare numbers and must not sneak in as lengths.
 	for _, n := range []string{".nan", "nan", ".inf", "inf", "-.inf", "Infinity"} {
-		if _, err := FromYAML([]byte("style:\n  width: " + n + "\n")); err == nil {
+		if _, err := yamlDecode([]byte("style:\n  width: " + n + "\n")); err == nil {
 			t.Errorf("YAML width %s: expected error", n)
 		}
 		if _, err := FromJSON([]byte(`{"style":{"width":"` + n + `"}}`)); err == nil {
@@ -146,16 +150,18 @@ func TestRectUnboundedRoundTrip(t *testing.T) {
 		t.Errorf("rect round-tripped as %+v, want %+v", out.Rect, in.Rect)
 	}
 
-	ydata, err := ToYAML(in)
-	if err != nil {
-		t.Fatalf("ToYAML(unbounded rect): %v", err)
-	}
-	out, err = FromYAML(ydata)
-	if err != nil {
-		t.Fatalf("FromYAML(unbounded rect): %v\n%s", err, ydata)
-	}
-	if out.Rect != in.Rect {
-		t.Errorf("YAML rect round-tripped as %+v, want %+v", out.Rect, in.Rect)
+	if yamlAvailable {
+		ydata, err := yamlEncode(in)
+		if err != nil {
+			t.Fatalf("yamlEncode(unbounded rect): %v", err)
+		}
+		out, err = yamlDecode(ydata)
+		if err != nil {
+			t.Fatalf("yamlDecode(unbounded rect): %v\n%s", err, ydata)
+		}
+		if out.Rect != in.Rect {
+			t.Errorf("YAML rect round-tripped as %+v, want %+v", out.Rect, in.Rect)
+		}
 	}
 
 	// A legacy file with the sentinel in rect.
@@ -182,8 +188,8 @@ func TestRectUnboundedRoundTrip(t *testing.T) {
 			t.Errorf("FromJSON(%s): expected error", input)
 		}
 	}
-	if _, err := FromYAML([]byte("style: {}\nrect:\n  x: 0\n  y: 0\n  width: .inf\n  height: 0\n")); err == nil {
-		t.Error("FromYAML(rect width .inf): expected error")
+	if _, err := yamlDecode([]byte("style: {}\nrect:\n  x: 0\n  y: 0\n  width: .inf\n  height: 0\n")); err == nil {
+		t.Error("yamlDecode(rect width .inf): expected error")
 	}
 }
 
@@ -223,7 +229,9 @@ func TestToJSONAcceptsLayoutOutputUnderUnboundedConstraints(t *testing.T) {
 			t.Errorf("child %d rect round-tripped as %+v, want %+v", i, c.Rect, root.Children[i].Rect)
 		}
 	}
-	if _, err := ToYAML(root); err != nil {
-		t.Errorf("ToYAML after Layout: %v", err)
+	if yamlAvailable {
+		if _, err := yamlEncode(root); err != nil {
+			t.Errorf("ToYAML after Layout: %v", err)
+		}
 	}
 }

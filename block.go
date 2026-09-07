@@ -1,5 +1,7 @@
 package layout
 
+import "math"
+
 // LayoutBlock performs block layout on a node.
 //
 // Algorithm based on CSS Box Model and Block Layout:
@@ -123,6 +125,12 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		Height: finalHeight,
 	})
 
+	// No layout result may carry NaN or an infinity: NaN poisons every later
+	// comparison and +Inf is not a size. Both can only arise from arithmetic on
+	// indefinite (Unbounded) inputs, so they are mapped back to 0 and Unbounded.
+	constrainedSize.Width = sanitizeSize(constrainedSize.Width)
+	constrainedSize.Height = sanitizeSize(constrainedSize.Height)
+
 	node.Rect = Rect{
 		X:      0,
 		Y:      0,
@@ -131,6 +139,24 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 
 	return constrainedSize
+}
+
+// sanitizeSize maps the two results that must never be stored as a used size
+// back onto the engine's sentinels: NaN becomes 0 and any infinity (or a value
+// beyond Unbounded, which cannot occur for finite float64) becomes Unbounded,
+// the engine's "indefinite" marker. Negative infinity is also mapped to 0 since
+// a size is never negative. Finite values are returned unchanged.
+func sanitizeSize(v float64) float64 {
+	switch {
+	case math.IsNaN(v):
+		return 0
+	case math.IsInf(v, 1):
+		return Unbounded
+	case math.IsInf(v, -1):
+		return 0
+	default:
+		return v
+	}
 }
 
 // defaultRootFontSize is the font size used when no LayoutContext is provided

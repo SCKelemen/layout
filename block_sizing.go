@@ -16,6 +16,10 @@ func blockDetermineSize(node *Node, setup *blockSetup, ctx *LayoutContext, curre
 	// These override auto sizing
 	constraints := Loose(setup.contentWidth, setup.contentHeight)
 
+	// hasAvailableWidth reports whether the available width is a definite,
+	// positive size that aspect-ratio math may transfer to the other axis.
+	hasAvailableWidth := setup.contentWidth > 0 && setup.contentWidth < Unbounded
+
 	// Handle width intrinsic sizing
 	// Check both sentinel values in Width and WidthSizing enum
 	widthValue := ResolveLength(node.Style.Width, ctx, currentFontSize)
@@ -77,7 +81,7 @@ func blockDetermineSize(node *Node, setup *blockSetup, ctx *LayoutContext, curre
 		if setup.isAutoHeight {
 			// For auto height, don't set to Unbounded initially if aspect ratio will calculate it
 			// Aspect ratio calculation happens next and will set height based on width
-			if node.Style.AspectRatio > 0 && setup.isAutoWidth && setup.contentWidth > 0 {
+			if node.Style.AspectRatio > 0 && setup.isAutoWidth && hasAvailableWidth {
 				// Will be calculated by aspect ratio below
 				nodeHeight = 0
 			} else {
@@ -86,17 +90,39 @@ func blockDetermineSize(node *Node, setup *blockSetup, ctx *LayoutContext, curre
 		}
 	}
 
+	// A negative specified size can only come from an auto sentinel that was
+	// not recognized above; it is never a usable size and would turn the ratio
+	// math below into NaN/negative results. Treat it as auto (CSS 2.1 §10.2:
+	// negative values for width/height are illegal).
+	// https://www.w3.org/TR/CSS21/visudet.html#propdef-width
+	if nodeWidth < 0 {
+		nodeWidth = setup.contentWidth
+		setup.isAutoWidth = true
+	}
+	if nodeHeight < 0 {
+		nodeHeight = setup.contentHeight
+		setup.isAutoHeight = true
+	}
+
 	// Apply aspect ratio if set (before min/max constraints)
 	// Aspect ratio affects sizing when one dimension is auto
 	// According to CSS Box Sizing Module Level 4:
 	// - When both width and height are auto, aspect ratio uses the available space
-	// - Prefer width-based calculation if available width > 0
+	// - Prefer width-based calculation if available width is definite and > 0
 	// - If available height is bounded and would constrain, use height-based instead
+	//
+	// An available size >= Unbounded is indefinite (css-sizing-3 §3) and cannot
+	// be transferred through the ratio: MaxFloat64 / ratio overflows to +Inf and
+	// MaxFloat64 * ratio is not a size. Such an axis is treated as having no
+	// available space, so the box falls back to the other axis or to its
+	// content (which is 0 for an empty block, see LayoutBlock).
+	// https://www.w3.org/TR/css-sizing-3/#definite
+	// https://www.w3.org/TR/css-sizing-4/#aspect-ratio-size-transfers
 	if node.Style.AspectRatio > 0 {
 		if setup.isAutoWidth && setup.isAutoHeight {
 			// Both auto: use available space and aspect ratio
 			// Prefer width-based calculation (use available width)
-			if setup.contentWidth > 0 {
+			if hasAvailableWidth {
 				// Use available width, calculate height from aspect ratio
 				nodeHeight = nodeWidth / node.Style.AspectRatio
 				aspectRatioCalculatedHeight = true

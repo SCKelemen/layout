@@ -237,13 +237,26 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// Explicit sizes in logical terms. In a vertical writing mode the
 		// column axis is physical height, so the style's Height applies to
 		// it and Width applies to the row axis.
+		//
+		// An item whose size in an axis is an intrinsic keyword (min-content,
+		// max-content, fit-content via WidthSizing/HeightSizing or the
+		// deprecated Size* sentinels) has a definite, content-based size in
+		// that axis: it keeps the size it was measured at instead of
+		// stretching (css-sizing-3 §4, css-align-3 §6.2).
+		// https://www.w3.org/TR/css-sizing-3/#sizing-values
 		explicitColAxis := func(limit float64) (float64, bool) {
+			if gridItemIntrinsicSizing(item.node, !isVerticalWritingMode, ctx, itemFontSize) != IntrinsicSizeNone {
+				return math.Min(measuredCol, limit), true
+			}
 			if isVerticalWritingMode {
 				return gridExplicitHeight(item.node, ctx, itemFontSize, limit)
 			}
 			return gridExplicitWidth(item.node, ctx, itemFontSize, limit)
 		}
 		explicitRowAxis := func(limit float64) (float64, bool) {
+			if gridItemIntrinsicSizing(item.node, isVerticalWritingMode, ctx, itemFontSize) != IntrinsicSizeNone {
+				return math.Min(measuredRow, limit), true
+			}
 			if isVerticalWritingMode {
 				return gridExplicitWidth(item.node, ctx, itemFontSize, limit)
 			}
@@ -1143,6 +1156,36 @@ func gridTracksTotal(sizes []float64, gap float64) float64 {
 		return 0
 	}
 	return sumSizes(sizes) + gap*float64(len(sizes)-1)
+}
+
+// gridItemIntrinsicSizing returns the intrinsic sizing keyword requested for an
+// item's physical width (isWidth) or height, or IntrinsicSizeNone. Both the
+// WidthSizing/HeightSizing field and the deprecated SizeMinContent /
+// SizeMaxContent / SizeFitContent sentinels stored in Width/Height are
+// recognized, the same way block and flex layout do.
+//
+// CSS Sizing Module Level 3 §4: intrinsic size keywords.
+// See: https://www.w3.org/TR/css-sizing-3/#sizing-values
+func gridItemIntrinsicSizing(n *Node, isWidth bool, ctx *LayoutContext, fontSize float64) IntrinsicSize {
+	length, sizing := n.Style.Height, n.Style.HeightSizing
+	if isWidth {
+		length, sizing = n.Style.Width, n.Style.WidthSizing
+	}
+	if sizing != IntrinsicSizeNone {
+		return sizing
+	}
+	if isUnsetLength(length) {
+		return IntrinsicSizeNone
+	}
+	switch ResolveLength(length, ctx, fontSize) {
+	case SizeMinContent:
+		return IntrinsicSizeMinContent
+	case SizeMaxContent:
+		return IntrinsicSizeMaxContent
+	case SizeFitContent:
+		return IntrinsicSizeFitContent
+	}
+	return IntrinsicSizeNone
 }
 
 // gridExplicitWidth returns the box-sizing-aware used width for a grid item that

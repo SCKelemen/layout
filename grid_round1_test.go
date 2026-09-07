@@ -71,3 +71,58 @@ func TestGridRound1ItemFontSizeFromContext(t *testing.T) {
 	gridRound1Approx(t, "item width", root.Children[0].Rect.Width, 60)
 	gridRound1Approx(t, "item height", root.Children[0].Rect.Height, 60)
 }
+
+// gridRound1IntrinsicGrid returns a 200px-wide single-cell grid whose item has
+// a single 50px child, so the item's min-content and max-content widths are
+// both 50px.
+func gridRound1IntrinsicGrid(item *Node) *Node {
+	item.Children = []*Node{{Style: Style{Width: Px(50), Height: Px(20)}}}
+	return &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			Width:               Px(200),
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(200))},
+		},
+		Children: []*Node{item},
+	}
+}
+
+// TestGridRound1ItemWidthSizingMinContent checks that a grid item with
+// WidthSizing: IntrinsicSizeMinContent is sized to its min-content width and
+// is not stretched to the cell (css-sizing-3 §4, css-align-3 §6.2).
+//
+// https://www.w3.org/TR/css-sizing-3/#sizing-values
+func TestGridRound1ItemWidthSizingMinContent(t *testing.T) {
+	item := &Node{Style: Style{WidthSizing: IntrinsicSizeMinContent}}
+	root := gridRound1IntrinsicGrid(item)
+	LayoutGrid(root, Loose(200, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item width", item.Rect.Width, 50)
+	gridRound1Approx(t, "item X", item.Rect.X, 0)
+	// align-items: stretch still applies in the row axis.
+	gridRound1Approx(t, "item height", item.Rect.Height, 100)
+}
+
+// TestGridRound1ItemMinContentWidthSentinel checks that the deprecated
+// MinContentWidth() helper (Width = SizeMinContent sentinel) is honored the
+// same way as WidthSizing, instead of being read as auto and stretched.
+func TestGridRound1ItemMinContentWidthSentinel(t *testing.T) {
+	item := MinContentWidth(&Node{})
+	root := gridRound1IntrinsicGrid(item)
+	LayoutGrid(root, Loose(200, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item width", item.Rect.Width, 50)
+	gridRound1Approx(t, "item X", item.Rect.X, 0)
+}
+
+// TestGridRound1ItemIntrinsicWidthAlignedEnd checks that an intrinsically
+// sized item still follows justify-self.
+func TestGridRound1ItemIntrinsicWidthAlignedEnd(t *testing.T) {
+	item := &Node{Style: Style{WidthSizing: IntrinsicSizeMaxContent, JustifySelf: JustifyItemsEnd}}
+	root := gridRound1IntrinsicGrid(item)
+	LayoutGrid(root, Loose(200, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item width", item.Rect.Width, 50)
+	gridRound1Approx(t, "item X", item.Rect.X, 150)
+}

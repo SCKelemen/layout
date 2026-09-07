@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Enum `String()` and `Parse<Enum>()` for every CSS-like enum** (`enums.go`): `Display`, `FlexDirection`, `FlexWrap`, `JustifyContent`, `AlignItems`, `JustifyItems`, `AlignContent`, `GridAutoFlow`, `BoxSizing`, `Position`, `TextAlign`, `TextAlignLast`, `TextJustify`, `WhiteSpace`, `TextOverflow`, `OverflowWrap`, `WordBreak`, `TextTransform`, `Hyphens`, `HangingPunctuation`, `Direction`, `WritingMode`, `FontStyle`, `TextDecorationStyle`, `VerticalAlign`, `IntrinsicSize`, and `InlineBoxKind`. `String()` returns the CSS keyword (`"flex-start"`, `"space-between"`, `"inline-text"`, ...) or `"Display(7)"` for an out-of-range value; `Parse` accepts the keyword, plus the css-align-3 aliases `"start"`/`"end"` for the alignment enums and `"row dense"`/`"column dense"` for `grid-auto-flow`, and returns an error listing the valid keywords otherwise. The alias constants (`JustifyContentStart`, `AlignItemsEnd`, ...) format as the canonical `flex-start`/`flex-end`.
+- **serialize:** `style.direction` (`layout.Style.Direction`) and `gridTemplateRowsRepeat` / `gridTemplateColumnsRepeat` (`[]layout.RepeatTrack`) round-trip. A repeat `count` is an integer in `[1, MaxRepeatCount]` (10000) or the keyword `"auto-fill"` / `"auto-fit"`; each pattern needs at least one track. New `serialize.MaxRepeatCount` and `serialize.ErrNullInput`.
+
+### Fixed
+
+- **serialize:** `FromJSON`/`FromYAML` of a bare `null` (or an empty YAML document) returned an empty node with a nil error; they now return `ErrNullInput`. `ToJSON`/`ToYAML` now enforce `MaxChildren` on children and track lists (only the depth cap was enforced on encode, although the docs said otherwise), so anything the encoder produces is accepted by the decoder. The wire keywords now come from the enums' `String`/`Parse` pairs instead of duplicated tables, which also makes `justifyContent: stretch`, `alignContent: space-evenly`, and the `start`/`end` aliases decodable. The serialize README no longer describes `-1px` as an auto sentinel or `gopkg.in/yaml.v3` as an optional install.
+
 ## [v1.4.0] - 2026-09-07
 
 Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).

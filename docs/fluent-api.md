@@ -30,7 +30,7 @@ The fluent API is designed with these principles:
 
 Unlike wrapper-based fluent APIs (e.g., `NodeFluent` struct), this library implements fluent methods **directly on `*Node`**:
 
-```go
+```text
 // Methods are on *Node itself
 func (n *Node) WithPadding(amount float64) *Node
 func (n *Node) FindAll(predicate func(*Node) bool) []*Node
@@ -64,7 +64,8 @@ Find and traverse nodes in your tree:
 Create modified copies without changing originals:
 - `Clone()`, `CloneDeep()`
 - `WithStyle()`, `WithPadding()`, `WithMargin()`
-- `WithWidth()`, `WithHeight()`, `WithDisplay()`
+- `WithWidth()`, `WithHeight()` (pixels), `WithWidthLength()`, `WithHeightLength()` (any `Length`)
+- `WithDisplay()`, `WithText()`, `WithFlexGrow()`, `WithFlexShrink()`
 - `WithChildren()`, `AddChild()`, `AddChildren()`
 - `RemoveChildAt()`, `ReplaceChildAt()`, `InsertChildAt()`
 
@@ -81,7 +82,8 @@ Apply operations across the tree:
 - `Map(transform)` - apply to all nodes
 - `Filter(predicate)` - shallow filtering
 - `FilterDeep(predicate)` - recursive filtering
-- `Fold(initial, fn)` - reduce to single value
+- `Fold(initial, fn)` - reduce to single value (`interface{}` based)
+- `FoldNodes(root, initial, fn)` - generic, type-safe fold (package-level function)
 - `FoldWithContext(initial, fn)` - fold with depth info
 
 ## Core Concepts
@@ -91,23 +93,23 @@ Apply operations across the tree:
 All fluent methods follow copy-on-write semantics:
 
 ```go
-original := &Node{Style: Style{Width: 100}}
+original := &Node{Style: Style{Width: Px(100)}}
 
 // These create new nodes; original is unchanged
 modified1 := original.WithPadding(10)
 modified2 := original.WithMargin(20)
 
-fmt.Printf("Original width: %.0f\n", original.Style.Width)     // 100
-fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top) // 0
-fmt.Printf("Modified padding: %.0f\n", modified1.Style.Padding.Top) // 10
+fmt.Printf("Original width: %.0f\n", original.Style.Width.Value)     // 100
+fmt.Printf("Original padding: %.0f\n", original.Style.Padding.Top.Value) // 0
+fmt.Printf("Modified padding: %.0f\n", modified1.Style.Padding.Top.Value) // 10
 ```
 
 **Two types of cloning:**
 
 1. **Shallow Clone** (`Clone()`) - Copies node struct, shares Children slice
    - Fast (O(1))
-   - Use for style modifications
-   - Children array is shared until modified
+   - Use for scalar style modifications
+   - Children array is shared until modified; so are the pointers inside `Style` (`GridTemplateRows/Columns`, `GridTemplateAreas`, `ContainerName`, `TextStyle`) and `TextLayout`
 
 2. **Deep Clone** (`CloneDeep()`) - Recursively copies entire subtree
    - Slower (O(n) where n = node count)
@@ -117,12 +119,12 @@ fmt.Printf("Modified padding: %.0f\n", modified1.Style.Padding.Top) // 10
 ```go
 // Shallow clone - shares children
 copy := original.Clone()
-copy.Style.Width = 200
+copy.Style.Width = Px(200)
 // original.Children and copy.Children point to same array
 
 // Deep clone - independent copy
 independent := original.CloneDeep()
-independent.Children[0].Style.Width = 300
+independent.Children[0].Style.Width = Px(300)
 // original.Children[0] unchanged
 ```
 
@@ -206,12 +208,12 @@ count := root.ChildCount()
 ```go
 // Find first matching node
 wide := root.Find(func(n *Node) bool {
-    return n.Style.Width > 150
+    return n.Style.Width.Value > 150
 })
 
 // Find all matching nodes
 allWide := root.FindAll(func(n *Node) bool {
-    return n.Style.Width > 100
+    return n.Style.Width.Value > 100
 })
 
 // Where is an alias for FindAll (LINQ-style)
@@ -244,7 +246,7 @@ flexContainers := root.FindAll(func(n *Node) bool {
 
 // By size
 smallNodes := root.FindAll(func(n *Node) bool {
-    return n.Style.Width < 100 && n.Style.Height < 100
+    return n.Style.Width.Value < 100 && n.Style.Height.Value < 100
 })
 
 // By text content
@@ -274,7 +276,7 @@ allVisible := root.All(func(n *Node) bool {
 All `WithX` methods clone the node, modify the clone, and return it:
 
 ```go
-node := &Node{Style: Style{Width: 100}}
+node := &Node{Style: Style{Width: Px(100)}}
 
 // Individual style properties
 padded := node.WithPadding(10)
@@ -291,13 +293,19 @@ customMargin := node.WithMarginCustom(5, 10, 5, 10)
 // Replace entire style
 newStyle := node.WithStyle(Style{
     Display: DisplayFlex,
-    Width:   300,
-    Padding: Uniform(16),
+    Width:   Px(300),
+    Padding: Uniform(Px(16)),
 })
 
-// Add text content
+// Add text content (sets Node.Text only; use Text() to create a text node)
 withText := node.WithText("Hello, World!")
+
+// Any Length unit; Length{} resets a dimension to auto
+fluid := node.WithWidthLength(Vw(50)).WithHeightLength(Em(20))
+autoHeight := node.WithHeightLength(Length{})
 ```
+
+`WithWidth`/`WithHeight` always produce pixels, so `WithWidth(0)` is an explicit zero width, not auto.
 
 ### Children Modifications
 
@@ -347,7 +355,7 @@ func CreateCard(title, body string, width float64) *Node {
         WithStyle(Style{
             Display:       DisplayFlex,
             FlexDirection: FlexDirectionColumn,
-            Width:         width,
+            Width:         Px(width),
         }).
         WithPadding(16).
         WithMargin(8).
@@ -458,12 +466,12 @@ if ctx.IsRoot() {
 
 // Check if has parent
 if ctx.HasParent() {
-    parent := ctx.Parent()
+    fmt.Printf("Parent depth: %d\n", ctx.Parent().Depth())
 }
 
 // Check if has children
 if ctx.HasChildren() {
-    children := ctx.Children()
+    fmt.Printf("%d children\n", len(ctx.Children()))
 }
 ```
 
@@ -471,7 +479,7 @@ if ctx.HasChildren() {
 
 ### Transform - Selective Modification
 
-Apply a transformation to nodes matching a predicate:
+Apply a transformation to nodes matching a predicate. The callback receives a shallow clone; the recursion continues over the children of the node it returns (so child-list edits are kept), and returning `nil` removes the node from its parent:
 
 ```go
 root := HStack(
@@ -483,10 +491,10 @@ root := HStack(
 // Double width of nodes under 200px
 doubled := root.Transform(
     func(n *Node) bool {
-        return n.Style.Width > 0 && n.Style.Width < 200
+        return n.Style.Width.Value > 0 && n.Style.Width.Value < 200
     },
     func(n *Node) *Node {
-        return n.WithWidth(n.Style.Width * 2)
+        return n.WithWidth(n.Style.Width.Value * 2)
     },
 )
 // Result: widths are 200, 200 (unchanged), 300
@@ -500,8 +508,8 @@ Apply a transformation to every node in the tree:
 // Scale entire tree by 1.5x
 scaled := root.Map(func(n *Node) *Node {
     return n.
-        WithWidth(n.Style.Width * 1.5).
-        WithHeight(n.Style.Height * 1.5)
+        WithWidth(n.Style.Width.Value * 1.5).
+        WithHeight(n.Style.Height.Value * 1.5)
 })
 
 // Add uniform padding to all nodes
@@ -523,7 +531,7 @@ root := HStack(
 
 // Keep only wide children
 wide := root.Filter(func(n *Node) bool {
-    return n.Style.Width >= 200
+    return n.Style.Width.Value >= 200
 })
 // Result: root with 1 child (200px wide node)
 ```
@@ -559,7 +567,7 @@ Accumulate a value across the entire tree:
 ```go
 // Sum all widths
 totalWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
-    return acc.(float64) + n.Style.Width
+    return acc.(float64) + n.Style.Width.Value
 }).(float64)
 
 // Count nodes
@@ -570,8 +578,8 @@ nodeCount := root.Fold(0, func(acc interface{}, n *Node) interface{} {
 // Find maximum width
 maxWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
     current := acc.(float64)
-    if n.Style.Width > current {
-        return n.Style.Width
+    if n.Style.Width.Value > current {
+        return n.Style.Width.Value
     }
     return current
 }).(float64)
@@ -585,6 +593,30 @@ allText := root.Fold([]string{}, func(acc interface{}, n *Node) interface{} {
     return list
 }).([]string)
 ```
+
+### FoldNodes - Type-Safe Fold
+
+`FoldNodes` is the generic form of `Fold`: no `interface{}` boxing or type assertions. It visits the root first, then descendants in depth-first pre-order.
+
+```go
+// Sum all pixel widths
+totalWidth := FoldNodes(root, 0.0, func(acc float64, n *Node) float64 {
+    return acc + n.Style.Width.Value
+})
+
+// Count nodes
+nodeCount := FoldNodes(root, 0, func(acc int, _ *Node) int { return acc + 1 })
+
+// Collect text
+allText := FoldNodes(root, []string(nil), func(acc []string, n *Node) []string {
+    if n.Text != "" {
+        acc = append(acc, n.Text)
+    }
+    return acc
+})
+```
+
+Prefer `FoldNodes` in new code; `Fold` and `FoldWithContext` remain for compatibility.
 
 ### FoldWithContext - Fold with Depth
 
@@ -606,7 +638,7 @@ depthWidths := root.FoldWithContext(
     make(map[int]float64),
     func(acc interface{}, n *Node, depth int) interface{} {
         m := acc.(map[int]float64)
-        m[depth] += n.Style.Width
+        m[depth] += n.Style.Width.Value
         return m
     },
 ).(map[int]float64)
@@ -638,14 +670,14 @@ func CreateMetricCard(title string, value string, trend float64) *Node {
         WithStyle(Style{
             Display:       DisplayFlex,
             FlexDirection: FlexDirectionColumn,
-            Width:         200,
+            Width:         Px(200),
         }).
         WithPadding(16).
         WithMargin(8).
         AddChildren(
             (&Node{}).WithText(title).WithHeight(24),
             (&Node{}).WithText(value).WithHeight(48),
-            (&Node{}).WithText(fmt.Sprintf("%.1f%%", trend)).WithHeight(20),
+            (&Node{}).WithText(fmt.Sprintf("%.1f%% (%s)", trend, trendColor)).WithHeight(20),
         )
 }
 
@@ -663,7 +695,7 @@ dashboard := (&Node{}).
     )
 
 // Layout the dashboard
-Layout(dashboard, Loose(1000, 600))
+LayoutSimple(dashboard, Loose(1000, 600))
 ```
 
 ### Example 2: Conditional Styling
@@ -722,7 +754,7 @@ func AnalyzeTree(root *Node) {
     totalPadding := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
         sum := acc.(float64)
         p := n.Style.Padding
-        return sum + p.Top + p.Right + p.Bottom + p.Left
+        return sum + p.Top.Value + p.Right.Value + p.Bottom.Value + p.Left.Value
     }).(float64)
 
     fmt.Printf("Display types: %v\n", displayCounts)
@@ -756,8 +788,8 @@ scaled := root.Transform(
     },
     func(n *Node) *Node {
         return n.
-            WithWidth(n.Style.Width * 1.2).
-            WithHeight(n.Style.Height * 1.2)
+            WithWidth(n.Style.Width.Value * 1.2).
+            WithHeight(n.Style.Height.Value * 1.2)
     },
 )
 ```
@@ -780,6 +812,7 @@ if headerCtx != nil {
 
     // Note: This creates a new node, but doesn't replace it in tree
     // For structural changes, you need to rebuild or use Transform
+    fmt.Println(updatedHeader.Text) // Updated Header
 }
 
 // Better approach: Transform the tree
@@ -806,11 +839,11 @@ The fluent API is fully compatible with the classic API. You can mix and match:
 node := &Node{
     Style: Style{
         Display: DisplayFlex,
-        Width:   200,
+        Width:   Px(200),
     },
     Children: []*Node{
-        {Style: Style{Width: 100}},
-        {Style: Style{Width: 100}},
+        {Style: Style{Width: Px(100)}},
+        {Style: Style{Width: Px(100)}},
     },
 }
 
@@ -864,12 +897,12 @@ These produce identical trees:
 classic := &Node{
     Style: Style{
         Display: DisplayFlex,
-        Width:   200,
-        Padding: Uniform(10),
-        Margin:  Uniform(8),
+        Width:   Px(200),
+        Padding: Uniform(Px(10)),
+        Margin:  Uniform(Px(8)),
     },
     Children: []*Node{
-        {Style: Style{Width: 100}},
+        {Style: Style{Width: Px(100)}},
     },
 }
 
@@ -882,8 +915,8 @@ fluent := (&Node{}).
     AddChild((&Node{}).WithWidth(100))
 
 // After layout, both trees have identical rects
-Layout(classic, Loose(400, 600))
-Layout(fluent, Loose(400, 600))
+LayoutSimple(classic, Loose(400, 600))
+LayoutSimple(fluent, Loose(400, 600))
 // classic.Children[0].Rect == fluent.Children[0].Rect
 ```
 
@@ -908,19 +941,19 @@ For performance-critical code, consider:
    ```go
    // Instead of chaining many WithX calls:
    result := node.WithStyle(Style{
-       Padding: Uniform(10),
-       Margin:  Uniform(8),
-       Width:   200,
-       Height:  150,
+       Padding: Uniform(Px(10)),
+       Margin:  Uniform(Px(8)),
+       Width:   Px(200),
+       Height:  Px(150),
    })
    ```
 
 2. **Use classic API for bulk operations:**
    ```go
    node := &Node{}
-   node.Style.Padding = Uniform(10)
-   node.Style.Margin = Uniform(8)
-   node.Style.Width = 200
+   node.Style.Padding = Uniform(Px(10))
+   node.Style.Margin = Uniform(Px(8))
+   node.Style.Width = Px(200)
    // Direct mutation is faster for initialization
    ```
 
@@ -932,7 +965,7 @@ Multiple transformations create intermediate trees:
 // This walks the tree 3 times and creates 3 copies
 result := root.
     Filter(onlyVisible).
-    Transform(applyTheme).
+    Transform(isFlex, applyTheme).
     Map(addPadding)
 ```
 
@@ -961,9 +994,9 @@ Use early-terminating methods when possible.
 
 ### Memory Usage
 
-- **Shallow clone** (`Clone`): ~48 bytes (one Node struct)
-- **Deep clone** (`CloneDeep`): ~48 bytes × node count
-- **Copy-on-write**: Children arrays shared until modified
+- **Shallow clone** (`Clone`): one `Node` struct (the `Style` is embedded by value, so about 1.3 KB on 64-bit); the `Children` slice and the pointers inside `Style` (`GridTemplateRows/Columns`, `GridTemplateAreas`, `ContainerName`, `TextStyle`) and `TextLayout` are shared
+- **Deep clone** (`CloneDeep`): one `Node` per node in the subtree, with those shared parts copied as well
+- **Copy-on-write**: `Children` slices are re-created only by the child-modifying methods
 
 Large trees with many transformations can allocate significantly. Profile and optimize hot paths if needed.
 
@@ -997,7 +1030,7 @@ target := root.Find(condition)
 if target == nil {
     target = createDefault()
 }
-result := target.WithPadding(10)
+result = target.WithPadding(10)
 ```
 
 ### 3. Avoid Excessive Cloning
@@ -1018,7 +1051,7 @@ node = node.AddChildren(children...)
 // Bad - manual recursion
 func updateAll(n *Node) *Node {
     clone := n.Clone()
-    clone.Style.Padding = Uniform(10)
+    clone.Style.Padding = Uniform(Px(10))
     for i, child := range n.Children {
         clone.Children[i] = updateAll(child)
     }
@@ -1040,13 +1073,13 @@ When writing functions that take `*Node`:
 // ProcessTree analyzes the tree without modifying it.
 // Returns a new tree with transformations applied.
 func ProcessTree(root *Node) *Node {
-    return root.Transform(...)
+    return root.Map(func(n *Node) *Node { return n.WithPadding(10) })
 }
 
 // If you DO mutate, document it:
 // MutateTree modifies the input tree in place.
 func MutateTree(root *Node) {
-    root.Style.Width = 200
+    root.Style.Width = Px(200)
 }
 ```
 
@@ -1091,8 +1124,8 @@ When writing tests, verify equivalence:
 func TestFluentEquivalence(t *testing.T) {
     // Classic
     classic := &Node{
-        Style: Style{Width: 200, Padding: Uniform(10)},
-        Children: []*Node{{Style: Style{Width: 100}}},
+        Style: Style{Width: Px(200), Padding: Uniform(Px(10))},
+        Children: []*Node{{Style: Style{Width: Px(100)}}},
     }
 
     // Fluent
@@ -1102,8 +1135,8 @@ func TestFluentEquivalence(t *testing.T) {
         AddChild((&Node{}).WithWidth(100))
 
     // Layout both
-    Layout(classic, Loose(400, 600))
-    Layout(fluent, Loose(400, 600))
+    LayoutSimple(classic, Loose(400, 600))
+    LayoutSimple(fluent, Loose(400, 600))
 
     // Assert equivalence
     if classic.Rect != fluent.Rect {

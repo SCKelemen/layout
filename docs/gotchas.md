@@ -1,372 +1,184 @@
-# Common Gotchas and Pitfalls
+# Gotchas
 
-This document covers common issues and unexpected behaviors when using the layout library. These behaviors match the CSS Grid and Flexbox specifications, but may be surprising if you're not familiar with them.
+Behaviors that follow the CSS specifications (or this library's Go representation of them) but regularly surprise people. Items marked **v1.4.0+** changed in that release; see [CHANGELOG.md](../CHANGELOG.md) for the full list of behavior changes.
 
-## Grid Auto Rows and Empty Items
+## Lengths
 
-### The Problem
+### Unset means auto, `Px(0)` means zero (v1.4.0+)
 
-When using auto-sized grid rows (`AutoTrack()`), items without content and without `MinHeight` will measure to **0 height**, causing rows to collapse.
-
-### Example
+A `Length` you never assign has `Unit == ""` and is read as the CSS initial value `auto`. `Px(0)` is a real zero.
 
 ```go
-grid := layout.GridAuto(2, 2) // Auto-sized rows
-
-// ❌ This will collapse to 0 height
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridColumnStart: 0,
-        // No MinHeight, no content = 0 height!
-    },
-}
-
-// ✅ This works correctly
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridColumnStart: 0,
-        MinHeight: 50.0, // Required for auto rows!
-    },
-}
+autoWidth := &layout.Node{Children: []*layout.Node{{Style: layout.Style{Height: layout.Px(10)}}}}
+zeroWidth := &layout.Node{Style: layout.Style{Width: layout.Px(0)}, Children: []*layout.Node{{Style: layout.Style{Height: layout.Px(10)}}}}
+layout.LayoutSimple(autoWidth, layout.Loose(300, 300))
+layout.LayoutSimple(zeroWidth, layout.Loose(300, 300))
+fmt.Println(autoWidth.Rect.Width, zeroWidth.Rect.Width) // 300 0
 ```
 
-### Why This Happens
+This applies to `Width`, `Height`, `FlexBasis`, `Top`/`Right`/`Bottom`/`Left`, and the gap longhands. Code that used to test `Style.Width.Value == 0` for "not set" must test `Style.Width.Unit == ""` instead; `-1` is not an auto sentinel anywhere except grid line indices.
 
-This behavior matches the [CSS Grid specification](https://www.w3.org/TR/css-grid-1/). In CSS Grid:
+### `FlexBasis: Px(0)` is a real zero basis (v1.4.0+)
 
-- Auto-sized rows determine their height based on the **content** of items in that row
-- If an item has no content (no children, no text) and no `min-height`, it has **0 intrinsic height**
-- Rows with only 0-height items will collapse to 0 height
+Two items with `FlexGrow: 1, FlexBasis: Px(0)` in a 400px row are 200/200 regardless of their content. Leave `FlexBasis` unset to get `auto` (the item's main size, or its content size).
 
-### Solutions
+### `layout.Text()` no longer seeds `Px(0)` (v1.4.0+)
 
-**Option 1: Set MinHeight on all items** (Recommended)
+Text nodes leave `Width`/`Height` unset, so they size to their content as block children, flex items, and grid items. Set `Width` when you want a specific breaking width.
+
+### Container-query units resolve to 0 in the layout pass
+
+`Layout`, `LayoutSimple`, and `ResolveLength` have no ancestor information, so `Cqw(50)` is 0 there. Resolve `cq*` values yourself with `ResolveLengthInContext(l, ctx, fontSize, layout.NewContext(root)...)` and store the result as `Px` before layout.
+
+### Viewport units need a viewport
+
+`LayoutSimple` takes the viewport from the constraints. With `Unconstrained()` (or any unbounded axis) that dimension is 0 and `Vw(50)` resolves to 0. Use `Layout` with `NewLayoutContext(w, h, fontSize)` when you mix unbounded constraints with viewport units. `vi`, `vb`, and the `sv*`/`lv*`/`dv*` variants always resolve to 0.
+
+### Other CSS Values Level 4 units
+
+`lh`, `rlh`, `ex`, `cap`, `ic`, and friends have no `layout.` constructor; use `units.Lh(2)` (from `github.com/SCKelemen/units`) or `layout.Length{Value: 2, Unit: "lh"}`. They are approximated from the font size.
+
+## Gaps
+
+### Flex row/column gaps follow the flex direction (v1.4.0+)
+
+`FlexRowGap` is the gap between rows and `FlexColumnGap` the gap between columns, as in CSS. In a `column` container the gap between items is therefore `FlexRowGap`, and `FlexColumnGap` separates wrapped lines.
+
+### A `Px(0)` longhand overrides the shorthand (v1.4.0+)
+
+`FlexColumnGap: Px(0)` cancels `FlexGap: Px(10)` between items in a row; `GridRowGap: Px(0)` cancels `GridGap` between rows. Only an unset longhand falls back to the shorthand.
 
 ```go
-item := layout.MinHeight(&layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridColumnStart: 0,
-    },
-}, 50.0)
+row := layout.HStack(layout.Fixed(50, 50), layout.Fixed(50, 50))
+row.Style.FlexGap = layout.Px(10)
+row.Style.FlexColumnGap = layout.Px(0)
+layout.LayoutSimple(row, layout.Loose(800, 600))
+fmt.Println(row.Children[1].Rect.X) // 50, not 60
 ```
 
-**Option 2: Use fixed-size rows instead of auto**
+## Block layout
+
+### Margins collapse, including through parents (v1.4.0+)
+
+Vertical margins between siblings collapse to the larger one (or largest positive plus most negative). A block's top margin collapses with its first in-flow child's top margin when nothing separates them, and the bottom margins collapse when the block's height is auto, so the child ends up at the parent's origin and the margin moves outside the parent:
 
 ```go
-// Instead of AutoTrack()
-gridRows := []layout.GridTrack{
-    layout.FixedTrack(100),
-    layout.FixedTrack(100),
-}
+root := &layout.Node{Children: []*layout.Node{{Children: []*layout.Node{
+	{Style: layout.Style{Height: layout.Px(50), Margin: layout.Spacing{Top: layout.Px(20), Bottom: layout.Px(30)}}},
+}}}}
+layout.LayoutSimple(root, layout.Loose(300, layout.Unbounded))
+parent := root.Children[0]
+fmt.Println(parent.Rect.Y, parent.Rect.Height, parent.Children[0].Rect.Y, root.Rect.Height) // 20 50 0 100
 ```
 
-**Option 3: Use minmax() tracks** (when implemented)
-
-```go
-// This would ensure rows have a minimum height
-gridRows := []layout.GridTrack{
-    layout.MinMaxTrack(50, layout.Unbounded), // min 50px, max auto
-}
-```
-
-### Height vs MinHeight
-
-Both `Height` and `MinHeight` work for auto rows, but they behave slightly differently:
-
-- **`Height`**: Explicit height. Item will be exactly this tall (unless constrained).
-- **`MinHeight`**: Minimum height. Item will be at least this tall, but can grow if it has content.
-
-For auto rows, **both work**, but `MinHeight` is more flexible:
-
-```go
-// Using Height (explicit)
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridColumnStart: 0,
-        Height: 50.0, // Item will be exactly 50px
-    },
-}
-
-// Using MinHeight (recommended for auto rows)
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridColumnStart: 0,
-        MinHeight: 50.0, // Item will be at least 50px, can grow
-    },
-}
-```
-
-### Best Practice
-
-When using auto-sized grid rows, **always set `MinHeight` (or `Height`) on items** that don't have content:
-
-```go
-grid := layout.GridAuto(3, 3)
-for i := 0; i < 9; i++ {
-    item := &layout.Node{
-        Style: layout.Style{
-            GridRowStart: i / 3,
-            GridColumnStart: i % 3,
-            MinHeight: 100.0, // Always set this!
-        },
-    }
-    grid.Children = append(grid.Children, item)
-}
-```
-
-## Items Spanning Multiple Rows
-
-### How Spanning Works
-
-When an item spans multiple auto rows, its height is **distributed** across those rows:
-
-```go
-// Item spanning 3 rows with MinHeight 300
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0, GridRowEnd: 3, // Spans rows 0, 1, 2
-        GridColumnStart: 0, GridColumnEnd: 1,
-        MinHeight: 300.0, // This height is distributed: 100px per row
-    },
-}
-```
-
-### Row Height Calculation
-
-- Each row gets at least `itemHeight / spanRows` height from the spanning item
-- If multiple items span the same row, the row uses the **maximum** required height
-- **Spanning items always fill their cell** - their final height equals the sum of the row heights they span (plus gaps between rows)
-- Single-row items in auto rows use their intrinsic size (content + MinHeight)
-
-### Example
-
-```go
-grid := layout.GridAuto(4, 2, 100, 100)
-
-// Item spanning 3 rows
-item1 := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0, GridRowEnd: 3, // Spans rows 0-2
-        MinHeight: 300.0, // Distributed: 100px per row
-    },
-}
-
-// Items in individual rows
-item2 := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0, GridRowEnd: 1, // Row 0
-        MinHeight: 150.0, // Row 0 needs 150px (max of 100 and 150)
-    },
-}
-
-// Result:
-// - Row 0: 150px (max of 100 from item1, 150 from item2)
-// - Row 1: 100px (from item1)
-// - Row 2: 100px (from item1)
-// - item1 final height: 150 + 8 + 100 + 8 + 100 = 366px (with 8px gaps)
-//   Note: Spanning items always fill their cell, even in auto rows
-```
+Add padding or a border to the parent to keep the margin inside it. Flex and grid containers, text boxes, and absolutely positioned boxes never collapse through.
 
-### Important Notes
+### Margins do not collapse in flex or grid
 
-- **MinHeight is still required** for spanning items in auto rows
-- The spanning item's height may be **larger** than its MinHeight if other items in those rows require more space
-- Row gaps are included in the spanning item's total height
+Two adjacent flex items with `Margin: Uniform(Px(10))` are 20px apart.
 
-## Fixed Rows vs Auto Rows
+## Grid
 
-### Fixed Rows
+### Empty items in auto rows are 0px tall
 
-Items in **fixed-size rows** will stretch to fill the cell height (CSS Grid default `align-items: stretch` behavior):
+An `AutoTrack()` row sizes to its content. An item with no children, no text, and no `Height`/`MinHeight` contributes 0, so the row collapses. Give such items a `MinHeight` (`layout.MinHeight(item, 50)`) or use fixed tracks.
 
-```go
-gridRows := []layout.GridTrack{
-    layout.FixedTrack(100), // Fixed 100px height
-}
-// Items in this row will be 100px tall (minus margins)
-// Spanning items will be: (rowHeight * spanRows) + (gap * (spanRows - 1))
-```
+### Explicit placement uses 0-based, end-exclusive lines
 
-### Auto Rows
+`GridRowStart: 1, GridRowEnd: 2` is the second row. Setting only `GridRowStart: 0` (with `GridRowEnd` left at 0) is indistinguishable from an unset item and is auto-placed; set `GridRowEnd: 1` for an explicit first row. `-1` is auto.
 
-Items in **auto-sized rows** use their intrinsic size (content + MinHeight):
+### Stretch respects explicit sizes
 
-```go
-gridRows := []layout.GridTrack{
-    layout.AutoTrack(), // Auto-sized based on content
-}
-// Items in this row will be their measured height (content + MinHeight)
-// If no content and no MinHeight, items will be 0 height
-// Spanning items distribute their height across the spanned rows
-```
+With the default `stretch` alignment, an item with an explicit `Width`/`Height` (or `WidthSizing`/`HeightSizing`) keeps that size and sits at the start of its area; only auto items fill the cell.
 
-## Margin and Padding
+### `repeat(auto-fill)` lives in a different field
 
-### Margins in Flexbox/Grid
+`RepeatTracks(layout.RepeatCountAutoFill, ...)` returns an empty slice. Put `AutoFillTracks(...)`/`AutoFitTracks(...)` in `Style.GridTemplateColumnsRepeat` or `GridTemplateRowsRepeat`; the tracks are appended after `GridTemplateColumns`/`Rows` during layout.
 
-Margins are fully supported and work as expected:
+## Positioning
 
-```go
-item := layout.Margin(layout.Fixed(100, 50), 10)
-// Item will have 10px margin on all sides
-```
+### The containing block is the nearest positioned ancestor (v1.4.0+)
 
-### Margins Don't Collapse
+An absolute box is placed relative to the padding box of the nearest ancestor whose `Position` is not static, not its direct parent. Static ancestors are skipped; without any positioned ancestor the root is used. `Rect` stays parent-relative, so the coordinates of an absolute child of a static parent can be negative.
 
-Unlike block layout, margins **don't collapse** in Flexbox and Grid (CSS-compliant behavior):
+### Positioned boxes need `LayoutWithPositioning`
 
-```go
-// These margins won't collapse - you'll get 20px total spacing
-item1 := layout.Margin(layout.Fixed(100, 50), 10)
-item2 := layout.Margin(layout.Fixed(100, 50), 10)
-```
+`Layout` leaves relative/absolute/fixed/sticky boxes at their static position. Use `LayoutWithPositioning(root, constraints, viewportRect, ctx)`.
 
-## Grid Auto-Placement
+### Offsets: unset is auto, `Px(0)` is 0, negatives are real (v1.4.0+)
 
-### Default Behavior
+`Left: Px(-10)` moves a relative box left. Both offsets of an axis unset keeps the static position. `ZStack` sets `Left`/`Top` to `Px(0)` for you.
 
-If you don't set `GridRowStart` and `GridColumnStart`, items are auto-placed sequentially:
+### Sticky is relative
 
-```go
-grid := layout.Grid(2, 2, 100, 100)
-grid.Children = []*layout.Node{
-    {}, // Auto-placed at row 0, col 0
-    {}, // Auto-placed at row 0, col 1
-    {}, // Auto-placed at row 1, col 0
-    {}, // Auto-placed at row 1, col 1
-}
-```
+There is no scroll offset, so `PositionSticky` behaves as `PositionRelative`.
 
-### Explicit Placement
+## Flexbox
 
-To place items explicitly, set both `GridRowStart` and `GridRowEnd`:
+### `FlexShrink: 0` is not "don't shrink"
 
-```go
-item := &layout.Node{
-    Style: layout.Style{
-        GridRowStart: 0,
-        GridRowEnd: 1, // Must set both!
-        GridColumnStart: 0,
-        GridColumnEnd: 1,
-    },
-}
-```
+The zero value is read as the default 1. Give an item a `MinWidth`/`MinHeight` to stop it from shrinking.
 
-## Constraint Handling
+### `AlignSelf: AlignItemsStretch` does not override the parent
 
-### Unbounded Constraints
+`AlignSelf`'s zero value means "use the parent's `AlignItems`". Only non-stretch overrides are expressible. `JustifySelf` behaves the same way in grid.
 
-Use `layout.Unbounded` for height when you want auto-sized rows:
+### A definite main size is kept under loose constraints (v1.4.0+)
 
-```go
-constraints := layout.Loose(width, layout.Unbounded)
-// This allows rows to grow based on content
-```
+`{Display: DisplayFlex, Width: Px(200)}` is 200px wide under `Loose(...)` or `Unconstrained()`, even when its items overflow; only a container without a set main size is content-sized.
 
-### Tight Constraints
+## Text
 
-If constraints are too small, items may be clipped:
+### `WithText` does not create a text node
 
-```go
-constraints := layout.Tight(100, 100) // Very small!
-// Items may overflow or be clipped
-```
+`Fixed(100, 50).WithText("x")` sets `Node.Text` but leaves `Display` as block, so no line breaking happens and `TextLayout` stays nil. Use `layout.Text("x", style)`.
 
-## Performance Considerations
+### `line-height` below 10 is a multiplier
 
-### Nested Grids
+`LineHeight: 1.5` is 1.5 x font size; `LineHeight: 12` is 12px even with a 24px font.
 
-Deeply nested grids can be expensive. Consider flattening when possible:
+### `-1` means normal for `LetterSpacing`/`WordSpacing`
 
-```go
-// ❌ Deep nesting
-grid1 := layout.Grid(2, 2, 100, 100)
-grid2 := layout.Grid(2, 2, 50, 50)
-grid1.Children = []*layout.Node{grid2}
+The zero value adds 0px, which happens to be the same as normal, but code that inspects the fields (or serialized trees) sees `-1` for "normal".
 
-// ✅ Flatter structure when possible
-```
+### `writing-mode` is not inherited
 
-### Large Grids
+Set `Style.WritingMode` on every node that should lay out vertically. `InlineBox.Orientations` is populated only when `TextStyle.WritingMode` is set as well.
 
-For very large grids (100+ items), consider pagination or virtualization.
+### Text measurement defaults to an approximation
 
-## Debugging Tips
+The built-in provider counts every rune as 0.6 x font size. Install `NewTerminalTextMetrics()` (globally with `SetTextMetricsProvider`, or per context with `ctx.WithTextMetrics`) for Unicode-accurate widths. Since round 1 of the correctness sweep, `ctx.TextMetrics` is honored by all text measurement, not only by `ch` units.
 
-### Items Not Appearing
+### Tabs advance to tab stops from the line start
 
-1. Check if `Layout()` was called
-2. Verify constraints are large enough
-3. Check if items have `MinHeight` set (for auto rows)
-4. Verify `GridRowStart`/`GridColumnStart` are set correctly
+In `pre`/`pre-wrap`, a tab moves to the next multiple of `TabSize` spaces measured from the start of the line box (not the block), so `"a\tb"` with 6px glyphs and the default tab size is 54px wide, not 18px.
 
-### Rows Collapsing
+## Transforms and serialization
 
-1. Ensure items in auto rows have `MinHeight` set
-2. Check that items have content or explicit height
-3. Verify row gaps aren't causing issues
+### `Transform{}` is the identity (v1.4.0+)
 
-### Items Overlapping
+Nodes that never set a transform no longer produce `matrix(0,0,0,0,0,0)`; `ToSVGString()` returns `""` for them. As a consequence `Scale(0, 0)` is also treated as the identity.
 
-1. Check grid positioning (`GridRowStart`, `GridColumnStart`)
-2. Verify row/column spans are correct
-3. Check margins aren't causing negative sizes
+### Lengths serialize as strings (v1.4.0+)
 
-## Debugging Grid Layout Issues
+`serialize` writes `"10px"`, `"2em"`, `"unbounded"`; unset lengths are omitted and `Px(0)` is `"0px"`. Bare numbers are still accepted on input as pixels. `-1px` is a negative length, not auto.
 
-### Checklist for Row Overlapping/Collapsing
+## Fluent API
 
-If your grid rows are overlapping or collapsing, check:
+### `Clone` shares slices and pointers
 
-1. **Did you call `Layout()`?**
-   ```go
-   // ❌ Missing Layout() call
-   root := layout.Grid(2, 2, 100, 100)
-   fmt.Println(root.Children[0].Rect.Y) // Will be 0!
-   
-   // ✅ Correct
-   root := layout.Grid(2, 2, 100, 100)
-   layout.Layout(root, constraints)
-   fmt.Println(root.Children[0].Rect.Y) // Will be correct
-   ```
+`Clone`/`WithStyle` copy the `Node` struct but share `Children`, `GridTemplateRows/Columns`, `GridTemplateAreas`, `ContainerName`, `TextStyle`, and `TextLayout`. Use `CloneDeep` for an independent copy.
 
-2. **Do all items have `MinHeight` or `Height` set?**
-   ```go
-   // Check your items
-   for i, item := range grid.Children {
-       if item.Style.MinHeight == 0 && item.Style.Height <= 0 {
-           fmt.Printf("WARNING: Item %d has no MinHeight or Height!\n", i)
-       }
-   }
-   ```
+### `WithWidth` takes pixels
 
-3. **Are constraints large enough?**
-   ```go
-   // Use Unbounded for auto rows
-   constraints := layout.Loose(width, layout.Unbounded)
-   ```
-
-4. **Are row/column positions set correctly?**
-   ```go
-   // Verify GridRowStart/GridColumnStart are set
-   for i, item := range grid.Children {
-       fmt.Printf("Item %d: row %d-%d, col %d-%d\n",
-           i, item.Style.GridRowStart, item.Style.GridRowEnd,
-           item.Style.GridColumnStart, item.Style.GridColumnEnd)
-   }
-   ```
-
-5. **Check the final layout results:**
-   ```go
-   layout.Layout(root, constraints)
-   fmt.Printf("Root: %.2f x %.2f\n", root.Rect.Width, root.Rect.Height)
-   for i, child := range root.Children {
-       fmt.Printf("Item %d: y=%.2f, h=%.2f\n", i, child.Rect.Y, child.Rect.Height)
-   }
-   ```
-
+`WithWidth(0)` sets `Px(0)`, a real zero. Use `WithWidthLength(layout.Length{})` to reset to auto and `WithWidthLength(layout.Vw(50))` for other units.
+
+## Debugging checklist
+
+1. Did you call `LayoutSimple`/`Layout` (or `LayoutWithPositioning` for positioned boxes)? `Rect` is zero until you do.
+2. Is a dimension unset when you meant `Px(0)`, or `Px(0)` when you meant auto?
+3. Do items in auto grid rows have content or a `MinHeight`?
+4. Are gap longhands set to `Px(0)` while you rely on the shorthand?
+5. For vertical text, is `Style.WritingMode` set on the node itself?
+6. For viewport or container units, does the `LayoutContext` carry a viewport, and are `cq*` values pre-resolved?
+7. Serialize the tree with `serialize.ToJSON(root)` to see exactly which properties are set.

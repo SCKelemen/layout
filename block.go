@@ -14,7 +14,39 @@ import "math"
 // - https://www.w3.org/TR/css-box-3/
 // - https://www.w3.org/TR/css-display-3/
 // - https://www.w3.org/TR/css-sizing-3/
+//
+// The node is laid out as the root of its block formatting context: its own
+// margins and those of its children never collapse through it (CSS 2.1
+// §8.3.1: margins of the root element's box do not collapse, and boxes that
+// establish new block formatting contexts, such as flex and grid items, do not
+// collapse with their children). Block children of a block container are laid
+// out by layoutBlockFlow with collapsing enabled.
 func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
+	size, _ := layoutBlockFlow(node, constraints, ctx, false)
+	return size
+}
+
+// collapsedThroughMargins holds the block-axis margins of a box's in-flow
+// descendants that collapsed through the box's block-start and block-end
+// edges and therefore belong to the box's parent (CSS 2.1 §8.3.1: the top
+// margin of a box and the top margin of its first in-flow child collapse when
+// nothing separates them; likewise for bottom margins when the box has auto
+// height). The margins are kept as sets rather than pre-collapsed because
+// collapsing is not associative once negative margins are involved.
+// https://www.w3.org/TR/CSS21/box.html#collapsing-margins
+type collapsedThroughMargins struct {
+	start []float64
+	end   []float64
+}
+
+// layoutBlockFlow performs block layout on node and additionally reports the
+// descendant margins that collapsed through node's start and end edges.
+//
+// collapseThrough enables parent/child margin collapsing for node: it is true
+// when node is an in-flow block-level child of a block container, and false
+// when node is the root of a block formatting context (the layout root, a
+// flex or grid item, or an absolutely positioned box).
+func layoutBlockFlow(node *Node, constraints Constraints, ctx *LayoutContext, collapseThrough bool) (Size, collapsedThroughMargins) {
 	// Get current font size for em resolution
 	currentFontSize := getCurrentFontSize(node, ctx)
 
@@ -28,7 +60,7 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	nodeWidth, nodeHeight = blockApplyConstraints(node, setup, nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight)
 
 	// §8.3.1: Collapsing margins - Layout children with margin collapsing
-	currentBlockPos, maxCrossSize := blockLayoutChildren(node, setup, nodeWidth, nodeHeight, ctx, currentFontSize)
+	currentBlockPos, maxCrossSize, through := blockLayoutChildren(node, setup, nodeWidth, nodeHeight, ctx, currentFontSize, collapseThrough)
 
 	// Determine which dimension was calculated by children layout based on writing mode
 	isVertical := node.Style.WritingMode.IsVertical()
@@ -138,7 +170,7 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		Height: constrainedSize.Height,
 	}
 
-	return constrainedSize
+	return constrainedSize, through
 }
 
 // sanitizeSize maps the two results that must never be stored as a used size

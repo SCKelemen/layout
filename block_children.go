@@ -17,12 +17,20 @@ package layout
 // Margin collapsing rules (CSS 2.1 §8.3.1):
 //  1. Adjoining block-axis margins collapse. The collapsed margin is the sum of
 //     the largest positive margin and the most negative margin (collapseMargins).
-//  2. Parent and first child start margins collapse if no border/padding/content
-//     separates them (not implemented: the first child's start margin is kept
-//     inside the parent).
-//  3. Parent and last child end margins collapse (not implemented, see 2).
+//  2. The start margin of the container and the start margin of its first
+//     in-flow child collapse when the container has no block-start padding or
+//     border and collapseThrough is set (the container is itself an in-flow
+//     block child, not a formatting-context root). The collapsed-through
+//     margins are not applied inside the container; they are returned in
+//     through.start so the container's parent collapses them with the
+//     container's own start margin.
+//  3. The end margin of the last in-flow child collapses with the container's
+//     end margin when, in addition, the container has an auto block size, no
+//     block-end padding or border, and no min block size. The margins are
+//     returned in through.end.
 //  4. A box with zero block size and no block-axis padding/border collapses its
 //     own start and end margins together with the adjoining sibling margins.
+//     When every in-flow child is such a box, all margins adjoin both edges.
 //
 // Out-of-flow children (position: absolute / fixed) are laid out to determine
 // their own size and static position, but they do not take up flow space and
@@ -35,10 +43,17 @@ package layout
 // nodeWidth is the physical content width, nodeHeight the physical content
 // height of the container; the inline-axis constraint for children is the
 // width in horizontal modes and the height in vertical modes.
-func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight float64, ctx *LayoutContext, parentFontSize float64) (currentBlockPos, maxCrossSize float64) {
+//
+// currentBlockPos is the block-axis extent of the in-flow content, excluding
+// any margins that collapsed through the container's edges.
+func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight float64, ctx *LayoutContext, parentFontSize float64, collapseThrough bool) (currentBlockPos, maxCrossSize float64, through collapsedThroughMargins) {
 	children := node.Children
 	writingMode := node.Style.WritingMode
 	isVertical := writingMode.IsVertical()
+
+	// Whether margins may collapse through the container's block-start and
+	// block-end edges (rules 2 and 3 above).
+	collapseStart, collapseEnd := blockCollapseThroughEdges(node, setup, ctx, parentFontSize, collapseThrough)
 
 	// Set child constraints based on writing mode
 	// Horizontal mode: constrain width (inline), unbounded height (block)
@@ -79,13 +94,16 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight flo
 	// pendingMargins collects every margin adjoining the gap after flowEnd:
 	// the previous child's end margin plus the start (and, for self-collapsing
 	// boxes, end) margins of subsequent children. They collapse into one value.
+	// hasFlowContent records whether such a child has been placed yet; until
+	// then the pending margins adjoin the container's start edge.
 	flowEnd := 0.0
 	var pendingMargins []float64
+	hasFlowContent := false
 	maxCrossSize = 0.0
 
 	for _, child := range children {
 		// Skip display:none children
-		if child.Style.Display == DisplayNone {
+		if child == nil || child.Style.Display == DisplayNone {
 			continue
 		}
 
@@ -122,8 +140,9 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight flo
 			childMarginInlineEnd = childMarginRight  // Inline end = right
 		}
 
-		// Layout child
-		childSize := layoutBlockChild(child, childConstraints, ctx)
+		// Layout child. childThrough holds the grandchild margins that collapsed
+		// through the child's edges; they adjoin the child's own margins.
+		childSize, childThrough := layoutBlockChild(child, childConstraints, ctx)
 
 		// Get child block size for positioning
 		var childBlockSize float64
@@ -135,20 +154,31 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight flo
 
 		outOfFlow := isOutOfFlow(child)
 
+		// While no in-flow content has been placed and the container collapses
+		// through its start edge, every pending margin belongs outside the
+		// container: children are placed at the content origin instead.
+		atCollapsedStart := collapseStart && !hasFlowContent
+
 		// Block-axis position of the child's block-start border edge.
 		// Out-of-flow children get their static position (CSS 2.1 §10.3.7 /
 		// §10.6.4: where the box would have been in normal flow) without
 		// contributing their margins to the collapse set.
 		var childBlockPos float64
 		if outOfFlow {
-			// Its own start margin adjoins the pending set only for the purpose
-			// of computing the static position; pendingMargins is left untouched.
-			staticSet := make([]float64, 0, len(pendingMargins)+1)
-			staticSet = append(staticSet, pendingMargins...)
-			staticSet = append(staticSet, childMarginBlockStart)
-			childBlockPos = flowEnd + collapseMargins(staticSet...)
+			if atCollapsedStart {
+				childBlockPos = flowEnd
+			} else {
+				// Its own start margin adjoins the pending set only for the
+				// purpose of computing the static position; pendingMargins is
+				// left untouched.
+				staticSet := make([]float64, 0, len(pendingMargins)+1)
+				staticSet = append(staticSet, pendingMargins...)
+				staticSet = append(staticSet, childMarginBlockStart)
+				childBlockPos = flowEnd + collapseMargins(staticSet...)
+			}
 		} else {
 			pendingMargins = append(pendingMargins, childMarginBlockStart)
+			pendingMargins = append(pendingMargins, childThrough.start...)
 			// CSS 2.1 §8.3.1: a block with zero block size and no block-axis
 			// padding/border has adjoining start and end margins, which collapse
 			// through it. Only block containers self-collapse; flex/grid/text
@@ -156,11 +186,23 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight flo
 			selfCollapsing := childBlockSize == 0 && isBlockContainer(child)
 			if selfCollapsing {
 				pendingMargins = append(pendingMargins, childMarginBlockEnd)
+				pendingMargins = append(pendingMargins, childThrough.end...)
 			}
-			childBlockPos = flowEnd + collapseMargins(pendingMargins...)
+			if atCollapsedStart {
+				childBlockPos = flowEnd
+			} else {
+				childBlockPos = flowEnd + collapseMargins(pendingMargins...)
+			}
 			if !selfCollapsing {
+				if atCollapsedStart {
+					// Rule 2: the margins before the first in-flow child belong
+					// to the container's parent.
+					through.start = append([]float64(nil), pendingMargins...)
+				}
+				hasFlowContent = true
 				flowEnd = childBlockPos + childBlockSize
 				pendingMargins = append(pendingMargins[:0], childMarginBlockEnd)
+				pendingMargins = append(pendingMargins, childThrough.end...)
 			}
 		}
 
@@ -202,25 +244,85 @@ func blockLayoutChildren(node *Node, setup blockSetup, nodeWidth, nodeHeight flo
 		}
 	}
 
-	// The trailing collapsed margin (last child's end margin, plus any
-	// self-collapsing boxes after it) still occupies space inside the parent.
-	currentBlockPos = flowEnd + collapseMargins(pendingMargins...)
+	// The trailing margins: the last child's end margin plus any
+	// self-collapsing boxes after it.
+	switch {
+	case !hasFlowContent && collapseStart:
+		// No in-flow content at all: every margin adjoins the start edge (and
+		// the end edge too when that collapses), so the container is itself
+		// self-collapsing as far as its parent is concerned.
+		through.start = append([]float64(nil), pendingMargins...)
+		if collapseEnd {
+			through.end = append([]float64(nil), pendingMargins...)
+		}
+		currentBlockPos = flowEnd
+	case collapseEnd:
+		// Rule 3: the trailing margins belong to the container's parent.
+		through.end = append([]float64(nil), pendingMargins...)
+		currentBlockPos = flowEnd
+	default:
+		// The trailing collapsed margin still occupies space inside the parent.
+		currentBlockPos = flowEnd + collapseMargins(pendingMargins...)
+	}
 
-	return currentBlockPos, maxCrossSize
+	return currentBlockPos, maxCrossSize, through
+}
+
+// blockCollapseThroughEdges decides whether margins may collapse through the
+// block-start and block-end edges of a block container (CSS 2.1 §8.3.1).
+//
+// Start: the container is an in-flow block child (collapseThrough) with no
+// block-start padding or border. End: additionally the container's block size
+// is auto and its min block size is 0, and it has no block-end padding or
+// border. The block axis follows the writing mode (css-writing-modes-3 §7.1):
+// the start edge is top for horizontal-tb, left for vertical-lr, and right
+// for vertical-rl / sideways-rl.
+// https://www.w3.org/TR/CSS21/box.html#collapsing-margins
+func blockCollapseThroughEdges(node *Node, setup blockSetup, ctx *LayoutContext, fontSize float64, collapseThrough bool) (start, end bool) {
+	if !collapseThrough || !isBlockContainer(node) {
+		return false, false
+	}
+	padding := node.Style.Padding
+	border := node.Style.Border
+	var startEdge, endEdge float64
+	var autoBlockSize, zeroMinBlockSize bool
+	switch {
+	case node.Style.WritingMode.IsVertical() && node.Style.WritingMode.IsRightToLeft():
+		startEdge = ResolveLength(padding.Right, ctx, fontSize) + ResolveLength(border.Right, ctx, fontSize)
+		endEdge = ResolveLength(padding.Left, ctx, fontSize) + ResolveLength(border.Left, ctx, fontSize)
+		autoBlockSize = setup.isAutoWidth
+		zeroMinBlockSize = setup.minWidthContent <= 0
+	case node.Style.WritingMode.IsVertical():
+		startEdge = ResolveLength(padding.Left, ctx, fontSize) + ResolveLength(border.Left, ctx, fontSize)
+		endEdge = ResolveLength(padding.Right, ctx, fontSize) + ResolveLength(border.Right, ctx, fontSize)
+		autoBlockSize = setup.isAutoWidth
+		zeroMinBlockSize = setup.minWidthContent <= 0
+	default:
+		startEdge = ResolveLength(padding.Top, ctx, fontSize) + ResolveLength(border.Top, ctx, fontSize)
+		endEdge = ResolveLength(padding.Bottom, ctx, fontSize) + ResolveLength(border.Bottom, ctx, fontSize)
+		autoBlockSize = setup.isAutoHeight
+		zeroMinBlockSize = setup.minHeightContent <= 0
+	}
+	start = startEdge == 0
+	end = endEdge == 0 && autoBlockSize && zeroMinBlockSize
+	return start, end
 }
 
 // layoutBlockChild dispatches a child of a block container to the layout
-// algorithm for its display type.
-func layoutBlockChild(child *Node, constraints Constraints, ctx *LayoutContext) Size {
+// algorithm for its display type. Only in-flow block containers may collapse
+// margins through their edges; flex, grid, and text boxes establish
+// independent formatting contexts, and out-of-flow boxes do not collapse with
+// anything (CSS 2.1 §8.3.1, §9.4.1).
+func layoutBlockChild(child *Node, constraints Constraints, ctx *LayoutContext) (Size, collapsedThroughMargins) {
 	switch child.Style.Display {
 	case DisplayFlex:
-		return LayoutFlexbox(child, constraints, ctx)
+		return LayoutFlexbox(child, constraints, ctx), collapsedThroughMargins{}
 	case DisplayGrid:
-		return LayoutGrid(child, constraints, ctx)
+		return LayoutGrid(child, constraints, ctx), collapsedThroughMargins{}
 	case DisplayInlineText:
-		return LayoutText(child, constraints, ctx)
+		return LayoutText(child, constraints, ctx), collapsedThroughMargins{}
 	default:
-		return LayoutBlock(child, constraints, ctx)
+		return layoutBlockFlow(child, constraints, ctx, !isOutOfFlow(child))
 	}
 }
 

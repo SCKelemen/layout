@@ -72,11 +72,6 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		rowAxisSize, rowAxisDefinite = contentWidth, widthDefinite
 	}
 
-	// Get grid template (copied so implicit tracks never alias the style's
-	// backing array). Missing templates get a single implicit track.
-	rows := gridTemplateTracks(node.Style.GridTemplateRows, node.Style.GridAutoRows)
-	columns := gridTemplateTracks(node.Style.GridTemplateColumns, node.Style.GridAutoColumns)
-
 	// Gaps: row-gap / column-gap each fall back to the gap shorthand only when
 	// they were never set (zero-value unit). An explicit Px(0) is a real zero
 	// gap that overrides GridGap, matching how the longhands override the
@@ -85,9 +80,25 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	rowGap := gridResolveGap(node.Style.GridRowGap, node.Style.GridGap, ctx, currentFontSize)
 	columnGap := gridResolveGap(node.Style.GridColumnGap, node.Style.GridGap, ctx, currentFontSize)
 
+	// Explicit grid (§7.2): the template tracks followed by the expansion of
+	// the repeat() patterns. auto-fill / auto-fit repeat as many times as fit
+	// the definite axis size (once when it is indefinite, §7.2.3.2); the
+	// tracks of an auto-fit pattern are remembered so the empty ones can be
+	// collapsed once the items are placed.
+	// See: https://www.w3.org/TR/css-grid-1/#auto-repeat
+	rowTemplate, rowAutoFit := gridExpandTemplate(node.Style.GridTemplateRows, node.Style.GridTemplateRowsRepeat, rowAxisSize, rowGap, ctx, currentFontSize)
+	columnTemplate, columnAutoFit := gridExpandTemplate(node.Style.GridTemplateColumns, node.Style.GridTemplateColumnsRepeat, colAxisSize, columnGap, ctx, currentFontSize)
+
+	// Track lists (copied so implicit tracks never alias the style's backing
+	// array). Missing templates get a single implicit track.
+	rows := gridTemplateTracks(rowTemplate, node.Style.GridAutoRows)
+	columns := gridTemplateTracks(columnTemplate, node.Style.GridAutoColumns)
+
 	if len(node.Children) == 0 {
 		// Empty grid: the tracks alone (including gaps in both axes)
-		// determine the size.
+		// determine the size. Every auto-fit track is empty and collapses.
+		rows = gridCollapseAutoFitTracks(rows, rowAutoFit, nil, false)
+		columns = gridCollapseAutoFitTracks(columns, columnAutoFit, nil, true)
 		columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, nil, nil, ctx, currentFontSize)
 		rowSizes := gridSizeTracks(rows, rowAxisSize, rowAxisDefinite, rowGap, nil, nil, ctx, currentFontSize)
 		return gridFinishContainer(node, constraints,
@@ -107,6 +118,11 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	for _, item := range gridItems {
 		item.margins = gridResolveItemMargins(item.node, writingMode, ctx)
 	}
+
+	// auto-fit (§7.2.3.2): empty repeated tracks collapse to nothing along
+	// with their gutters. The items' line numbers are remapped in place.
+	rows = gridCollapseAutoFitTracks(rows, rowAutoFit, gridItems, false)
+	columns = gridCollapseAutoFitTracks(columns, columnAutoFit, gridItems, true)
 
 	// Step 2: Size the columns (§12.5 intrinsic contributions, §12.6
 	// maximize, §12.7 expand flexible tracks).

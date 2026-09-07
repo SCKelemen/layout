@@ -423,3 +423,179 @@ func TestGridRound1AspectRatioVerticalWritingModes(t *testing.T) {
 		}
 	}
 }
+
+// gridRound1RepeatGrid returns a grid using a column repeat() pattern with the
+// given number of auto-placed 20px-tall items. Width is explicit when > 0.
+func gridRound1RepeatGrid(width float64, explicit []GridTrack, repeat RepeatTrack, items int) *Node {
+	root := &Node{
+		Style: Style{
+			Display:                   DisplayGrid,
+			GridTemplateColumns:       explicit,
+			GridTemplateColumnsRepeat: []RepeatTrack{repeat},
+			GridAutoRows:              FixedTrack(Px(20)),
+			GridGap:                   Px(10),
+		},
+	}
+	if width > 0 {
+		root.Style.Width = Px(width)
+	}
+	for i := 0; i < items; i++ {
+		root.Children = append(root.Children, &Node{})
+	}
+	return root
+}
+
+// TestGridRound1AutoFillColumns checks that repeat(auto-fill, 100px) in a
+// 500px grid with a 10px gap produces floor((500+10)/(100+10)) = 4 columns
+// (§7.2.3.2): the fourth item sits in the fourth column and the fifth wraps
+// to the next row.
+//
+// https://www.w3.org/TR/css-grid-1/#auto-repeat
+func TestGridRound1AutoFillColumns(t *testing.T) {
+	root := gridRound1RepeatGrid(500, nil, RepeatTrack{Count: RepeatCountAutoFill, Tracks: []GridTrack{FixedTrack(Px(100))}}, 5)
+	size := LayoutGrid(root, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item 3 X", root.Children[3].Rect.X, 330)
+	gridRound1Approx(t, "item 3 Y", root.Children[3].Rect.Y, 0)
+	gridRound1Approx(t, "item 4 X (wrapped)", root.Children[4].Rect.X, 0)
+	gridRound1Approx(t, "item 4 Y (wrapped)", root.Children[4].Rect.Y, 30)
+	gridRound1Approx(t, "column width", root.Children[0].Rect.Width, 100)
+	gridRound1Approx(t, "container width", size.Width, 500)
+	gridRound1Approx(t, "container height", size.Height, 50)
+}
+
+// TestGridRound1AutoFitCollapsesEmptyTracks checks that with auto-fit the
+// two empty trailing tracks (and their gutters) collapse: with
+// justify-content: end the two occupied tracks are pushed against the end
+// edge with no trailing gaps, so the track total is 210 rather than 430.
+//
+// https://www.w3.org/TR/css-grid-1/#collapsed-track
+func TestGridRound1AutoFitCollapsesEmptyTracks(t *testing.T) {
+	pattern := []GridTrack{FixedTrack(Px(100))}
+
+	fit := gridRound1RepeatGrid(500, nil, RepeatTrack{Count: RepeatCountAutoFit, Tracks: pattern}, 2)
+	fit.Style.JustifyContent = JustifyContentEnd
+	LayoutGrid(fit, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "auto-fit item 0 X", fit.Children[0].Rect.X, 290)
+	gridRound1Approx(t, "auto-fit item 1 X", fit.Children[1].Rect.X, 400)
+
+	// auto-fill keeps the empty tracks: 4 tracks + 3 gaps = 430, free 70.
+	fill := gridRound1RepeatGrid(500, nil, RepeatTrack{Count: RepeatCountAutoFill, Tracks: pattern}, 2)
+	fill.Style.JustifyContent = JustifyContentEnd
+	LayoutGrid(fill, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "auto-fill item 0 X", fill.Children[0].Rect.X, 70)
+	gridRound1Approx(t, "auto-fill item 1 X", fill.Children[1].Rect.X, 180)
+
+	// An unset width with a bounded constraint is definite too; the
+	// container still fills it, but the track extent is 210.
+	fitAuto := gridRound1RepeatGrid(0, nil, RepeatTrack{Count: RepeatCountAutoFit, Tracks: pattern}, 2)
+	fitAuto.Style.JustifyContent = JustifyContentEnd
+	LayoutGrid(fitAuto, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "auto-width auto-fit item 1 X", fitAuto.Children[1].Rect.X, 400)
+}
+
+// TestGridRound1AutoFitInteriorCollapse checks that an empty auto-fit track
+// between two occupied ones collapses together with its gutters, leaving a
+// single gap between the neighbors, and that the items keep their tracks.
+func TestGridRound1AutoFitInteriorCollapse(t *testing.T) {
+	root := gridRound1RepeatGrid(500, nil, RepeatTrack{Count: RepeatCountAutoFit, Tracks: []GridTrack{FixedTrack(Px(100))}}, 2)
+	root.Children[0].Style.GridColumnStart = 0
+	root.Children[1].Style.GridColumnStart = 2 // leaves column 1 empty
+	root.Children[0].Style.GridRowStart, root.Children[1].Style.GridRowStart = 0, 0
+	root.Style.GridTemplateRows = []GridTrack{FixedTrack(Px(20))}
+	LayoutGrid(root, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item 0 X", root.Children[0].Rect.X, 0)
+	gridRound1Approx(t, "item 1 X (one gap after collapse)", root.Children[1].Rect.X, 110)
+	gridRound1Approx(t, "item 1 width", root.Children[1].Rect.Width, 100)
+}
+
+// TestGridRound1AutoRepeatIndefiniteAxis checks that an auto-repeat against
+// an indefinite axis size repeats exactly once (§7.2.3.2), so three items
+// stack in a single 100px column.
+func TestGridRound1AutoRepeatIndefiniteAxis(t *testing.T) {
+	root := gridRound1RepeatGrid(0, nil, RepeatTrack{Count: RepeatCountAutoFill, Tracks: []GridTrack{FixedTrack(Px(100))}}, 3)
+	size := LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "container width", size.Width, 100)
+	gridRound1Approx(t, "item 1 X", root.Children[1].Rect.X, 0)
+	gridRound1Approx(t, "item 1 Y", root.Children[1].Rect.Y, 30)
+	gridRound1Approx(t, "item 2 Y", root.Children[2].Rect.Y, 60)
+}
+
+// TestGridRound1ExplicitPlusAutoRepeat checks that explicit tracks come first
+// and the auto-repeat fills the remaining space: [50px] + repeat(auto-fill,
+// 100px) in 500px with 10px gaps leaves 450px for floor((450+10)/110) = 4
+// repetitions, five columns in total.
+func TestGridRound1ExplicitPlusAutoRepeat(t *testing.T) {
+	root := gridRound1RepeatGrid(500, []GridTrack{FixedTrack(Px(50))}, RepeatTrack{Count: RepeatCountAutoFill, Tracks: []GridTrack{FixedTrack(Px(100))}}, 6)
+	LayoutGrid(root, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item 0 width (explicit 50px)", root.Children[0].Rect.Width, 50)
+	gridRound1Approx(t, "item 1 X", root.Children[1].Rect.X, 60)
+	gridRound1Approx(t, "item 4 X (fifth column)", root.Children[4].Rect.X, 390)
+	gridRound1Approx(t, "item 4 Y", root.Children[4].Rect.Y, 0)
+	gridRound1Approx(t, "item 5 Y (wrapped)", root.Children[5].Rect.Y, 30)
+}
+
+// TestGridRound1FixedCountRepeat checks repeat(2, [100px 50px]) expands to
+// four columns regardless of the available size.
+func TestGridRound1FixedCountRepeat(t *testing.T) {
+	root := gridRound1RepeatGrid(0, nil, RepeatTrack{Count: 2, Tracks: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(50))}}, 4)
+	root.Style.GridGap = Px(0)
+	size := LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+
+	xs := []float64{0, 100, 150, 250}
+	for i, want := range xs {
+		gridRound1Approx(t, "item X", root.Children[i].Rect.X, want)
+		gridRound1Approx(t, "item Y", root.Children[i].Rect.Y, 0)
+	}
+	gridRound1Approx(t, "container width", size.Width, 300)
+}
+
+// TestGridRound1InvalidAutoRepeatIgnored checks that an auto-repeat whose
+// pattern is not fixed-size (1fr here) is ignored: the template stays empty
+// and items stack in a single implicit column.
+//
+// https://www.w3.org/TR/css-grid-1/#auto-repeat (fixed-size requirement)
+func TestGridRound1InvalidAutoRepeatIgnored(t *testing.T) {
+	root := gridRound1RepeatGrid(500, nil, RepeatTrack{Count: RepeatCountAutoFill, Tracks: []GridTrack{FractionTrack(1)}}, 2)
+	LayoutGrid(root, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item 1 X", root.Children[1].Rect.X, 0)
+	gridRound1Approx(t, "item 1 Y (second row)", root.Children[1].Rect.Y, 30)
+}
+
+// TestGridRound1AutoFillRows checks the row axis: repeat(auto-fill, 50px)
+// against a 200px-tall grid yields 4 rows, so with column flow the fifth
+// item starts a second column.
+func TestGridRound1AutoFillRows(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:                DisplayGrid,
+			Height:                 Px(200),
+			GridTemplateRowsRepeat: []RepeatTrack{{Count: RepeatCountAutoFill, Tracks: []GridTrack{FixedTrack(Px(50))}}},
+			GridAutoColumns:        FixedTrack(Px(30)),
+			GridAutoFlow:           GridAutoFlowColumn,
+		},
+	}
+	for i := 0; i < 5; i++ {
+		root.Children = append(root.Children, &Node{})
+	}
+	LayoutGrid(root, Loose(Unbounded, 200), NewLayoutContext(800, 600, 16))
+
+	gridRound1Approx(t, "item 3 Y", root.Children[3].Rect.Y, 150)
+	gridRound1Approx(t, "item 3 X", root.Children[3].Rect.X, 0)
+	gridRound1Approx(t, "item 4 X (second column)", root.Children[4].Rect.X, 30)
+	gridRound1Approx(t, "item 4 Y", root.Children[4].Rect.Y, 0)
+}
+
+// TestGridRound1AutoFitEmptyContainer checks that an auto-fit grid without
+// items collapses every repeated track, so only the explicit tracks remain.
+func TestGridRound1AutoFitEmptyContainer(t *testing.T) {
+	root := gridRound1RepeatGrid(0, []GridTrack{FixedTrack(Px(50))}, RepeatTrack{Count: RepeatCountAutoFit, Tracks: []GridTrack{FixedTrack(Px(100))}}, 0)
+	root.Style.GridTemplateRows = []GridTrack{FixedTrack(Px(20))}
+	size := LayoutGrid(root, Loose(500, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "container width (explicit track only)", size.Width, 50)
+	gridRound1Approx(t, "container height", size.Height, 20)
+}

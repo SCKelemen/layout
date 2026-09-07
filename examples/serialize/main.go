@@ -50,7 +50,13 @@ func main() {
 
 	// Example with grid
 	fmt.Println("3. Grid layout serialization...")
+	// layout.Grid only builds the container; items are added separately.
 	grid := layout.Grid(2, 2, 100, 100)
+	grid.Children = []*layout.Node{
+		{Style: layout.Style{GridRowStart: -1, GridRowEnd: -1, GridColumnStart: -1, GridColumnEnd: -1}},
+		{Style: layout.Style{GridRowStart: -1, GridRowEnd: -1, GridColumnStart: -1, GridColumnEnd: -1}},
+		{Style: layout.Style{GridRowStart: -1, GridRowEnd: -1, GridColumnStart: -1, GridColumnEnd: -1}},
+	}
 	grid.Children[0].Style.GridRowStart = 0
 	grid.Children[0].Style.GridRowEnd = 2 // Span 2 rows
 	grid.Children[0].Style.GridColumnStart = 0

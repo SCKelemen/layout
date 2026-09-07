@@ -161,7 +161,7 @@ func TestParseContainer(t *testing.T) {
 
 // containerTree builds a linear ancestor chain:
 //
-//   root -> middle -> leaf
+//	root -> middle -> leaf
 //
 // Each node carries a Rect and (optionally) a ContainerType. Returns
 // the leaf NodeContext, which is the deepest descendant — exactly what

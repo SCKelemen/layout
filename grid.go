@@ -487,22 +487,8 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 			case JustifyItemsStart, JustifyItemsEnd, JustifyItemsCenter:
 				// For non-stretch, always prefer explicit width if set (accounting for box-sizing)
 				// Explicit dimensions take precedence over measured size for alignment
-				itemWidthValue := ResolveLength(item.node.Style.Width, ctx, itemFontSize)
-				if itemWidthValue >= 0 {
-					// Item has explicit width - convert to total size accounting for box-sizing
-					itemPaddingLeft := ResolveLength(item.node.Style.Padding.Left, ctx, itemFontSize)
-					itemPaddingRight := ResolveLength(item.node.Style.Padding.Right, ctx, itemFontSize)
-					itemBorderLeft := ResolveLength(item.node.Style.Border.Left, ctx, itemFontSize)
-					itemBorderRight := ResolveLength(item.node.Style.Border.Right, ctx, itemFontSize)
-					itemPaddingBorder := itemPaddingLeft + itemPaddingRight + itemBorderLeft + itemBorderRight
-
-					if item.node.Style.BoxSizing == BoxSizingBorderBox {
-						// Width already includes padding+border, use as-is
-						itemWidth = math.Min(itemWidthValue, maxItemWidth)
-					} else {
-						// Width is content-only, add padding+border
-						itemWidth = math.Min(itemWidthValue+itemPaddingBorder, maxItemWidth)
-					}
+				if w, ok := gridExplicitWidth(item.node, ctx, itemFontSize, maxItemWidth); ok {
+					itemWidth = w
 				} else if item.measuredSize.Width > 0 {
 					// Use measured size (clamped to cell)
 					itemWidth = math.Min(item.measuredSize.Width, maxItemWidth)
@@ -511,8 +497,16 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 					itemWidth = 0
 				}
 			case JustifyItemsStretch:
-				// Stretch to fill cell width
-				itemWidth = maxItemWidth
+				// CSS Box Alignment Level 3 §6.2: stretch has no effect when the
+				// relevant axis size is definite. An item with an explicit width
+				// keeps that width and is positioned at the start of its area.
+				// https://www.w3.org/TR/css-align-3/#stretch-alignment
+				if w, ok := gridExplicitWidth(item.node, ctx, itemFontSize, maxItemWidth); ok {
+					itemWidth = w
+				} else {
+					// Auto width: stretch to fill cell width
+					itemWidth = maxItemWidth
+				}
 			}
 
 			// Apply align-items (block/column axis)
@@ -520,22 +514,8 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 			case AlignItemsFlexStart, AlignItemsFlexEnd, AlignItemsCenter, AlignItemsBaseline:
 				// For non-stretch, always prefer explicit height if set (accounting for box-sizing)
 				// Explicit dimensions take precedence over measured size for alignment
-				itemHeightValue := ResolveLength(item.node.Style.Height, ctx, itemFontSize)
-				if itemHeightValue >= 0 {
-					// Item has explicit height - convert to total size accounting for box-sizing
-					itemPaddingTop := ResolveLength(item.node.Style.Padding.Top, ctx, itemFontSize)
-					itemPaddingBottom := ResolveLength(item.node.Style.Padding.Bottom, ctx, itemFontSize)
-					itemBorderTop := ResolveLength(item.node.Style.Border.Top, ctx, itemFontSize)
-					itemBorderBottom := ResolveLength(item.node.Style.Border.Bottom, ctx, itemFontSize)
-					itemPaddingBorder := itemPaddingTop + itemPaddingBottom + itemBorderTop + itemBorderBottom
-
-					if item.node.Style.BoxSizing == BoxSizingBorderBox {
-						// Height already includes padding+border, use as-is
-						itemHeight = math.Min(itemHeightValue, maxItemHeight)
-					} else {
-						// Height is content-only, add padding+border
-						itemHeight = math.Min(itemHeightValue+itemPaddingBorder, maxItemHeight)
-					}
+				if h, ok := gridExplicitHeight(item.node, ctx, itemFontSize, maxItemHeight); ok {
+					itemHeight = h
 				} else if item.measuredSize.Height > 0 {
 					// Use measured size (clamped to cell)
 					itemHeight = math.Min(item.measuredSize.Height, maxItemHeight)
@@ -544,11 +524,25 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 					itemHeight = 0
 				}
 			case AlignItemsStretch:
-				// Stretch to fill cell height
-				itemHeight = maxItemHeight
+				// CSS Box Alignment Level 3 §6.2: stretch has no effect when the
+				// relevant axis size is definite. An item with an explicit height
+				// keeps that height and is positioned at the start of its area.
+				// https://www.w3.org/TR/css-align-3/#stretch-alignment
+				if h, ok := gridExplicitHeight(item.node, ctx, itemFontSize, maxItemHeight); ok {
+					itemHeight = h
+				} else {
+					// Auto height: stretch to fill cell height
+					itemHeight = maxItemHeight
+				}
 			default:
-				// Default to stretch
-				itemHeight = maxItemHeight
+				// Default to stretch, but a definite height is preserved
+				// per CSS Box Alignment Level 3 §6.2 (see above).
+				// https://www.w3.org/TR/css-align-3/#stretch-alignment
+				if h, ok := gridExplicitHeight(item.node, ctx, itemFontSize, maxItemHeight); ok {
+					itemHeight = h
+				} else {
+					itemHeight = maxItemHeight
+				}
 			}
 		}
 
@@ -718,6 +712,69 @@ type gridItem struct {
 	colStart     int
 	colEnd       int
 	measuredSize Size // Store measured size from first pass
+}
+
+// gridExplicitWidth returns the box-sizing-aware used width for a grid item that
+// has a definite (non-auto) width, clamped to the available area maxItemWidth.
+// The boolean is false when the item's width is auto (ResolveLength < 0), in
+// which case callers should fall back to measured/stretch sizing.
+//
+// This is shared by both the stretch and non-stretch alignment branches so that
+// the explicit-size computation stays in one place.
+func gridExplicitWidth(n *Node, ctx *LayoutContext, fontSize, maxItemWidth float64) (float64, bool) {
+	// An auto/unset width has the zero-value unit; only a width with an
+	// explicit unit is a definite size. ResolveLength returns 0 (not < 0) for
+	// the zero value, so the unit check is required to tell auto from a
+	// genuine 0-length.
+	if n.Style.Width.Unit == "" {
+		// Auto width.
+		return 0, false
+	}
+	widthValue := ResolveLength(n.Style.Width, ctx, fontSize)
+	if widthValue < 0 {
+		// Auto width.
+		return 0, false
+	}
+	if n.Style.BoxSizing == BoxSizingBorderBox {
+		// Width already includes padding+border, use as-is.
+		return math.Min(widthValue, maxItemWidth), true
+	}
+	// Width is content-only, add padding+border.
+	paddingBorder := ResolveLength(n.Style.Padding.Left, ctx, fontSize) +
+		ResolveLength(n.Style.Padding.Right, ctx, fontSize) +
+		ResolveLength(n.Style.Border.Left, ctx, fontSize) +
+		ResolveLength(n.Style.Border.Right, ctx, fontSize)
+	return math.Min(widthValue+paddingBorder, maxItemWidth), true
+}
+
+// gridExplicitHeight returns the box-sizing-aware used height for a grid item
+// that has a definite (non-auto) height, clamped to the available area
+// maxItemHeight. The boolean is false when the item's height is auto
+// (ResolveLength < 0), in which case callers should fall back to
+// measured/stretch sizing.
+func gridExplicitHeight(n *Node, ctx *LayoutContext, fontSize, maxItemHeight float64) (float64, bool) {
+	// An auto/unset height has the zero-value unit; only a height with an
+	// explicit unit is a definite size (ResolveLength returns 0, not < 0, for
+	// the zero value, so the unit check is required to tell auto apart).
+	if n.Style.Height.Unit == "" {
+		// Auto height.
+		return 0, false
+	}
+	heightValue := ResolveLength(n.Style.Height, ctx, fontSize)
+	if heightValue < 0 {
+		// Auto height.
+		return 0, false
+	}
+	if n.Style.BoxSizing == BoxSizingBorderBox {
+		// Height already includes padding+border, use as-is.
+		return math.Min(heightValue, maxItemHeight), true
+	}
+	// Height is content-only, add padding+border.
+	paddingBorder := ResolveLength(n.Style.Padding.Top, ctx, fontSize) +
+		ResolveLength(n.Style.Padding.Bottom, ctx, fontSize) +
+		ResolveLength(n.Style.Border.Top, ctx, fontSize) +
+		ResolveLength(n.Style.Border.Bottom, ctx, fontSize)
+	return math.Min(heightValue+paddingBorder, maxItemHeight), true
 }
 
 func calculateGridTrackSizes(tracks []GridTrack, availableSize float64, gap float64, count int, container *Node, isColumn bool, ctx *LayoutContext, currentFontSize float64) []float64 {

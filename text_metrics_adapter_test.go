@@ -109,8 +109,8 @@ func TestTextMetricsAdapter(t *testing.T) {
 
 func TestTextMetricsAdapterAsProvider(t *testing.T) {
 	// Save original provider
-	original := textMetrics
-	defer func() { textMetrics = original }()
+	original := getTextMetrics()
+	defer SetTextMetricsProvider(original)
 
 	// Set our adapter as the provider
 	adapter := NewTerminalTextMetrics()

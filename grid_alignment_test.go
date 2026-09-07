@@ -17,9 +17,9 @@ func TestGridJustifyItems(t *testing.T) {
 		{
 			name:         "stretch (default)",
 			justifyItems: JustifyItemsStretch,
-			itemWidth:    200, // Will be stretched to cell width
+			itemWidth:    200, // Definite width: stretch is a no-op, width preserved
 			cellWidth:    300,
-			expectedX:    0, // Start of cell + margin
+			expectedX:    0, // Positioned at start of area
 		},
 		{
 			name:         "start",
@@ -78,9 +78,11 @@ func TestGridJustifyItems(t *testing.T) {
 				t.Errorf("Expected X position %.2f, got %.2f", tt.expectedX, actualX)
 			}
 
-			// For stretch, item should fill cell width
+			// Per CSS Box Alignment Level 3 §6.2, stretch is a no-op when the
+			// axis size is definite, so an explicitly-sized item keeps its width.
+			// https://www.w3.org/TR/css-align-3/#stretch-alignment
 			if tt.justifyItems == JustifyItemsStretch {
-				expectedWidth := tt.cellWidth
+				expectedWidth := tt.itemWidth
 				if math.Abs(item.Rect.Width-expectedWidth) > 1.0 {
 					t.Errorf("Stretch: expected width %.2f, got %.2f", expectedWidth, item.Rect.Width)
 				}
@@ -106,9 +108,9 @@ func TestGridAlignItems(t *testing.T) {
 		{
 			name:       "stretch (default)",
 			alignItems: AlignItemsStretch,
-			itemHeight: 200, // Will be stretched to cell height
+			itemHeight: 200, // Definite height: stretch is a no-op, height preserved
 			cellHeight: 300,
-			expectedY:  0, // Start of cell + margin
+			expectedY:  0, // Positioned at start of area
 		},
 		{
 			name:       "start",
@@ -167,9 +169,11 @@ func TestGridAlignItems(t *testing.T) {
 				t.Errorf("Expected Y position %.2f, got %.2f", tt.expectedY, actualY)
 			}
 
-			// For stretch, item should fill cell height
+			// Per CSS Box Alignment Level 3 §6.2, stretch is a no-op when the
+			// axis size is definite, so an explicitly-sized item keeps its height.
+			// https://www.w3.org/TR/css-align-3/#stretch-alignment
 			if tt.alignItems == AlignItemsStretch {
-				expectedHeight := tt.cellHeight
+				expectedHeight := tt.itemHeight
 				if math.Abs(item.Rect.Height-expectedHeight) > 1.0 {
 					t.Errorf("Stretch: expected height %.2f, got %.2f", expectedHeight, item.Rect.Height)
 				}

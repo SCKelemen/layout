@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Grid `stretch` now respects definite item sizes (behavior change).** When `align-items`/`justify-items` (or the `*-self` equivalents) resolve to `stretch`, a grid item with a definite (explicit) `width`/`height` is no longer stretched to fill its track — it keeps its explicit, box-sizing-aware size and is positioned at the start of its area. Stretch continues to size auto items to fill the track. This matches CSS Box Alignment Level 3 §6.2, where `stretch` is a no-op on an axis whose size is definite (https://www.w3.org/TR/css-align-3/#stretch-alignment). Previously `LayoutGrid` overwrote the item size with the track size unconditionally on stretch.
+
 ## [v1.3.0] - 2026-05-20
 
 ### Changed

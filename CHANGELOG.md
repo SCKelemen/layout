@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- `TextLine.EndsWithForcedBreak` and `InlineBox.SpaceAfter` are populated by `LayoutText`: `EndsWithForcedBreak` is true for lines ending at a preserved newline and for the last line of the text (both are aligned with `text-align-last` when justifying, css-text-3 §7.1) and false for soft wraps; `SpaceAfter` is true when an inter-word space follows the box on its line (false for the last box of a line, whose trailing space is removed). The text layout code's private parallel metadata slices were removed in favor of these fields.
+
+### Changed
+
+- **Direction resolution:** text layout reads `Style.Direction` first and falls back to `TextStyle.Direction`, the same way `WritingMode` is resolved. `text-align: start` (`TextAlignDefault`) therefore resolves to the right in RTL when either field is set.
+- Removed the unused internal helpers `getInlineSize` (text.go) and `findLineBreakOpportunities` (uax14.go); `findLineBreakOpportunitiesWithHyphens` is the single entry point.
+- **Flexbox: `Width`/`Height`/`FlexBasis` follow the unset-means-auto convention (behavior change).** A flex container or item size is `auto` only when the `Length` was never set (`Unit == ""`) or is negative; `Px(0)` is now a real zero. `Width: Px(0)` on a container gives a 0 main/cross size, `Width: Px(0)` on an item is a definite 0 main size, and `FlexBasis: Px(0)` is a zero flex base size, so two items with `FlexGrow: 1, FlexBasis: Px(0)` in a 400px container are 200/200 regardless of content (previously a zero basis fell back to the content size, giving 300/100). `align-items: stretch` likewise treats `Height: Px(0)` (row) or `Width: Px(0)` (column) as an explicit cross size and keeps it (CSS Flexbox §9.4 step 11). `layout.Text()` nodes leave their size unset and continue to size to their content.
+- **Flexbox: `FlexRowGap`/`FlexColumnGap` fall back to `FlexGap` only when unset (behavior change).** The longhands override the `FlexGap` shorthand whenever they carry a unit, so `FlexColumnGap: Px(0)` now cancels `FlexGap: Px(10)` between items in a row container (and `FlexRowGap: Px(0)` between its lines), matching the `gap` shorthand semantics of CSS Box Alignment Level 3 §8.3. Previously the fallback keyed on the resolved value being 0, so an explicit zero longhand was indistinguishable from an unset one.
+
 ### Fixed
 
 - **Text layout honors `LayoutContext.TextMetrics`.** `LayoutText`, every line breaker (`breakIntoLines*`, `wrapSegmentPreserveSpaces`, `breakWordToFit`), `text-overflow` truncation, `hanging-punctuation`, and the text branches of `CalculateIntrinsicWidth` now measure with `ctx.TextMetrics` when it is set (`ctx.WithTextMetrics(...)`), falling back to the package-level provider otherwise (and for a nil context). Previously only `ch` unit resolution used the context provider; all text measurement went through the global one.
@@ -10,15 +21,9 @@
 - **Soft hyphens (U+00AD) are invisible** (css-text-3 §4.3): they are excluded from measured widths and from `InlineBox.Text`, and when a line breaks at one the last box gets a U+002D HYPHEN-MINUS appended and re-measured. The fit test reserves room for that hyphen so a hyphenated line does not overflow. Breaks at soft hyphens are still disabled by `Hyphens: HyphensNone`. Intrinsic sizing strips soft hyphens as well.
 - **`TextStyle.FontSize == 0` falls back to the root font size** (`ctx.RootFontSize`, or 16 without a context) instead of laying out as a 0x0 box, matching the nil-`TextStyle` path. The caller's `TextStyle` is not mutated. Intrinsic sizing applies the same fallback.
 - **`overflow-wrap: break-word` with a `text-indent` that fills the first line** starts the word on the second line (without indent) instead of overflowing the first line by the indent; the first line is left empty. Continuation pieces of a broken word are sized to the full inline size rather than the indented first-line width.
-
-### Changed
-
-- **Direction resolution:** text layout reads `Style.Direction` first and falls back to `TextStyle.Direction`, the same way `WritingMode` is resolved. `text-align: start` (`TextAlignDefault`) therefore resolves to the right in RTL when either field is set.
-- Removed the unused internal helpers `getInlineSize` (text.go) and `findLineBreakOpportunities` (uax14.go); `findLineBreakOpportunitiesWithHyphens` is the single entry point.
-
-### Added
-
-- `TextLine.EndsWithForcedBreak` and `InlineBox.SpaceAfter` are populated by `LayoutText`: `EndsWithForcedBreak` is true for lines ending at a preserved newline and for the last line of the text (both are aligned with `text-align-last` when justifying, css-text-3 §7.1) and false for soft wraps; `SpaceAfter` is true when an inter-word space follows the box on its line (false for the last box of a line, whose trailing space is removed). The text layout code's private parallel metadata slices were removed in favor of these fields.
+- **Flexbox: invalid and huge flex factors no longer produce NaN.** A NaN, infinite, or negative `FlexGrow`/`FlexShrink` is invalid per CSS Flexbox §7.2.1/§7.2.2 and is treated as unset (0 for grow; the initial value 1 for shrink) instead of turning every item's size and position into NaN. Finite but very large factors (e.g. `1e308` on several items) are normalized before summing in the §9.7 loop, so the sum no longer overflows to `+Inf` and items share free space in the correct proportions.
+- **Flexbox: `AlignContentSpaceEvenly` and `JustifyContentStretch` are implemented.** `align-content: space-evenly` distributes the free cross space so the gaps between lines and at both edges are equal, falling back to `center` when the lines overflow (CSS Box Alignment Level 3 §6.2); previously the value was silently laid out as `flex-start`. `justify-content: stretch` behaves as `flex-start` in a flex container, including in the `*-reverse` directions (CSS Flexbox §8.2). The `JustifyContentStart/End` and `AlignContentStart/End` aliases need no special handling since they share the flex-start/flex-end values.
+- **Flexbox: a container with a definite main size keeps it under loose or unbounded constraints.** The container's main dimension is its set `Width` (horizontal main axis) or `Height` (vertical main axis) per CSS Flexbox §9.2 step 4, in every writing mode; only a container without a set main size is content-sized. Previously the main dimension was always the largest line's content extent, so `{Display: DisplayFlex, Width: Px(200)}` laid out with `Unconstrained()` or `Loose(...)` came out as wide as its items, and a `vertical-rl` row container (vertical main axis) with `Height: Px(100)` ignored the 100px while its block and grid siblings honored it. Overflowing content no longer grows the container.
 
 ## [v1.4.0] - 2026-09-07
 

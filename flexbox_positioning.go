@@ -74,7 +74,9 @@ func flexboxAlignmentMainAxis(
 		// FlexEnd in reverse means items end at the start (left/top)
 		reversedJustify := node.Style.JustifyContent
 		switch node.Style.JustifyContent {
-		case JustifyContentFlexStart:
+		case JustifyContentFlexStart, JustifyContentStretch:
+			// stretch behaves as flex-start in a flex container (§8.2), so it
+			// packs items toward the reversed main-start edge as well.
 			reversedJustify = JustifyContentFlexEnd
 		case JustifyContentFlexEnd:
 			reversedJustify = JustifyContentFlexStart

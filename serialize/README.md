@@ -25,7 +25,8 @@ root := layout.VStack(
 
 // Perform layout
 constraints := layout.Loose(200, layout.Unbounded)
-layout.Layout(root, constraints)
+ctx := layout.NewLayoutContext(800, 600, 16)
+layout.Layout(root, constraints, ctx)
 
 // Serialize to JSON
 jsonBytes, err := serialize.ToJSON(root)

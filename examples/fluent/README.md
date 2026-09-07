@@ -151,7 +151,7 @@ target := root.Find(func(n *Node) bool {
 
 // Find all matches
 buttons := root.FindAll(func(n *Node) bool {
-    return n.Style.Width == 100
+    return n.Style.Width.Value == 100
 })
 
 // Check existence
@@ -165,13 +165,13 @@ hasText := root.Any(func(n *Node) bool {
 ```go
 // Selective transformation
 doubled := root.Transform(
-    func(n *Node) bool { return n.Style.Width > 0 },
-    func(n *Node) *Node { return n.WithWidth(n.Style.Width * 2) },
+    func(n *Node) bool { return n.Style.Width.Value > 0 },
+    func(n *Node) *Node { return n.WithWidth(n.Style.Width.Value * 2) },
 )
 
 // Apply to all
 scaled := root.Map(func(n *Node) *Node {
-    return n.WithWidth(n.Style.Width * 1.5)
+    return n.WithWidth(n.Style.Width.Value * 1.5)
 })
 ```
 

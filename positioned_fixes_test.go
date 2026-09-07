@@ -84,8 +84,12 @@ func TestPositionedFixExplicitZeroOffsetIsReal(t *testing.T) {
 // CSS 2.1 §10.1: https://www.w3.org/TR/CSS21/visudet.html#containing-block-details
 func TestPositionedFixContainingBlockIsParentPaddingBox(t *testing.T) {
 	abs := &Node{Style: Style{Position: PositionAbsolute, Width: Px(10), Height: Px(10), Top: Px(5), Left: Px(5)}}
+	// mid must itself be positioned to be abs's containing block: CSS 2.1
+	// §10.1 item 4 picks the nearest ancestor with position other than static.
+	// A static mid would make the (unpositioned) root the containing block.
+	// https://www.w3.org/TR/CSS21/visudet.html#containing-block-details
 	mid := &Node{
-		Style:    Style{Display: DisplayBlock, Width: Px(100), Height: Px(100), Border: Uniform(Px(4))},
+		Style:    Style{Display: DisplayBlock, Position: PositionRelative, Width: Px(100), Height: Px(100), Border: Uniform(Px(4))},
 		Children: []*Node{abs},
 	}
 	root := &Node{

@@ -5,7 +5,7 @@ package layout
 // Provides immutable, composable methods for working with layout trees
 
 // =============================================================================
-// Phase 1: Downward Navigation & Querying
+// Downward Navigation
 // =============================================================================
 
 // Descendants returns all descendant nodes (children, grandchildren, etc.) in depth-first order.
@@ -272,7 +272,7 @@ func (n *Node) OfDisplayType(display Display) []*Node {
 }
 
 // =============================================================================
-// Phase 2: Immutable Modifications
+// Immutable Modifications
 // =============================================================================
 
 // Clone creates a shallow copy of the node.
@@ -509,6 +509,41 @@ func (n *Node) WithHeight(height float64) *Node {
 	return copy
 }
 
+// WithWidthLength returns a new node whose width is exactly the given
+// Length. Unlike WithWidth, which always produces pixels, any unit can be
+// used, and the zero value Length{} resets the width to auto.
+// The original node is unchanged.
+//
+// Example:
+//
+//	fluid := node.WithWidthLength(Vw(50))
+//	auto := node.WithWidthLength(Length{})
+func (n *Node) WithWidthLength(width Length) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Width = width
+	return copy
+}
+
+// WithHeightLength returns a new node whose height is exactly the given
+// Length. Unlike WithHeight, which always produces pixels, any unit can be
+// used, and the zero value Length{} resets the height to auto.
+// The original node is unchanged.
+//
+// Example:
+//
+//	tall := node.WithHeightLength(Em(20))
+func (n *Node) WithHeightLength(height Length) *Node {
+	if n == nil {
+		return nil
+	}
+	copy := n.Clone()
+	copy.Style.Height = height
+	return copy
+}
+
 // WithText returns a new node with the specified text content.
 // The original node is unchanged.
 //
@@ -699,7 +734,7 @@ func (n *Node) InsertChildAt(index int, child *Node) *Node {
 }
 
 // =============================================================================
-// Phase 4: Transformations
+// Transformations
 // =============================================================================
 
 // Transform returns a new tree with nodes selectively transformed.
@@ -865,14 +900,44 @@ func (n *Node) FilterDeep(predicate func(*Node) bool) *Node {
 	return result
 }
 
-// Fold reduces the tree to a single value by accumulating over all nodes.
-// Applies the accumulator function to each node in depth-first order.
+// FoldNodes reduces the tree rooted at n to a single value by applying fn to
+// every node (n first, then its descendants in depth-first, pre-order) and
+// threading the accumulator through. It is the type-safe form of Node.Fold:
+// no interface{} boxing or type assertions are needed.
+//
+// A nil n or nil fn returns init unchanged.
 //
 // Example:
 //
-//	// Sum all widths in the tree
+//	// Sum all pixel widths in the tree
+//	total := layout.FoldNodes(root, 0.0, func(acc float64, n *layout.Node) float64 {
+//	    return acc + n.Style.Width.Value
+//	})
+//
+//	// Count nodes
+//	count := layout.FoldNodes(root, 0, func(acc int, _ *layout.Node) int { return acc + 1 })
+func FoldNodes[T any](n *Node, init T, fn func(acc T, node *Node) T) T {
+	if n == nil || fn == nil {
+		return init
+	}
+	acc := fn(init, n)
+	for _, child := range n.Children {
+		acc = FoldNodes(child, acc, fn)
+	}
+	return acc
+}
+
+// Fold reduces the tree to a single value by accumulating over all nodes.
+// Applies the accumulator function to each node in depth-first order.
+//
+// FoldNodes is the generic, type-safe equivalent and should be preferred in
+// new code; Fold is kept because it predates generics in this package.
+//
+// Example:
+//
+//	// Sum all pixel widths in the tree
 //	totalWidth := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
-//	    return acc.(float64) + n.Style.Width
+//	    return acc.(float64) + n.Style.Width.Value
 //	}).(float64)
 //
 //	// Count nodes

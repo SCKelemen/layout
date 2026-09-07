@@ -27,13 +27,17 @@ func ToYAML(node *layout.Node) ([]byte, error) {
 // FromYAML converts YAML bytes to a layout.Node.
 // It applies the same validation as FromJSON (finite numbers, known enum
 // keywords, MaxTreeDepth/MaxChildren). A bare number is accepted for any
-// length and interpreted as pixels.
+// length and interpreted as pixels. An empty document or a bare null
+// returns ErrNullInput.
 // Requires: go get gopkg.in/yaml.v3
 // To disable YAML support, build with: go build -tags no_yaml
 func FromYAML(data []byte) (*layout.Node, error) {
-	var nodeJSON NodeJSON
+	var nodeJSON *NodeJSON
 	if err := yaml.Unmarshal(data, &nodeJSON); err != nil {
 		return nil, err
 	}
-	return jsonToNode(&nodeJSON)
+	if nodeJSON == nil {
+		return nil, ErrNullInput
+	}
+	return jsonToNode(nodeJSON)
 }

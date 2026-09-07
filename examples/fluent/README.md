@@ -2,9 +2,13 @@
 
 This directory contains practical examples demonstrating the fluent API for building, querying, and transforming layout trees.
 
+Each example is its own `main` package in a subdirectory, so run them with
+`go run ./<name>` from this directory (or `go run ./examples/fluent/<name>`
+from the repository root).
+
 ## Examples
 
-### 1. Basic Usage (`basic.go`)
+### 1. Basic Usage (`basic/`)
 
 Demonstrates fundamental fluent API concepts:
 - Method chaining for building trees
@@ -14,7 +18,7 @@ Demonstrates fundamental fluent API concepts:
 
 **Run:**
 ```bash
-go run basic.go
+go run ./basic
 ```
 
 **Key Concepts:**
@@ -22,7 +26,7 @@ go run basic.go
 - Original trees remain unchanged
 - Method chaining creates readable, declarative layouts
 
-### 2. Dashboard (`dashboard.go`)
+### 2. Dashboard (`dashboard/`)
 
 Builds a complete dashboard layout with reusable components:
 - Metric cards with title, value, and trend
@@ -32,7 +36,7 @@ Builds a complete dashboard layout with reusable components:
 
 **Run:**
 ```bash
-go run dashboard.go
+go run ./dashboard
 ```
 
 **Key Concepts:**
@@ -41,7 +45,7 @@ go run dashboard.go
 - Using FindAll to query the tree
 - Creating themed variants with Transform
 
-### 3. Querying and Transforming (`querying.go`)
+### 3. Querying and Transforming (`querying/`)
 
 Comprehensive guide to tree queries and transformations:
 - Find, FindAll, Any, All predicates
@@ -52,7 +56,7 @@ Comprehensive guide to tree queries and transformations:
 
 **Run:**
 ```bash
-go run querying.go
+go run ./querying
 ```
 
 **Key Concepts:**
@@ -61,7 +65,7 @@ go run querying.go
 - Transforming trees immutably
 - Filtering while preserving structure
 
-### 4. Context Navigation (`context.go`)
+### 4. Context Navigation (`context/`)
 
 Demonstrates parent navigation using NodeContext:
 - Creating contexts for upward traversal
@@ -72,7 +76,7 @@ Demonstrates parent navigation using NodeContext:
 
 **Run:**
 ```bash
-go run context.go
+go run ./context
 ```
 
 **Key Concepts:**
@@ -82,7 +86,7 @@ go run context.go
 - Context methods return contexts, not nodes
 - `Unwrap()` to get underlying node
 
-### 5. Classic vs Fluent Comparison (`comparison.go`)
+### 5. Classic vs Fluent Comparison (`comparison/`)
 
 Side-by-side comparison of classic and fluent APIs:
 - Building identical trees both ways
@@ -92,7 +96,7 @@ Side-by-side comparison of classic and fluent APIs:
 
 **Run:**
 ```bash
-go run comparison.go
+go run ./comparison
 ```
 
 **Key Concepts:**
@@ -101,7 +105,7 @@ go run comparison.go
 - Helper functions (HStack, VStack) work with both
 - Choose style based on preference and use case
 
-### 6. Form Builder (`form_builder.go`)
+### 6. Form Builder (`form_builder/`)
 
 Real-world example building a registration form:
 - Reusable form component functions
@@ -113,7 +117,7 @@ Real-world example building a registration form:
 
 **Run:**
 ```bash
-go run form_builder.go
+go run ./form_builder
 ```
 
 **Key Concepts:**
@@ -193,15 +197,20 @@ flexCtx := targetCtx.FindUp(isFlex)
 ### Statistics
 
 ```go
-// Count nodes
-count := root.Fold(0, func(acc interface{}, n *Node) interface{} {
+// Count nodes (generic, type-safe)
+count := FoldNodes(root, 0, func(acc int, n *Node) int {
+    return acc + 1
+})
+
+// Sum pixel widths
+total := FoldNodes(root, 0.0, func(acc float64, n *Node) float64 {
+    return acc + n.Style.Width.Value
+})
+
+// The interface{}-based Fold is still available
+count = root.Fold(0, func(acc interface{}, n *Node) interface{} {
     return acc.(int) + 1
 }).(int)
-
-// Sum values
-total := root.Fold(0.0, func(acc interface{}, n *Node) interface{} {
-    return acc.(float64) + n.Style.Width
-}).(float64)
 
 // Count by depth
 depthMap := root.FoldWithContext(
@@ -234,10 +243,10 @@ depthMap := root.FoldWithContext(
 ## Running All Examples
 
 ```bash
-# Run all examples in sequence
-for f in *.go; do
-    echo "=== Running $f ==="
-    go run "$f"
+# Run all examples in sequence (from this directory)
+for d in */; do
+    echo "=== Running ${d%/} ==="
+    go run "./$d"
     echo
 done
 ```

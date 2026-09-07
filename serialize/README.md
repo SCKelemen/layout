@@ -118,11 +118,35 @@ The serialized JSON includes:
   stays `layout.Unbounded`.
 - **Enum Values**: Enums are serialized as CSS keywords (e.g. `"flex"`,
   `"grid"`, `"inline-text"`, `"none"`, `"row-reverse"`, `"space-evenly"`).
-  Unknown keywords are rejected with an error rather than silently mapped to
-  a default. `fontWeight` is numeric (1-1000) and `textDecoration` is the
-  bitmask value.
-- **Auto Values**: `"-1px"` represents "auto" for width/height and
-  positioning properties; `-1` grid line indices mean auto placement.
+  The keywords are the `String()` output of the corresponding `layout` enum
+  and are read back with its `layout.Parse<Enum>` function (see `enums.go`),
+  so the wire format and the Go API always agree. Matching is exact and
+  lowercase (`"Flex"` is rejected). The css-align-3 aliases `"start"` /
+  `"end"` are accepted for `justifyContent`, `alignItems`, `alignSelf`, and
+  `alignContent` and are written back as the canonical `"flex-start"` /
+  `"flex-end"`. Unknown keywords are rejected with an error rather than
+  silently mapped to a default. `fontWeight` is numeric (1-1000) and
+  `textDecoration` is the bitmask value.
+- **Direction**: `style.direction` (`"ltr"` / `"rtl"`) is
+  `layout.Style.Direction`; `style.textStyle.direction` is the per-text
+  `TextStyle.Direction`.
+- **Repeat tracks**: `gridTemplateRowsRepeat` / `gridTemplateColumnsRepeat`
+  are lists of `{ "count": ..., "tracks": [...] }` objects mirroring
+  `layout.Style.GridTemplateRowsRepeat` / `GridTemplateColumnsRepeat`
+  (`[]layout.RepeatTrack`). `count` is either an integer in
+  `[1, MaxRepeatCount]` (10000), written as a number, or one of the keywords
+  `"auto-fill"` / `"auto-fit"`, written as a string. Each pattern needs at
+  least one track. Example:
+  ```json
+  "gridTemplateColumnsRepeat": [
+    { "count": "auto-fill", "tracks": [{ "minSize": "100px", "maxSize": "100px" }] },
+    { "count": 3, "tracks": [{ "minSize": "0px", "maxSize": "unbounded", "fraction": 1 }] }
+  ]
+  ```
+- **Auto Values**: Since v1.4.0 an omitted (unset) `width`/`height` or
+  positioning offset means `auto`; `"0px"` is a real zero. `-1` grid line
+  indices mean auto placement. (`"-1px"` is no longer an auto sentinel; it
+  is simply a negative length.)
 - **Zero Values**: Default values are omitted from the output, including
   default alignment (`stretch`), identity transforms, and empty
   padding/margin/border.
@@ -131,37 +155,38 @@ The serialized JSON includes:
 - **Validation**: `FromJSON`/`FromYAML` treat input as untrusted. They reject
   NaN or infinite numbers, magnitudes above `MaxNumericValue` (1e12, except
   the unbounded sentinel described above), unknown enum keywords,
-  fractional or overflowing integers, trees deeper than `MaxTreeDepth`
-  (1024), and nodes with more than `MaxChildren` (65536) children. Limit
-  violations wrap `ErrLimitExceeded`.
-- **Encoding errors**: `ToJSON`/`ToYAML` return an error (they never did
-  before) for trees that cannot be represented faithfully: NaN or infinite
-  numbers, magnitudes above `MaxNumericValue`, unknown enum values, and
-  trees deeper than `MaxTreeDepth`, which is how a cyclic tree fails instead
-  of overflowing the stack. A tree produced by `layout.Layout` from valid
-  styles never triggers these; in particular `layout.Unbounded` in `rect`
-  fields is accepted.
+  fractional or overflowing integers, repeat counts outside
+  `[1, MaxRepeatCount]`, trees deeper than `MaxTreeDepth` (1024), and nodes
+  (or track lists) with more than `MaxChildren` (65536) entries. Limit
+  violations wrap `ErrLimitExceeded`. A document that is a bare `null` (or,
+  for YAML, empty) returns `ErrNullInput` instead of an empty node; a `null`
+  inside a `children` array is skipped.
+- **Encoding errors**: `ToJSON`/`ToYAML` return an error for trees that
+  cannot be represented faithfully: NaN or infinite numbers, magnitudes
+  above `MaxNumericValue`, enum values outside their range, invalid repeat
+  counts, more than `MaxChildren` children or tracks on one node, and trees
+  deeper than `MaxTreeDepth`, which is how a cyclic tree fails instead of
+  overflowing the stack. The encoder enforces the same limits as the
+  decoder, so anything `ToJSON` produces is accepted by `FromJSON`. A tree
+  produced by `layout.Layout` from valid styles never triggers these; in
+  particular `layout.Unbounded` in `rect` fields is accepted.
 
 ## YAML Support
 
-YAML support is available as an optional feature. YAML output uses the same
-camelCase keys and the same length strings as the JSON output. To use it:
+YAML support is built in by default (`gopkg.in/yaml.v3` is a dependency of
+this module). YAML output uses the same camelCase keys and the same length
+strings as the JSON output:
 
-1. Install the YAML library:
-   ```bash
-   go get gopkg.in/yaml.v3
-   ```
+```go
+// Serialize to YAML
+yamlBytes, err := serialize.ToYAML(root)
 
-2. Use the YAML functions:
-   ```go
-   // Serialize to YAML
-   yamlBytes, err := serialize.ToYAML(root)
-   
-   // Deserialize from YAML
-   deserialized, err := serialize.FromYAML(yamlBytes)
-   ```
+// Deserialize from YAML
+deserialized, err := serialize.FromYAML(yamlBytes)
+```
 
-To disable YAML support (e.g., to avoid the dependency), build with:
+To compile without the YAML dependency (this removes `ToYAML`/`FromYAML`;
+the CI matrix runs the tests this way too), build with:
 ```bash
 go build -tags no_yaml
 ```

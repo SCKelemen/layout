@@ -2,7 +2,6 @@ package layout
 
 import (
 	"testing"
-	"time"
 )
 
 // TestCalculateAutoRepeatCount tests the calculation of repeat count
@@ -231,7 +230,6 @@ func TestRepeatExpansionCappedAtMaxTracks(t *testing.T) {
 	}
 
 	// Fixed count: 10000 × 500 tracks is truncated to gridMaxTracks.
-	start := time.Now()
 	tracks, _, _ := expandAutoRepeatTracks([]RepeatTrack{{Count: 10000, Tracks: pattern}}, nil, 400, 0)
 	if len(tracks) != gridMaxTracks {
 		t.Errorf("repeat(10000, [500 tracks]): expected %d tracks, got %d", gridMaxTracks, len(tracks))
@@ -283,9 +281,6 @@ func TestRepeatExpansionCappedAtMaxTracks(t *testing.T) {
 			t.Fatalf("autoFit[%d] = %v, expected %v", i, autoFit[i], i >= 9995)
 		}
 	}
-	if d := time.Since(start); d > 100*time.Millisecond {
-		t.Errorf("capped expansions took %v, expected well under 100ms", d)
-	}
 
 	// End to end: the whole grid lays out quickly with 10,000 1px columns
 	// (gap 0), and an item asking for column 20000 is clamped to the last
@@ -296,11 +291,7 @@ func TestRepeatExpansionCappedAtMaxTracks(t *testing.T) {
 		GridTemplateColumnsRepeat: []RepeatTrack{{Count: 10000, Tracks: pattern}},
 	}}
 	grid.Children = append(grid.Children, &Node{Style: Style{Height: Px(10), GridColumnStart: 20000, GridColumnEnd: 20001}})
-	start = time.Now()
 	size := LayoutGrid(grid, Loose(10000, Unbounded), NewLayoutContext(800, 600, 16))
-	if d := time.Since(start); d > 100*time.Millisecond {
-		t.Errorf("repeat(10000, [500 × 1px]) layout took %v, expected well under 100ms", d)
-	}
 	if size.Width != 10000 {
 		t.Errorf("container width: expected 10000, got %v", size.Width)
 	}

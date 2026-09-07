@@ -22,10 +22,15 @@ func TestFlexboxJustifyContentSpaceAround(t *testing.T) {
 	ctx := NewLayoutContext(1920, 1080, 16)
 	LayoutFlexbox(root, constraints, ctx)
 
-	// SpaceAround should distribute space around items
-	// First item should not be at X=0
-	if root.Children[0].Rect.X == 0 {
-		t.Error("SpaceAround should not start at X=0")
+	// §9.5 / §10.2: space-around distributes the 100px of free space as 50px
+	// around each of the two items (25px on each side), so the items sit at
+	// X = 25 and X = 125.
+	// https://www.w3.org/TR/css-flexbox-1/#justify-content-property
+	if math.Abs(root.Children[0].Rect.X-25) > 0.01 {
+		t.Errorf("SpaceAround: first item X should be 25, got %.2f", root.Children[0].Rect.X)
+	}
+	if math.Abs(root.Children[1].Rect.X-125) > 0.01 {
+		t.Errorf("SpaceAround: second item X should be 125, got %.2f", root.Children[1].Rect.X)
 	}
 }
 

@@ -1,6 +1,9 @@
 package layout
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // flexboxMeasureItems measures all children and creates flex items.
 //
@@ -71,6 +74,26 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			childMainSize = Unbounded
 		}
 
+		// Measurement pass cross constraint. An item is only stretched to the
+		// container's cross size when it is a single-line container, the item's
+		// resolved alignment is stretch and its cross size is auto (§9.4 step 11).
+		// Otherwise its hypothetical cross size is content-based, so a nested
+		// container must be measured with an indefinite cross size or it would
+		// treat the available height as definite and stretch its own line to it.
+		// This only applies when the cross axis is vertical: a horizontal cross
+		// axis (column direction) still bounds the width so inline content wraps.
+		// https://www.w3.org/TR/css-flexbox-1/#algo-cross-item
+		if setup.isMainHorizontal {
+			itemAlign := node.Style.AlignItems
+			if child.Style.AlignSelf != 0 {
+				itemAlign = child.Style.AlignSelf
+			}
+			isMultiLine := node.Style.FlexWrap != FlexWrapNoWrap
+			if itemAlign != AlignItemsStretch || child.Style.Height.Value > 0 || isMultiLine {
+				childCrossSize = Unbounded
+			}
+		}
+
 		childConstraints := Constraints{
 			MinWidth:  0,
 			MaxWidth:  childMainSize,
@@ -114,6 +137,40 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			}
 		}
 
+		// Remember the size the child was actually laid out at so the parent can
+		// re-run layout when flexing changes it (see LayoutFlexbox).
+		item.measuredWidth = child.Rect.Width
+		item.measuredHeight = child.Rect.Height
+
+		// §9.4 step 11: align-self: stretch only applies when the item's cross
+		// size is auto. Remember whether it is explicit.
+		// https://www.w3.org/TR/css-flexbox-1/#algo-stretch
+		if setup.isMainHorizontal {
+			item.hasExplicitCrossSize = child.Style.Height.Value > 0
+		} else {
+			item.hasExplicitCrossSize = child.Style.Width.Value > 0
+		}
+
+		// Resolve the item's min/max main size (§9.7 clamps to these).
+		// An unset max (zero-value Length) means no maximum; the minimum always
+		// wins over the maximum per CSS Sizing.
+		// https://www.w3.org/TR/css-flexbox-1/#resolve-flexible-lengths
+		minMain, maxMain := child.Style.MinWidth, child.Style.MaxWidth
+		if !setup.isMainHorizontal {
+			minMain, maxMain = child.Style.MinHeight, child.Style.MaxHeight
+		}
+		item.minMain = 0
+		if minMain.Value > 0 {
+			item.minMain = math.Max(0, ResolveLength(minMain, ctx, childFontSize))
+		}
+		item.maxMain = Unbounded
+		if maxMain.Value > 0 {
+			item.maxMain = ResolveLength(maxMain, ctx, childFontSize)
+			if item.maxMain < item.minMain {
+				item.maxMain = item.minMain
+			}
+		}
+
 		// Store the measured size as a fallback
 		measuredMainSize := item.mainSize
 
@@ -150,6 +207,8 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 				item.flexBasis = resolvedHeight
 			}
 		}
+		// §9.3 step 3: hypothetical main size, used for line breaking (§9.3 step 5).
+		item.hypotheticalMainSize = clampFlexMainSize(item, item.baseSize)
 		flexItems = append(flexItems, item)
 	}
 

@@ -25,11 +25,12 @@ func flexboxAlignWithAlignContent(
 		alignContent := node.Style.AlignContent
 		// Zero value is AlignContentStretch (CSS default), no need to check
 
-		// Calculate free cross space
+		// Calculate free cross space. It may be negative: center and flex-end
+		// then produce negative offsets (lines overflow both/one edge), while
+		// space-between falls back to flex-start, space-around to center, and
+		// stretch distributes nothing.
+		// https://www.w3.org/TR/css-flexbox-1/#align-content-property
 		freeCrossSpace := crossSize - totalCrossSize
-		if freeCrossSpace < 0 {
-			freeCrossSpace = 0
-		}
 
 		var startOffset float64
 		switch alignContent {
@@ -43,6 +44,10 @@ func flexboxAlignWithAlignContent(
 			if len(lines) > 1 {
 				startOffset = 0
 				spaceBetween := freeCrossSpace / float64(len(lines)-1)
+				if freeCrossSpace < 0 {
+					// Negative free space: behave as flex-start.
+					spaceBetween = 0
+				}
 				currentOffset := 0.0
 				for i := range lines {
 					lineOffsets[i] = currentOffset
@@ -58,6 +63,11 @@ func flexboxAlignWithAlignContent(
 			if len(lines) > 0 {
 				spaceAround := freeCrossSpace / float64(len(lines))
 				currentOffset := spaceAround / 2
+				if freeCrossSpace < 0 {
+					// Negative free space: behave as center.
+					spaceAround = 0
+					currentOffset = freeCrossSpace / 2
+				}
 				for i := range lines {
 					lineOffsets[i] = currentOffset
 					currentOffset += lineCrossSizes[i]
@@ -96,9 +106,17 @@ func flexboxAlignWithAlignContent(
 			totalCrossSize = crossSize
 		}
 	} else {
-		// Single line - no align-content needed
+		// Single line, or an indefinite cross size: align-content has no free
+		// space to distribute, so lines are packed from the cross-start edge
+		// (flex-start behavior), separated by the cross-axis gap.
+		// https://www.w3.org/TR/css-flexbox-1/#align-content-property
+		currentOffset := 0.0
 		for i := range lines {
-			lineOffsets[i] = 0
+			lineOffsets[i] = currentOffset
+			currentOffset += lineCrossSizes[i]
+			if i < len(lines)-1 {
+				currentOffset += rowGap
+			}
 		}
 	}
 

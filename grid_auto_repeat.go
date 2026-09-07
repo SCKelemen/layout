@@ -11,11 +11,12 @@ import "math"
 //
 // See: https://www.w3.org/TR/css-grid-1/#auto-repeat
 
-// gridMaxAutoRepeat is the hard cap on the number of repetitions produced by
-// auto-fill / auto-fit. It keeps expandAutoRepeatTracks bounded even when the
-// arithmetic would otherwise produce an enormous count, and matches
-// gridMaxTracks so a repeated pattern can never exceed the implicit grid cap.
-const gridMaxAutoRepeat = gridMaxTracks
+// Every repeat() expansion is bounded by gridMaxTracks, the same cap the
+// implicit grid uses: the tracks emitted for one axis by the explicit
+// template plus all of its repeat() patterns never exceed gridMaxTracks in
+// total. The cap applies to tracks, not repetitions, so a pattern with many
+// tracks cannot multiply past it (repeat(10000, [500 tracks]) emits 10,000
+// tracks, not 5,000,000). See gridAppendRepeat.
 
 // autoRepeatTrackSize returns the size a track contributes when counting
 // auto-repeat repetitions.
@@ -38,21 +39,48 @@ func autoRepeatTrackSize(track GridTrack) float64 {
 	return math.Max(minSize, maxSize)
 }
 
+// gridRepeatMaxCount returns the largest repetition count of a pattern whose
+// expansion alone stays within gridMaxTracks (at least 1 for a non-empty
+// pattern; the final truncation in gridAppendRepeat handles a pattern that
+// is itself larger than the cap).
+func gridRepeatMaxCount(pattern []GridTrack) int {
+	if len(pattern) == 0 {
+		return 0
+	}
+	n := gridMaxTracks / len(pattern)
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
 // calculateAutoRepeatCount calculates how many times to repeat a track pattern
-// based on available space.
+// in the space left for it.
 //
-// Formula from CSS Grid Layout Module Level 1 §7.2.3.2:
-// floor((availableSize + gap) / (repetitionSize + gap))
+// CSS Grid Layout Module Level 1 §7.2.3.2: the repetition count is the
+// largest positive integer that does not cause the grid to overflow its grid
+// container, treating each track as its max sizing function if definite and
+// its min sizing function otherwise (autoRepeatTrackSize). With one gap
+// between consecutive tracks this is
+//
+//	floor((availableSize + gap) / (repetitionSize + gap))
+//
+// where availableSize is the space remaining for the repeated block after
+// every other track in the axis, their gaps, and the gap between them and
+// the repeated block have been subtracted (expandAutoRepeatTracks does that
+// subtraction). If even one repetition overflows, the pattern still repeats
+// once ("If any number of repetitions would overflow, then 1 repetition").
 //
 // When the available size is indefinite the pattern repeats exactly once, as
 // the spec requires ("Otherwise, the specified track list repeats only once").
-// The result is computed in float64, range-checked, and clamped to
-// gridMaxAutoRepeat before the conversion to int so a huge or non-finite
-// available size can never yield a negative, overflowing, or unbounded count.
+// The result is computed in float64, range-checked, and clamped before the
+// conversion to int so a huge or non-finite available size can never yield a
+// negative, overflowing, or unbounded count; the clamp keeps count ×
+// len(Tracks) within gridMaxTracks.
 //
 // Parameters:
 //   - repeat: The RepeatTrack pattern to repeat
-//   - availableSize: The available space in the grid axis
+//   - availableSize: The space left for the repeated tracks in the grid axis
 //   - gap: The gap between tracks
 //
 // Returns: The number of repetitions (minimum 1 for a non-empty pattern)
@@ -95,14 +123,76 @@ func calculateAutoRepeatCount(repeat RepeatTrack, availableSize, gap float64) in
 	if math.IsNaN(countF) || countF < 1 {
 		return 1
 	}
-	if countF > float64(gridMaxAutoRepeat) {
-		return gridMaxAutoRepeat
+	maxCount := gridRepeatMaxCount(repeat.Tracks)
+	if countF > float64(maxCount) {
+		return maxCount
 	}
 	return int(countF)
 }
 
-// expandAutoRepeatTracks expands auto-fill or auto-fit track patterns
-// into concrete track definitions based on available space.
+// gridRepeatExtent returns how many tracks count repetitions of pattern emit
+// under the gridMaxTracks cap (gridAppendRepeat starting from an empty list)
+// and the space those tracks contribute to auto-repeat counting.
+func gridRepeatExtent(pattern []GridTrack, count int) (n int, size float64) {
+	if len(pattern) == 0 || count <= 0 {
+		return 0, 0
+	}
+	if count > gridMaxTracks || count*len(pattern) > gridMaxTracks {
+		n = gridMaxTracks
+	} else {
+		n = count * len(pattern)
+	}
+	full, partial := n/len(pattern), n%len(pattern)
+	patternSize := 0.0
+	for _, track := range pattern {
+		patternSize += autoRepeatTrackSize(track)
+	}
+	size = patternSize * float64(full)
+	for _, track := range pattern[:partial] {
+		size += autoRepeatTrackSize(track)
+	}
+	return n, size
+}
+
+// gridAppendRepeat appends count repetitions of pattern to tracks, stopping
+// as soon as len(tracks) reaches gridMaxTracks. The truncation is at track
+// granularity, so the result holds exactly the first gridMaxTracks tracks of
+// the full expansion; a pattern that would cross the cap is cut mid-pattern.
+func gridAppendRepeat(tracks []GridTrack, pattern []GridTrack, count int) []GridTrack {
+	for i := 0; i < count; i++ {
+		room := gridMaxTracks - len(tracks)
+		if room <= 0 {
+			return tracks
+		}
+		if len(pattern) >= room {
+			return append(tracks, pattern[:room]...)
+		}
+		tracks = append(tracks, pattern...)
+	}
+	return tracks
+}
+
+// expandAutoRepeatTracks expands the repeat() patterns of one axis into
+// concrete track definitions: the explicit tracks first, then every pattern
+// in order, fixed counts literally and auto-fill / auto-fit as many times as
+// fit the available space.
+//
+// CSS Grid Layout Module Level 1 §7.2.3.2: the auto-repeat count is the
+// largest positive integer such that all tracks plus gaps fit the grid
+// container, so it is computed against the space left after ALL other tracks
+// in the axis, the explicit tracks and the fixed-count patterns (wherever
+// they appear in the list), including the gaps between those tracks and the
+// gap between them and the repeated block. With N other tracks of total size
+// S, the repeated block gets availableSize - S - N × gap.
+//
+// The total number of tracks emitted never exceeds gridMaxTracks: once the
+// cap is reached the remaining patterns (or the rest of the current one) are
+// dropped, so the result is always bounded and deterministic regardless of
+// the requested counts (see gridAppendRepeat).
+//
+// At most one auto-repeat pattern is expected (gridExpandTemplate filters
+// the others, §7.2.3.1); if several are passed, each one is counted against
+// the space the previous ones left over.
 //
 // Parameters:
 //   - repeats: Array of RepeatTrack patterns (mix of auto-fill/auto-fit and regular)
@@ -110,24 +200,44 @@ func calculateAutoRepeatCount(repeat RepeatTrack, availableSize, gap float64) in
 //   - availableSize: Available space in the grid axis (>= Unbounded when indefinite)
 //   - gap: Gap between tracks
 //
-// Returns: Expanded array of GridTrack definitions
+// Returns: the expanded tracks and the index range [autoStart, autoEnd) of
+// the tracks produced by the first auto-repeat pattern (both 0 when there is
+// none).
 //
 // See: https://www.w3.org/TR/css-grid-1/#auto-repeat
-func expandAutoRepeatTracks(repeats []RepeatTrack, explicitTracks []GridTrack, availableSize, gap float64) []GridTrack {
-	// Start with explicit tracks
-	result := make([]GridTrack, 0, len(explicitTracks)*2)
-	result = append(result, explicitTracks...)
+func expandAutoRepeatTracks(repeats []RepeatTrack, explicitTracks []GridTrack, availableSize, gap float64) (tracks []GridTrack, autoStart, autoEnd int) {
+	if math.IsNaN(gap) || math.IsInf(gap, 0) || gap < 0 {
+		gap = 0
+	}
 
-	// Calculate space used by explicit tracks
+	// Space and track count of everything that is not auto-repeated.
+	otherTracks := len(explicitTracks)
 	usedSpace := 0.0
 	for _, track := range explicitTracks {
 		usedSpace += autoRepeatTrackSize(track)
 	}
-
-	// Add gaps for explicit tracks
-	if len(explicitTracks) > 1 {
-		usedSpace += gap * float64(len(explicitTracks)-1)
+	capacity := len(explicitTracks)
+	for _, repeat := range repeats {
+		if isAutoRepeatTrack(repeat) {
+			capacity += len(repeat.Tracks)
+			continue
+		}
+		n, size := gridRepeatExtent(repeat.Tracks, repeat.Count)
+		otherTracks += n
+		usedSpace += size
+		capacity += n
 	}
+	if otherTracks > 0 {
+		// Gaps between the other tracks (N-1) plus the gap separating them
+		// from the repeated block.
+		usedSpace += gap * float64(otherTracks)
+	}
+	if capacity > gridMaxTracks {
+		capacity = gridMaxTracks
+	}
+
+	result := make([]GridTrack, 0, capacity)
+	result = gridAppendRepeat(result, explicitTracks, 1)
 
 	// Remaining space for auto-repeat tracks. An indefinite available size
 	// stays indefinite so each auto-repeat pattern repeats exactly once.
@@ -139,105 +249,33 @@ func expandAutoRepeatTracks(repeats []RepeatTrack, explicitTracks []GridTrack, a
 		}
 	}
 
-	// Expand each auto-repeat pattern
+	seenAuto := false
 	for _, repeat := range repeats {
-		if repeat.Count == RepeatCountAutoFill || repeat.Count == RepeatCountAutoFit {
-			// Calculate how many repetitions fit (bounded by gridMaxAutoRepeat)
+		switch {
+		case isAutoRepeatTrack(repeat):
 			count := calculateAutoRepeatCount(repeat, remainingSpace, gap)
-
-			// Expand the pattern
-			for i := 0; i < count; i++ {
-				result = append(result, repeat.Tracks...)
+			start := len(result)
+			result = gridAppendRepeat(result, repeat.Tracks, count)
+			if !seenAuto {
+				seenAuto = true
+				autoStart, autoEnd = start, len(result)
 			}
 
-			// Update remaining space
+			// Update remaining space for any further (invalid but tolerated)
+			// auto-repeat pattern.
 			if remainingSpace < Unbounded {
-				for _, track := range repeat.Tracks {
-					remainingSpace -= autoRepeatTrackSize(track) * float64(count)
-				}
-				if count > 0 && len(repeat.Tracks) > 0 {
-					remainingSpace -= gap * float64(count*len(repeat.Tracks)-1)
-				}
+				_, size := gridRepeatExtent(repeat.Tracks, count)
+				remainingSpace -= size + gap*float64(len(result)-start)
 				if remainingSpace < 0 {
 					remainingSpace = 0
 				}
 			}
-		} else if repeat.Count > 0 {
-			// Regular repeat (not auto-fill/auto-fit), bounded like auto-repeat
-			count := repeat.Count
-			if count > gridMaxAutoRepeat {
-				count = gridMaxAutoRepeat
-			}
-			for i := 0; i < count; i++ {
-				result = append(result, repeat.Tracks...)
-			}
+		case repeat.Count > 0:
+			result = gridAppendRepeat(result, repeat.Tracks, repeat.Count)
 		}
 	}
 
-	return result
-}
-
-// collapseAutoFitEmptyTracks collapses empty tracks to zero size for auto-fit.
-// This is the key difference between auto-fill and auto-fit:
-// - auto-fill: keeps all tracks, even if empty
-// - auto-fit: collapses empty tracks to zero size
-//
-// Parameters:
-//   - tracks: Array of grid tracks
-//   - items: Grid items that have been placed
-//   - isColumn: true if tracks are columns, false if rows
-//
-// Returns: Modified array of tracks with empty auto-fit tracks collapsed
-func collapseAutoFitEmptyTracks(tracks []GridTrack, items []*gridItem, isColumn bool) []GridTrack {
-	if len(tracks) == 0 {
-		return tracks
-	}
-
-	// Track which tracks have content
-	hasContent := make([]bool, len(tracks))
-
-	// Mark tracks that contain items
-	for _, item := range items {
-		var start, end int
-		if isColumn {
-			start = item.colStart
-			end = item.colEnd
-		} else {
-			start = item.rowStart
-			end = item.rowEnd
-		}
-
-		// Clamp to track bounds
-		if start < 0 {
-			start = 0
-		}
-		if end > len(tracks) {
-			end = len(tracks)
-		}
-
-		// Mark all tracks this item spans
-		for i := start; i < end; i++ {
-			hasContent[i] = true
-		}
-	}
-
-	// Collapse empty tracks
-	result := make([]GridTrack, len(tracks))
-	for i, track := range tracks {
-		if hasContent[i] {
-			// Keep track size
-			result[i] = track
-		} else {
-			// Collapse to zero (empty auto-fit track)
-			result[i] = GridTrack{
-				MinSize:  Px(0),
-				MaxSize:  Px(0),
-				Fraction: track.Fraction, // Preserve fraction in case it matters
-			}
-		}
-	}
-
-	return result
+	return result, autoStart, autoEnd
 }
 
 // isAutoRepeatTrack checks if a RepeatTrack uses auto-fill or auto-fit.
@@ -263,8 +301,9 @@ func isAutoRepeatTrack(repeat RepeatTrack) bool {
 // when indefinite, in which case every auto-repeat produces one repetition
 // (§7.2.3.2). Pattern tracks are resolved to pixels (em/rem/...) before
 // counting so the repetition count matches the sizes the track sizing
-// algorithm later uses. Fixed repetition counts and auto-repeat counts are
-// both capped at gridMaxAutoRepeat, so the result is always bounded.
+// algorithm later uses. The expansion emits at most gridMaxTracks tracks in
+// total (explicit tracks included), whatever the fixed counts or the
+// auto-repeat count, so the result is always bounded.
 //
 // The second result marks, per resulting track, whether it belongs to an
 // auto-fit pattern and is therefore collapsible when empty; it is nil when
@@ -290,7 +329,7 @@ func gridExpandTemplate(template []GridTrack, repeats []RepeatTrack, availableSi
 			}
 			autoIndex = len(valid)
 		case repeat.Count > 0:
-			// Fixed count; expandAutoRepeatTracks caps it.
+			// Fixed count; expandAutoRepeatTracks caps the emitted tracks.
 		default:
 			continue
 		}
@@ -304,39 +343,15 @@ func gridExpandTemplate(template []GridTrack, repeats []RepeatTrack, availableSi
 		return template, nil
 	}
 
-	tracks := expandAutoRepeatTracks(valid, template, availableSize, gap)
-	if autoIndex < 0 || valid[autoIndex].Count != RepeatCountAutoFit {
+	tracks, autoStart, autoEnd := expandAutoRepeatTracks(valid, template, availableSize, gap)
+	if autoIndex < 0 || valid[autoIndex].Count != RepeatCountAutoFit || autoEnd <= autoStart {
 		return tracks, nil
 	}
 
-	// Locate the auto-fit repetitions: they start after the explicit tracks
-	// and the fixed-count patterns that precede them, and run for however
-	// many tracks the fixed-count patterns after them leave over.
-	autoStart := len(template)
-	autoEnd := len(tracks)
-	for i, repeat := range valid {
-		if i == autoIndex {
-			continue
-		}
-		count := repeat.Count
-		if count > gridMaxAutoRepeat {
-			count = gridMaxAutoRepeat
-		}
-		n := count * len(repeat.Tracks)
-		if i < autoIndex {
-			autoStart += n
-		} else {
-			autoEnd -= n
-		}
-	}
-	if autoStart < 0 {
-		autoStart = 0
-	}
-	if autoEnd > len(tracks) {
-		autoEnd = len(tracks)
-	}
+	// The auto-fit repetitions occupy [autoStart, autoEnd) of the expansion,
+	// already truncated to the track cap by expandAutoRepeatTracks.
 	autoFit := make([]bool, len(tracks))
-	for i := autoStart; i < autoEnd; i++ {
+	for i := autoStart; i < autoEnd && i < len(tracks); i++ {
 		autoFit[i] = true
 	}
 	return tracks, autoFit
@@ -447,31 +462,55 @@ func gridCollapseAutoFitTracks(tracks []GridTrack, autoFit []bool, items []*grid
 	return kept
 }
 
-// validateAutoRepeatTracks validates that auto-repeat patterns only use
-// fixed-size tracks (no fr units, no intrinsic sizes).
+// gridLengthIsFixed reports whether a track sizing function is a
+// <fixed-breadth>: a length or percentage with a unit, finite, non-negative,
+// and not one of the intrinsic-size sentinels or the unbounded value.
 //
-// According to CSS spec, auto-repeat can only contain:
-// - Fixed lengths (e.g., 100px)
-// - Percentage values (treated as fixed when container size is known)
-// - minmax() with fixed min/max
+// See: https://www.w3.org/TR/css-grid-1/#typedef-fixed-breadth
+func gridLengthIsFixed(l Length) bool {
+	if l.Unit == "" || l.Unit == UnboundedUnit {
+		return false
+	}
+	v := l.Value
+	return !math.IsNaN(v) && v >= 0 && v < Unbounded
+}
+
+// validateAutoRepeatTracks validates that an auto-fill / auto-fit pattern
+// only uses fixed-size tracks.
+//
+// CSS Grid Layout Module Level 1 §7.2.3: auto-repeat takes a
+// <fixed-size> list, which is a <fixed-breadth> (length or percentage),
+// minmax(<fixed-breadth>, <track-breadth>), or minmax(<inflexible-breadth>,
+// <fixed-breadth>). Hence a track is valid when at least one of its sizing
+// functions is a fixed breadth. In this engine's GridTrack representation
+// that excludes:
+//
+//   - flexible tracks (Fraction > 0) and fit-content (Fraction == -1);
+//   - min-content / max-content (the SizeMinContent / SizeMaxContent
+//     sentinels in MaxSize with a 0 minimum);
+//   - auto, i.e. AutoTrack() (min 0, max unbounded) and the zero-value
+//     GridTrack that gridNormalizeTrack maps to it. minmax(0px, auto) is
+//     grammatically a fixed size but is indistinguishable from auto here, so
+//     a fixed minimum must be positive to count; a fixed maximum always
+//     counts (minmax(auto, 100px), 0px).
 //
 // Returns: true if valid, false otherwise
+//
+// See: https://www.w3.org/TR/css-grid-1/#auto-repeat
+// See: https://www.w3.org/TR/css-grid-1/#typedef-fixed-size
 func validateAutoRepeatTracks(repeat RepeatTrack) bool {
 	for _, track := range repeat.Tracks {
-		// Check for fractional units (not allowed in auto-repeat)
-		if track.Fraction > 0 {
+		// fr units and fit-content (Fraction == -1) are not fixed sizes.
+		if track.Fraction != 0 {
 			return false
 		}
-
-		// Check for intrinsic sizing keywords (not allowed in auto-repeat)
-		if track.MaxSize.Value == SizeMinContent || track.MaxSize.Value == SizeMaxContent {
-			return false
+		if gridLengthIsFixed(track.MaxSize) {
+			continue
 		}
-
-		// Fit-content is also not allowed in auto-repeat
-		if track.Fraction == -1 {
-			return false
+		if gridLengthIsFixed(track.MinSize) && track.MinSize.Value > 0 {
+			continue
 		}
+		return false
 	}
 
 	return true

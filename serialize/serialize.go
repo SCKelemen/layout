@@ -33,6 +33,15 @@ const (
 	// MaxRepeatCount is the largest integer repetition count accepted for a
 	// repeat() track pattern (gridTemplateRowsRepeat / gridTemplateColumnsRepeat).
 	MaxRepeatCount = 10000
+	// MaxRepeatTracks is the largest number of tracks a single repeat()
+	// pattern may expand to: count × len(tracks) for an integer count, and
+	// len(tracks) for auto-fill / auto-fit (which repeat at least once). It
+	// matches the layout engine's per-axis track cap, so an accepted pattern
+	// is never truncated by layout.
+	MaxRepeatTracks = 10000
+	// MaxRepeats is the maximum number of repeat() patterns in one axis
+	// (the length of gridTemplateRowsRepeat / gridTemplateColumnsRepeat).
+	MaxRepeats = 100
 )
 
 // ErrNullInput is returned by FromJSON and FromYAML when the document is a
@@ -190,7 +199,9 @@ type TrackJSON struct {
 // Count is either an integer repetition count in [1, MaxRepeatCount], written
 // as a JSON/YAML number, or one of the keywords "auto-fill" / "auto-fit",
 // written as a string. Tracks is the pattern to repeat and must hold at least
-// one track.
+// one track; the expansion (Count × len(Tracks), or len(Tracks) for the
+// keywords) may not exceed MaxRepeatTracks, and an axis may list at most
+// MaxRepeats patterns.
 type RepeatJSON struct {
 	Count  any         `json:"count" yaml:"count"`
 	Tracks []TrackJSON `json:"tracks,omitempty" yaml:"tracks,omitempty"`
@@ -545,8 +556,8 @@ func (e *encoder) repeats(field string, rs []layout.RepeatTrack) []RepeatJSON {
 	if len(rs) == 0 {
 		return nil
 	}
-	if len(rs) > MaxChildren {
-		e.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, e.path, field, len(rs), MaxChildren))
+	if len(rs) > MaxRepeats {
+		e.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, e.path, field, len(rs), MaxRepeats))
 		return nil
 	}
 	out := make([]RepeatJSON, len(rs))
@@ -566,9 +577,31 @@ func (e *encoder) repeats(field string, rs []layout.RepeatTrack) []RepeatJSON {
 		if len(r.Tracks) == 0 {
 			e.fail(fmt.Errorf("%s.%s.tracks: repeat() needs at least one track", e.path, item))
 		}
+		if err := checkRepeatTracks(r.Count, len(r.Tracks)); err != nil {
+			e.fail(fmt.Errorf("%w: %s.%s: %v", ErrLimitExceeded, e.path, item, err))
+		}
 		out[i] = RepeatJSON{Count: count, Tracks: e.tracks(item+".tracks", r.Tracks)}
 	}
 	return out
+}
+
+// checkRepeatTracks enforces MaxRepeatTracks on one repeat() pattern: an
+// integer count expands to count × tracks tracks; auto-fill / auto-fit
+// (negative counts) expand to at least one repetition, so only the pattern
+// length is bounded. An out-of-range count is reported separately by the
+// caller and is not counted here.
+func checkRepeatTracks(count, tracks int) error {
+	switch {
+	case count < 0:
+		if tracks > MaxRepeatTracks {
+			return fmt.Errorf("auto-repeat pattern of %d tracks exceeds %d tracks", tracks, MaxRepeatTracks)
+		}
+	case count >= 1 && count <= MaxRepeatCount:
+		if tracks > MaxRepeatTracks/count {
+			return fmt.Errorf("repeat(%d) of %d tracks expands to %d tracks, exceeds %d", count, tracks, count*tracks, MaxRepeatTracks)
+		}
+	}
+	return nil
 }
 
 func (e *encoder) textStyle(ts *layout.TextStyle) *TextStyleJSON {
@@ -897,14 +930,15 @@ func (d *decoder) tracks(field string, tjs []TrackJSON) []layout.GridTrack {
 }
 
 // repeats decodes repeat() patterns. The count must be an integer in
-// [1, MaxRepeatCount] or one of the keywords "auto-fill" / "auto-fit", and
-// every pattern needs at least one track.
+// [1, MaxRepeatCount] or one of the keywords "auto-fill" / "auto-fit", every
+// pattern needs at least one track, a pattern may expand to at most
+// MaxRepeatTracks tracks, and an axis may hold at most MaxRepeats patterns.
 func (d *decoder) repeats(field string, rjs []RepeatJSON) []layout.RepeatTrack {
 	if len(rjs) == 0 {
 		return nil
 	}
-	if len(rjs) > MaxChildren {
-		d.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, d.path, field, len(rjs), MaxChildren))
+	if len(rjs) > MaxRepeats {
+		d.fail(fmt.Errorf("%w: %s.%s: %d repeats exceeds %d", ErrLimitExceeded, d.path, field, len(rjs), MaxRepeats))
 		return nil
 	}
 	out := make([]layout.RepeatTrack, len(rjs))
@@ -916,6 +950,10 @@ func (d *decoder) repeats(field string, rjs []RepeatJSON) []layout.RepeatTrack {
 		}
 		if len(rj.Tracks) == 0 {
 			d.fail(fmt.Errorf("%s.%s.tracks: repeat() needs at least one track", d.path, item))
+		}
+		if err := checkRepeatTracks(count, len(rj.Tracks)); err != nil {
+			d.fail(fmt.Errorf("%w: %s.%s: %v", ErrLimitExceeded, d.path, item, err))
+			continue
 		}
 		out[i] = layout.RepeatTrack{Count: count, Tracks: d.tracks(item+".tracks", rj.Tracks)}
 	}

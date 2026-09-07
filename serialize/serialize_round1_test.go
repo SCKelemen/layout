@@ -265,3 +265,91 @@ func TestToJSONRejectsUnknownEnumValues(t *testing.T) {
 		}
 	}
 }
+
+// A repeat() pattern is bounded by the number of tracks it expands to, not by
+// its count alone: count 10000 x 500 tracks would expand to 5,000,000 tracks
+// (the layout engine truncates at 10,000), so both the decoder and the
+// encoder refuse it with ErrLimitExceeded. An axis holds at most MaxRepeats
+// patterns.
+func TestRepeatTrackExpansionLimits(t *testing.T) {
+	tracks := func(n int) string {
+		s := strings.Repeat(`{"minSize":"1px","maxSize":"1px"},`, n)
+		return "[" + strings.TrimSuffix(s, ",") + "]"
+	}
+	doc := func(count string, n int) []byte {
+		return []byte(`{"style":{"gridTemplateColumnsRepeat":[{"count":` + count + `,"tracks":` + tracks(n) + `}]}}`)
+	}
+
+	rejected := map[string][]byte{
+		"10000 x 500":              doc("10000", 500),
+		"21 x 500 (10500 tracks)":  doc("21", 500),
+		"2 x 5001":                 doc("2", 5001),
+		"auto-fill x 10001 tracks": doc(`"auto-fill"`, MaxRepeatTracks+1),
+	}
+	for name, input := range rejected {
+		_, err := FromJSON(input)
+		if err == nil {
+			t.Errorf("%s: expected an error", name)
+			continue
+		}
+		if !errors.Is(err, ErrLimitExceeded) {
+			t.Errorf("%s: error should wrap ErrLimitExceeded: %v", name, err)
+		}
+		if !strings.Contains(err.Error(), "gridTemplateColumnsRepeat[0]") || !strings.Contains(err.Error(), "10000") {
+			t.Errorf("%s: error should name the repeat entry and the limit: %v", name, err)
+		}
+	}
+
+	accepted := map[string][]byte{
+		"20 x 500 (exactly 10000)":   doc("20", 500),
+		"10000 x 1":                  doc("10000", 1),
+		"auto-fit x 10000 tracks":    doc(`"auto-fit"`, MaxRepeatTracks),
+		"auto-fill x 1 (indefinite)": doc(`"auto-fill"`, 1),
+	}
+	for name, input := range accepted {
+		if _, err := FromJSON(input); err != nil {
+			t.Errorf("%s should be accepted: %v", name, err)
+		}
+	}
+
+	// Repeats per axis.
+	one := `{"count":1,"tracks":[{"minSize":"1px","maxSize":"1px"}]}`
+	many := func(n int) []byte {
+		return []byte(`{"style":{"gridTemplateRowsRepeat":[` + strings.TrimSuffix(strings.Repeat(one+",", n), ",") + `]}}`)
+	}
+	if _, err := FromJSON(many(MaxRepeats)); err != nil {
+		t.Errorf("%d repeats should be accepted: %v", MaxRepeats, err)
+	}
+	if _, err := FromJSON(many(MaxRepeats + 1)); err == nil || !errors.Is(err, ErrLimitExceeded) || !strings.Contains(err.Error(), "gridTemplateRowsRepeat") {
+		t.Errorf("%d repeats: expected ErrLimitExceeded naming the field, got %v", MaxRepeats+1, err)
+	}
+
+	// The encoder enforces the same limits so nothing it emits is refused.
+	pattern := make([]layout.GridTrack, 500)
+	for i := range pattern {
+		pattern[i] = layout.FixedTrack(layout.Px(1))
+	}
+	huge := &layout.Node{Style: layout.Style{GridTemplateColumnsRepeat: []layout.RepeatTrack{{Count: 10000, Tracks: pattern}}}}
+	if _, err := ToJSON(huge); err == nil || !errors.Is(err, ErrLimitExceeded) || !strings.Contains(err.Error(), "gridTemplateColumnsRepeat[0]") {
+		t.Errorf("ToJSON of repeat(10000, [500 tracks]): expected ErrLimitExceeded naming the entry, got %v", err)
+	}
+	wideAuto := &layout.Node{Style: layout.Style{GridTemplateColumnsRepeat: []layout.RepeatTrack{layout.AutoFillTracks(make([]layout.GridTrack, MaxRepeatTracks+1)...)}}}
+	if _, err := ToJSON(wideAuto); err == nil || !errors.Is(err, ErrLimitExceeded) {
+		t.Errorf("ToJSON of auto-fill with %d tracks: expected ErrLimitExceeded, got %v", MaxRepeatTracks+1, err)
+	}
+	ok := &layout.Node{Style: layout.Style{GridTemplateColumnsRepeat: []layout.RepeatTrack{{Count: 20, Tracks: pattern}}}}
+	data, err := ToJSON(ok)
+	if err != nil {
+		t.Fatalf("ToJSON of repeat(20, [500 tracks]) should succeed: %v", err)
+	}
+	if _, err := FromJSON(data); err != nil {
+		t.Errorf("round trip of repeat(20, [500 tracks]) failed: %v", err)
+	}
+	tooMany := &layout.Node{Style: layout.Style{GridTemplateRowsRepeat: make([]layout.RepeatTrack, MaxRepeats+1)}}
+	for i := range tooMany.Style.GridTemplateRowsRepeat {
+		tooMany.Style.GridTemplateRowsRepeat[i] = layout.RepeatTrack{Count: 1, Tracks: pattern[:1]}
+	}
+	if _, err := ToJSON(tooMany); err == nil || !errors.Is(err, ErrLimitExceeded) {
+		t.Errorf("ToJSON with %d repeats: expected ErrLimitExceeded, got %v", MaxRepeats+1, err)
+	}
+}

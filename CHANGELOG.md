@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Grid `repeat()` tracks are laid out.** `Style.GridTemplateColumnsRepeat` / `GridTemplateRowsRepeat` are expanded after the explicit template tracks (css-grid-1 §7.2.3): `auto-fill` / `auto-fit` repeat `floor((size + gap) / (pattern + gap))` times against a definite axis size and once against an indefinite one (§7.2.3.2), fixed counts (`Count > 0`) repeat literally, and both are capped at 10,000 tracks. Auto-repeat patterns must be fixed sizes (no `fr`, intrinsic keywords, or `fit-content`); invalid patterns, empty patterns, and any auto-repeat after the first are ignored. With `auto-fit`, repeated tracks that end up empty after placement collapse together with their gutters (§7.2.3.2 collapsed tracks): trailing empty tracks leave no trailing gaps and an empty track between two occupied ones leaves a single gap. Previously the repeat fields were never read.
+- **Grid `justify-content`.** Columns are aligned by `Style.JustifyContent` (css-grid-1 §10.4, css-align-3 §5.3): `Start`/`FlexStart`, `End`/`FlexEnd`, `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly`, and `JustifyContentStretch`, which grows `auto`-max columns per §12.8. Previously columns always started at 0. The zero value stays flex-start, so stretch only runs when requested.
+- **`AlignContentSpaceEvenly`** is supported for grid rows (css-align-3 §5.3).
+
+### Changed
+
+- **Grid gap fallback (behavior change).** `GridRowGap` / `GridColumnGap` fall back to `GridGap` only when they are unset (`Unit == ""`). An explicit `Px(0)` is a real zero gap that overrides the shorthand; previously any resolved 0 fell back to `GridGap`.
+- **Grid named areas no longer mutate child styles.** `GridArea` names are resolved into the internal placement instead of being written into the child's `GridRowStart/End` / `GridColumnStart/End`, so a tree can be laid out again with a different `GridTemplateAreas` and be re-placed, and children can be reused. An area name the template does not define keeps the child's own line-based placement (usually auto-placement), as before; this is now documented on `gridResolveAreas`.
+- Removed the unused internal `gridSetup` / `gridDetermineContainerSize` (grid_setup.go), which still carried the pre-1.4 "unset size = 0px" logic. Grid item font sizes are taken from `getCurrentFontSize`, so an item without a `TextStyle` resolves `em` margins against `LayoutContext.RootFontSize` instead of a hard-coded 16px.
+
+### Fixed
+
+- **Grid items honor intrinsic sizing keywords.** An item with `WidthSizing`/`HeightSizing` set, or with the deprecated `MinContentWidth()`/`MaxContentWidth()`/`FitContentWidth()` sentinels, keeps its measured content-based size in that axis and is aligned by `justify-self`/`align-self` instead of being read as `auto` and stretched to the cell (css-sizing-3 §4, css-align-3 §6.2). Block and flex already behaved this way.
+- **Grid item margins count toward track sizes.** Intrinsic column and row contributions use the item's outer (margin-box) size per css-grid-1 §12.5, so a 50px item with 10px margins in an `auto` column makes the column 70px (previously 50px and the margins overflowed). Items are measured against their area minus their column-axis margins. Margins are also mapped onto the grid's logical axes in vertical writing modes (top/bottom along the column axis, left/right along the row axis, with the right margin as row-start in `vertical-rl`); previously left/right were always taken as column-axis margins.
+- **Grid aspect-ratio items in vertical writing modes** are fitted to their area in logical column/row terms, like items without an aspect ratio. Previously the physical width was fitted against the column size and the height against the row size, so a 2:1 item in a `vertical-rl` grid with a 200px column and 100px row came out 100×200 and overflowed its area; it is now 100×50.
+
 ## [v1.4.0] - 2026-09-07
 
 Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).

@@ -77,16 +77,13 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	rows := gridTemplateTracks(node.Style.GridTemplateRows, node.Style.GridAutoRows)
 	columns := gridTemplateTracks(node.Style.GridTemplateColumns, node.Style.GridAutoColumns)
 
-	// Calculate gap - resolve Length values
-	gridGap := ResolveLength(node.Style.GridGap, ctx, currentFontSize)
-	rowGap := ResolveLength(node.Style.GridRowGap, ctx, currentFontSize)
-	if rowGap == 0 {
-		rowGap = gridGap
-	}
-	columnGap := ResolveLength(node.Style.GridColumnGap, ctx, currentFontSize)
-	if columnGap == 0 {
-		columnGap = gridGap
-	}
+	// Gaps: row-gap / column-gap each fall back to the gap shorthand only when
+	// they were never set (zero-value unit). An explicit Px(0) is a real zero
+	// gap that overrides GridGap, matching how the longhands override the
+	// shorthand in CSS.
+	// See: https://www.w3.org/TR/css-align-3/#gap-shorthand
+	rowGap := gridResolveGap(node.Style.GridRowGap, node.Style.GridGap, ctx, currentFontSize)
+	columnGap := gridResolveGap(node.Style.GridColumnGap, node.Style.GridGap, ctx, currentFontSize)
 
 	if len(node.Children) == 0 {
 		// Empty grid: the tracks alone (including gaps in both axes)
@@ -214,10 +211,7 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// In CSS Grid, items stretch to fill their cell by default (align-items: stretch)
 		// However, if an item has an aspect ratio, it should maintain that ratio while fitting within the cell
 		// Get item's font size for margin resolution
-		itemFontSize := 16.0 // Default
-		if item.node.Style.TextStyle != nil && item.node.Style.TextStyle.FontSize > 0 {
-			itemFontSize = item.node.Style.TextStyle.FontSize
-		}
+		itemFontSize := getCurrentFontSize(item.node, ctx)
 		marginLeft := ResolveLength(item.node.Style.Margin.Left, ctx, itemFontSize)
 		marginRight := ResolveLength(item.node.Style.Margin.Right, ctx, itemFontSize)
 		marginTop := ResolveLength(item.node.Style.Margin.Top, ctx, itemFontSize)
@@ -660,6 +654,24 @@ func gridFinishContainer(node *Node, constraints Constraints, colTotal, rowTotal
 		Height: constrainedSize.Height,
 	}
 	return constrainedSize
+}
+
+// gridResolveGap resolves one gap longhand (row-gap or column-gap), falling
+// back to the gap shorthand when the longhand was never set. Only an unset
+// longhand (zero-value unit) falls back; Px(0) is a real zero gap. Negative
+// results are clamped to 0 since gaps cannot be negative.
+//
+// See: https://www.w3.org/TR/css-align-3/#gap-shorthand
+func gridResolveGap(longhand, shorthand Length, ctx *LayoutContext, currentFontSize float64) float64 {
+	gap := longhand
+	if isUnsetLength(gap) {
+		gap = shorthand
+	}
+	value := ResolveLength(gap, ctx, currentFontSize)
+	if math.IsNaN(value) || value < 0 || value >= Unbounded {
+		return 0
+	}
+	return value
 }
 
 // gridLayoutItem lays out a grid item with the given constraints using the

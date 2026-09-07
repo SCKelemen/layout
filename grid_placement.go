@@ -170,6 +170,10 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 		minor gridSpan
 	}
 
+	// Named areas (§7.3) resolve to definite positions that take precedence
+	// over the child's line-based placement, without touching child.Style.
+	areas := gridResolveAreas(node)
+
 	placements := make([]placement, 0, len(node.Children))
 	for _, child := range node.Children {
 		// display:none children generate no box. Absolutely positioned
@@ -180,8 +184,14 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 		if child.Style.Display == DisplayNone || isOutOfFlow(child) {
 			continue
 		}
-		rowSpan := gridNormalizeSpan(child.Style.GridRowStart, child.Style.GridRowEnd)
-		colSpan := gridNormalizeSpan(child.Style.GridColumnStart, child.Style.GridColumnEnd)
+		rowStart, rowEnd := child.Style.GridRowStart, child.Style.GridRowEnd
+		colStart, colEnd := child.Style.GridColumnStart, child.Style.GridColumnEnd
+		if area, ok := areas[child]; ok {
+			rowStart, rowEnd = area.RowStart, area.RowEnd
+			colStart, colEnd = area.ColumnStart, area.ColumnEnd
+		}
+		rowSpan := gridNormalizeSpan(rowStart, rowEnd)
+		colSpan := gridNormalizeSpan(colStart, colEnd)
 		item := &gridItem{node: child, autoRow: rowSpan.auto, autoCol: colSpan.auto}
 		p := placement{item: item, major: rowSpan, minor: colSpan}
 		if isColumnFlow {
@@ -330,45 +340,55 @@ func gridPlaceItems(node *Node, rows *[]GridTrack, columns *[]GridTrack, autoFlo
 	return items
 }
 
-// gridResolveAreas resolves named grid areas to explicit grid positions.
-// For each child node with GridArea set, finds the matching area definition
-// and sets the child's GridRowStart/End and GridColumnStart/End properties.
+// gridResolveAreas resolves the named grid areas referenced by the container's
+// children to line positions.
+//
+// For each child whose Style.GridArea names an area of the container's
+// GridTemplateAreas, the returned map holds that area's row/column lines.
+// The child's Style is left untouched: the resolved position lives only in
+// the placement pass, so the same tree can be laid out again with a different
+// template (or the same child reused elsewhere) and be placed afresh.
+//
+// A GridArea name that the template does not define is not an error: the
+// child is absent from the map and is auto-placed by its GridRow*/GridColumn*
+// values as if GridArea were empty. (In CSS a reference to an undefined named
+// area resolves to auto placement as well, §8.3 "if there is no line with
+// that name ... all implicit grid lines are assumed to have that name".) The
+// returned map is nil when no child references a defined area.
 //
 // Algorithm based on CSS Grid Layout Module Level 1:
 // - §7.3: Grid Template Areas
+// - §8.3: Line-based Placement (named areas)
 //
 // See: https://www.w3.org/TR/css-grid-1/#grid-template-areas-property
-func gridResolveAreas(node *Node) {
+// See: https://www.w3.org/TR/css-grid-1/#line-placement
+func gridResolveAreas(node *Node) map[*Node]GridArea {
 	// If no template areas defined, nothing to resolve
 	if node.Style.GridTemplateAreas == nil {
-		return
+		return nil
 	}
 
 	// Build lookup map of area names to definitions
-	areaMap := make(map[string]*GridArea)
-	for i := range node.Style.GridTemplateAreas.Areas {
-		area := &node.Style.GridTemplateAreas.Areas[i]
+	areaMap := make(map[string]GridArea, len(node.Style.GridTemplateAreas.Areas))
+	for _, area := range node.Style.GridTemplateAreas.Areas {
 		areaMap[area.Name] = area
 	}
 
-	// Resolve area names for all children
+	var resolved map[*Node]GridArea
 	for _, child := range node.Children {
-		// Skip if no area name set
 		if child.Style.GridArea == "" {
 			continue
 		}
-
-		// Look up the area definition
 		area, found := areaMap[child.Style.GridArea]
 		if !found {
-			// Area name not found - skip this child (will use auto-placement)
+			// Undefined area name: the child keeps its line-based placement
+			// (usually auto-placement).
 			continue
 		}
-
-		// Set explicit grid positions from the area definition
-		child.Style.GridRowStart = area.RowStart
-		child.Style.GridRowEnd = area.RowEnd
-		child.Style.GridColumnStart = area.ColumnStart
-		child.Style.GridColumnEnd = area.ColumnEnd
+		if resolved == nil {
+			resolved = make(map[*Node]GridArea)
+		}
+		resolved[child] = area
 	}
+	return resolved
 }

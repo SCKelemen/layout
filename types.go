@@ -215,8 +215,11 @@ type Style struct {
 	// Spec: https://www.w3.org/TR/css-contain-3/#container-name
 	ContainerName ContainerName
 
-	// Direction sets the inline base direction (ltr or rtl) for this node and
-	// its descendants. Unset falls back to TextStyle.Direction for text nodes.
+	// Direction sets the inline base direction (ltr or rtl) of this node. It is
+	// not inherited by the layout engine: set it on each node whose layout
+	// depends on it (text nodes for alignment, positioned boxes for the
+	// over-constrained rule). Unset falls back to TextStyle.Direction on text
+	// nodes.
 	// Spec: https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
 	Direction Direction
 

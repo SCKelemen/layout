@@ -151,20 +151,25 @@ func LayoutText(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		style.FontSize = rootFontSizeOrDefault(ctx)
 	}
 
-	// Get writing mode - prefer Style.WritingMode (inherited), fall back to TextStyle.WritingMode (legacy)
+	// Writing mode: Style.WritingMode wins, TextStyle.WritingMode is the legacy fallback.
 	writingMode := node.Style.WritingMode
 	if writingMode == WritingModeHorizontalTB && style.WritingMode != WritingModeHorizontalTB {
 		// Style.WritingMode is default but TextStyle.WritingMode is set, use TextStyle value for backward compat
 		writingMode = style.WritingMode
 	}
 
-	// Direction is resolved the same way: Style.Direction (inherited) wins,
+	// Direction is resolved the same way: Style.Direction wins,
 	// TextStyle.Direction is the legacy fallback.
 	// https://www.w3.org/TR/css-writing-modes-3/#propdef-direction
 	direction := node.Style.Direction
 	if direction == DirectionLTR && style.Direction != DirectionLTR {
 		direction = style.Direction
 	}
+	// Write the resolved values back into the local copy so every helper that
+	// reads style.WritingMode / style.Direction (box orientations, alignment)
+	// sees the same resolution as the sizing code below.
+	style.WritingMode = writingMode
+	style.Direction = direction
 
 	// Measure with the context's provider when it has one (LayoutContext.
 	// WithTextMetrics), otherwise the package-level provider.

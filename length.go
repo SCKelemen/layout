@@ -181,15 +181,27 @@ func UnboundedLength() Length {
 // ResolveLengthInContext, which is the only path that populates
 // units.Context.ContainerWidth / ContainerHeight.
 func ResolveLength(l Length, ctx *LayoutContext, currentFontSize float64) float64 {
-	// Unset length: the Go zero value. units.Length.Resolve would reject the
-	// empty unit and the error path would return l.Value, which is 0 for a
-	// zero-value Length, so the result is identical and allocation-free.
+	// Empty unit: the Go zero value (unset, Value 0) or a hand-built unit-less
+	// literal such as Length{Value: 100}. The units package resolves an empty
+	// unit as pixels, so return the value directly; this keeps the hot unset
+	// path allocation-free and leaves unit-less literals meaning px.
 	if l.Unit == "" {
-		return 0
+		return l.Value
 	}
 	// Layout-specific sentinel: not in CSS, units pkg doesn't know it.
 	if l.Unit == UnboundedUnit {
 		return math.MaxFloat64
+	}
+	// Viewport-relative units are resolved here so that the logical (vi, vb)
+	// and small/large/dynamic (sv*, lv*, dv*) variants work: layout has a
+	// single viewport with no dynamic toolbars, so every variant maps to the
+	// same size, and inline/block map to width/height (horizontal-tb).
+	// https://www.w3.org/TR/css-values-4/#viewport-relative-lengths
+	if l.IsViewportRelative() {
+		if ctx == nil {
+			return 0
+		}
+		return resolveViewportLength(l, ctx.ViewportWidth, ctx.ViewportHeight)
 	}
 
 	uctx := buildUnitsContext(ctx, currentFontSize, l.Unit)
@@ -292,4 +304,26 @@ func measureCharWidth(char rune, fontSize float64, metrics TextMetricsProvider) 
 	// Measure a single character
 	width, _, _ := metrics.Measure(string(char), style)
 	return width
+}
+
+// resolveViewportLength resolves a viewport-relative length against the given
+// viewport. A zero viewport dimension yields 0 (the size is unknown), never the
+// raw value. vmin/vmax pick the smaller/larger dimension; the inline axis is
+// the width and the block axis the height (horizontal-tb writing mode).
+func resolveViewportLength(l Length, viewportWidth, viewportHeight float64) float64 {
+	var base float64
+	switch l.Unit {
+	case units.VW, units.VI, units.SVW, units.SVI, units.LVW, units.LVI, units.DVW, units.DVI:
+		base = viewportWidth
+	case units.VH, units.VB, units.SVH, units.SVB, units.LVH, units.LVB, units.DVH, units.DVB:
+		base = viewportHeight
+	case units.VMIN:
+		base = math.Min(viewportWidth, viewportHeight)
+	case units.VMAX:
+		base = math.Max(viewportWidth, viewportHeight)
+	}
+	if base <= 0 || base >= math.MaxFloat64 {
+		return 0
+	}
+	return l.Value * base / 100
 }

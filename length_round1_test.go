@@ -24,10 +24,10 @@ func TestResolveLengthUnsetFastPath(t *testing.T) {
 	if got := ResolveLength(Length{}, ctx, 16); got != 0 {
 		t.Errorf("ResolveLength(Length{}, ctx) = %v, want 0", got)
 	}
-	// A zero-value Unit with a non-zero Value cannot be built through the
-	// constructors, but if it is assembled by hand it is still "unset".
-	if got := ResolveLength(Length{Value: 12}, ctx, 16); got != 0 {
-		t.Errorf("ResolveLength(Length{Value: 12}, ctx) = %v, want 0", got)
+	// A hand-built unit-less literal keeps the pre-fast-path meaning (the
+	// units package resolves an empty unit as pixels).
+	if got := ResolveLength(Length{Value: 12}, ctx, 16); got != 12 {
+		t.Errorf("ResolveLength(Length{Value: 12}, ctx) = %v, want 12", got)
 	}
 	// Real units are unaffected.
 	if got := ResolveLength(Px(0), ctx, 16); got != 0 {

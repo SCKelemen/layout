@@ -24,6 +24,16 @@ package layout
 // See: https://www.w3.org/TR/css-position-3/
 // See: https://www.w3.org/TR/CSS21/visudet.html#abs-non-replaced-width
 func LayoutPositioned(node *Node, containingBlock Rect, viewportRect Rect, ctx *LayoutContext) {
+	// Without knowledge of the containing block's node, its direction is taken
+	// from the box itself; layoutPositionedRecursive passes the real one.
+	layoutPositionedIn(node, containingBlock, viewportRect, ctx, node.Style.Direction)
+}
+
+// layoutPositionedIn is LayoutPositioned with the containing block's inline
+// base direction, which decides which offset is ignored when an absolutely
+// positioned box is over-constrained (CSS 2.1 §10.3.7 refers to the direction
+// of the containing block, not of the box).
+func layoutPositionedIn(node *Node, containingBlock Rect, viewportRect Rect, ctx *LayoutContext, cbDirection Direction) {
 	if node.Style.Position == PositionStatic {
 		// Static positioning is the default, no special handling needed
 		return
@@ -66,7 +76,7 @@ func LayoutPositioned(node *Node, containingBlock Rect, viewportRect Rect, ctx *
 
 	switch node.Style.Position {
 	case PositionAbsolute, PositionFixed:
-		layoutAbsolute(node, positioningContext, ctx, currentFontSize,
+		layoutAbsolute(node, positioningContext, ctx, currentFontSize, cbDirection,
 			hasLeft, hasRight, hasTop, hasBottom, leftPx, rightPx, topPx, bottomPx)
 
 	case PositionRelative, PositionSticky:
@@ -109,8 +119,9 @@ func LayoutPositioned(node *Node, containingBlock Rect, viewportRect Rect, ctx *
 // Containing block dimensions >= Unbounded are indefinite; positions that
 // would depend on them (end-edge offsets, both-edges sizing) fall back to the
 // start edge so an unbounded value is never written into node.Rect.
-func layoutAbsolute(node *Node, cb Rect, ctx *LayoutContext, currentFontSize float64,
+func layoutAbsolute(node *Node, cb Rect, ctx *LayoutContext, currentFontSize float64, cbDirection Direction,
 	hasLeft, hasRight, hasTop, hasBottom bool, leftPx, rightPx, topPx, bottomPx float64) {
+	flowWidth, flowHeight := node.Rect.Width, node.Rect.Height
 	explicitWidth, explicitHeight, widthSet, heightSet := absoluteExplicitSize(node, ctx, currentFontSize)
 	if widthSet {
 		node.Rect.Width = explicitWidth
@@ -134,7 +145,7 @@ func layoutAbsolute(node *Node, cb Rect, ctx *LayoutContext, currentFontSize flo
 		if cbWidthDefinite {
 			node.Rect.Width = max(cb.Width-leftPx-rightPx, 0)
 		}
-	case hasLeft && hasRight && node.Style.Direction == DirectionRTL && cbWidthDefinite:
+	case hasLeft && hasRight && cbDirection == DirectionRTL && cbWidthDefinite:
 		// Over-constrained, rtl: ignore left and position from the right edge.
 		node.Rect.X = cb.X + cb.Width - node.Rect.Width - rightPx
 	case hasLeft:
@@ -168,6 +179,17 @@ func layoutAbsolute(node *Node, cb Rect, ctx *LayoutContext, currentFontSize flo
 		} else {
 			node.Rect.Y = cb.Y
 		}
+	}
+
+	// The flow pass sized this box against its parent's available space. When
+	// the used size differs, lay out its descendants again against the used
+	// size so they do not keep geometry computed for a different box
+	// (CSS 2.1 §10.1: the box is the containing block for its descendants).
+	if len(node.Children) > 0 && (node.Rect.Width != flowWidth || node.Rect.Height != flowHeight) &&
+		node.Rect.Width < Unbounded && node.Rect.Height < Unbounded {
+		x, y := node.Rect.X, node.Rect.Y
+		Layout(node, Tight(node.Rect.Width, node.Rect.Height), ctx)
+		node.Rect.X, node.Rect.Y = x, y
 	}
 }
 
@@ -317,22 +339,31 @@ func LayoutWithPositioning(root *Node, constraints Constraints, viewportRect Rec
 //
 // Recursion depth is bounded by the tree depth; each node is visited once.
 func layoutPositionedRecursive(node *Node, containingBlock Rect, viewportRect Rect, ctx *LayoutContext) {
+	layoutPositionedRecursiveIn(node, containingBlock, viewportRect, ctx, node.Style.Direction)
+}
+
+// layoutPositionedRecursiveIn carries the direction of the current containing
+// block. A positioned child becomes the containing block of its descendants and
+// contributes its own direction; a static child leaves both unchanged.
+func layoutPositionedRecursiveIn(node *Node, containingBlock Rect, viewportRect Rect, ctx *LayoutContext, cbDirection Direction) {
 	for _, child := range node.Children {
 		if child == nil {
 			continue
 		}
 		if child.Style.Position != PositionStatic {
-			LayoutPositioned(child, containingBlock, viewportRect, ctx)
+			layoutPositionedIn(child, containingBlock, viewportRect, ctx, cbDirection)
 		}
 
 		var childContainingBlock Rect
+		childDirection := cbDirection
 		if child.Style.Position != PositionStatic {
 			childContainingBlock = containingBlockFor(child, ctx)
+			childDirection = child.Style.Direction
 		} else {
 			childContainingBlock = containingBlock
 			childContainingBlock.X -= child.Rect.X
 			childContainingBlock.Y -= child.Rect.Y
 		}
-		layoutPositionedRecursive(child, childContainingBlock, viewportRect, ctx)
+		layoutPositionedRecursiveIn(child, childContainingBlock, viewportRect, ctx, childDirection)
 	}
 }

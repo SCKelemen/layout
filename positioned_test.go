@@ -194,8 +194,10 @@ func TestPositionAbsoluteConstrainedWidth(t *testing.T) {
 		t.Errorf("Expected X=50 (left honored, right ignored), got %.2f", child.Rect.X)
 	}
 
-	// direction: rtl ignores left instead: X = 400 - 50 - 500 = -150.
-	child.Style.Direction = DirectionRTL
+	// direction: rtl on the containing block ignores left instead
+	// (CSS 2.1 §10.3.7 uses the containing block's direction):
+	// X = 400 - 50 - 500 = -150.
+	root.Style.Direction = DirectionRTL
 	LayoutWithPositioning(root, constraints, root.Rect, ctx)
 	if child.Rect.Width != 500 {
 		t.Errorf("rtl: expected explicit width 500 to be kept, got %.2f", child.Rect.Width)

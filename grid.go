@@ -136,8 +136,19 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		}
 	}
 	columnSizes := gridSizeTracks(columns, colAxisSize, colAxisDefinite, columnGap, colMinContrib, colMaxContrib, ctx, currentFontSize)
-	// Note: JustifyContent's zero value is flex-start in this library (there
-	// is no stretch keyword), so §12.8 stretch is not applied to columns.
+
+	// Apply justify-content to the columns (§10.4, §12.8): JustifyContentStretch
+	// grows auto tracks, the distribution keywords move them. Free space exists
+	// only when the column axis is definite. JustifyContent's zero value is
+	// flex-start in this library, so stretch runs only when requested.
+	// https://www.w3.org/TR/css-grid-1/#grid-align
+	justifyContent := gridJustifyToAlignContent(node.Style.JustifyContent)
+	colAlignSpace := Unbounded
+	if colAxisDefinite {
+		colAlignSpace = colAxisSize
+	}
+	columnSizes, totalColSize := gridDistributeTrackSpace(columnSizes, columns, colAlignSpace, columnGap, justifyContent, ctx, currentFontSize)
+	columnOffsets := gridCalculateTrackOffsets(columnSizes, totalColSize, colAlignSpace, columnGap, justifyContent)
 
 	// Step 4: Measure children against their column-axis size to obtain the
 	// row-axis contributions.
@@ -191,17 +202,6 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	rowAxisExtent := totalRowSize
 	if rowAxisDefinite && rowAxisSize > rowAxisExtent {
 		rowAxisExtent = rowAxisSize
-	}
-
-	// Columns start at 0 (no justify-content distribution).
-	columnOffsets := make([]float64, len(columnSizes))
-	currentOffset := 0.0
-	for i := range columnSizes {
-		columnOffsets[i] = currentOffset
-		currentOffset += columnSizes[i]
-		if i < len(columnSizes)-1 {
-			currentOffset += columnGap
-		}
 	}
 
 	// Step 7: Position children
@@ -582,7 +582,7 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	}
 
 	return gridFinishContainer(node, constraints,
-		gridTracksTotal(columnSizes, columnGap), totalRowSize,
+		totalColSize, totalRowSize,
 		isVerticalWritingMode,
 		widthSpecified, contentWidth, heightSpecified, contentHeight,
 		horizontalPaddingBorder, verticalPaddingBorder)

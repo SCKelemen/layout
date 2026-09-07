@@ -67,7 +67,7 @@ func gridDistributeTrackSpace(
 
 	switch alignment {
 	case AlignContentFlexStart, AlignContentFlexEnd, AlignContentCenter,
-		AlignContentSpaceBetween, AlignContentSpaceAround:
+		AlignContentSpaceBetween, AlignContentSpaceAround, AlignContentSpaceEvenly:
 		// These only move tracks; sizes are unchanged.
 		return trackSizes, totalTrackSize
 	}
@@ -93,9 +93,42 @@ func gridDistributeTrackSpace(
 	return newSizes, availableSpace
 }
 
+// gridJustifyToAlignContent maps a justify-content value onto the equivalent
+// align-content value so the column axis can reuse gridDistributeTrackSpace
+// and gridCalculateTrackOffsets. Both properties take the same content
+// distribution keywords (css-align-3 §5.3); flex-start/flex-end are the
+// flexbox spellings of start/end. Unknown values behave as start.
+//
+// Note that JustifyContent's zero value is flex-start in this library, so the
+// §12.8 stretch step runs for columns only when JustifyContentStretch is set
+// explicitly.
+//
+// See: https://www.w3.org/TR/css-align-3/#propdef-justify-content
+// See: https://www.w3.org/TR/css-grid-1/#grid-align
+func gridJustifyToAlignContent(justify JustifyContent) AlignContent {
+	switch justify {
+	case JustifyContentFlexEnd:
+		return AlignContentFlexEnd
+	case JustifyContentCenter:
+		return AlignContentCenter
+	case JustifyContentSpaceBetween:
+		return AlignContentSpaceBetween
+	case JustifyContentSpaceAround:
+		return AlignContentSpaceAround
+	case JustifyContentSpaceEvenly:
+		return AlignContentSpaceEvenly
+	case JustifyContentStretch:
+		return AlignContentStretch
+	default:
+		return AlignContentFlexStart
+	}
+}
+
 // gridCalculateTrackOffsets calculates the starting position of each track based on alignment.
 //
-// This handles justify-content and align-content positioning of tracks within the grid container.
+// This handles justify-content and align-content positioning of tracks within the grid container
+// (css-align-3 §5.3 content distribution). The column axis maps its justify-content value onto an
+// AlignContent value with gridJustifyToAlignContent.
 func gridCalculateTrackOffsets(
 	trackSizes []float64,
 	totalTrackSize float64,
@@ -151,6 +184,18 @@ func gridCalculateTrackOffsets(
 		for i := range trackSizes {
 			offsets[i] = currentOffset
 			currentOffset += trackSizes[i] + gap + spaceAround
+		}
+		return offsets
+
+	case AlignContentSpaceEvenly:
+		// Equal space before, between, and after the tracks: n+1 equal
+		// portions for n tracks.
+		// https://www.w3.org/TR/css-align-3/#valdef-align-content-space-evenly
+		spaceEvenly := freeSpace / float64(len(trackSizes)+1)
+		currentOffset = spaceEvenly
+		for i := range trackSizes {
+			offsets[i] = currentOffset
+			currentOffset += trackSizes[i] + gap + spaceEvenly
 		}
 		return offsets
 

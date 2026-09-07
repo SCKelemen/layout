@@ -199,3 +199,130 @@ func TestGridRound1MarginsLogicalInVerticalModes(t *testing.T) {
 	gridRound1Approx(t, "vertical-rl item X", item.Rect.X, 40)
 	gridRound1Approx(t, "vertical-rl item width", item.Rect.Width, 20)
 }
+
+// gridRound1JustifyGrid returns a 400px-wide grid with two columns (100px
+// each unless given) and one 50px row, ready for a justify-content value.
+func gridRound1JustifyGrid(justify JustifyContent, columns ...GridTrack) *Node {
+	if len(columns) == 0 {
+		columns = []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))}
+	}
+	return &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			Width:               Px(400),
+			GridTemplateColumns: columns,
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50))},
+			JustifyContent:      justify,
+		},
+		Children: []*Node{
+			{Style: Style{GridRowStart: 0, GridColumnStart: 0}},
+			{Style: Style{GridRowStart: 0, GridColumnStart: 1}},
+		},
+	}
+}
+
+// TestGridRound1JustifyContentColumns checks that justify-content distributes
+// the column-axis free space (css-grid-1 §10.4 / css-align-3 §5.3). Before
+// this fix columns always started at 0.
+//
+// https://www.w3.org/TR/css-grid-1/#grid-align
+// https://www.w3.org/TR/css-align-3/#distribution-values
+func TestGridRound1JustifyContentColumns(t *testing.T) {
+	cases := []struct {
+		name    string
+		justify JustifyContent
+		x0, x1  float64
+	}{
+		{"start", JustifyContentStart, 0, 100},
+		{"center", JustifyContentCenter, 100, 200},
+		{"end", JustifyContentEnd, 200, 300},
+		{"space-between", JustifyContentSpaceBetween, 0, 300},
+		{"space-around", JustifyContentSpaceAround, 50, 250},
+		{"space-evenly", JustifyContentSpaceEvenly, 200.0 / 3, 200.0/3*2 + 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root := gridRound1JustifyGrid(tc.justify)
+			size := LayoutGrid(root, Loose(400, Unbounded), NewLayoutContext(800, 600, 16))
+			gridRound1Approx(t, "item 0 X", root.Children[0].Rect.X, tc.x0)
+			gridRound1Approx(t, "item 1 X", root.Children[1].Rect.X, tc.x1)
+			gridRound1Approx(t, "item width", root.Children[1].Rect.Width, 100)
+			gridRound1Approx(t, "container width", size.Width, 400)
+		})
+	}
+}
+
+// TestGridRound1JustifyContentStretchColumns checks that
+// JustifyContentStretch grows auto columns to fill the free space (§12.8)
+// while leaving fixed columns alone.
+//
+// https://www.w3.org/TR/css-grid-1/#algo-stretch
+func TestGridRound1JustifyContentStretchColumns(t *testing.T) {
+	root := gridRound1JustifyGrid(JustifyContentStretch, FixedTrack(Px(100)), AutoTrack())
+	LayoutGrid(root, Loose(400, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "fixed column width", root.Children[0].Rect.Width, 100)
+	gridRound1Approx(t, "auto column X", root.Children[1].Rect.X, 100)
+	gridRound1Approx(t, "auto column width", root.Children[1].Rect.Width, 300)
+
+	// Without stretch the auto column is content-sized (0 here) and the
+	// columns are start-aligned.
+	root = gridRound1JustifyGrid(JustifyContentStart, FixedTrack(Px(100)), AutoTrack())
+	LayoutGrid(root, Loose(400, Unbounded), NewLayoutContext(800, 600, 16))
+	gridRound1Approx(t, "unstretched auto column width", root.Children[1].Rect.Width, 0)
+}
+
+// TestGridRound1AlignContentSpaceEvenlyRows checks the new
+// AlignContentSpaceEvenly value on the row axis.
+//
+// https://www.w3.org/TR/css-align-3/#valdef-align-content-space-evenly
+func TestGridRound1AlignContentSpaceEvenlyRows(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			Height:              Px(300),
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50)), FixedTrack(Px(50))},
+			AlignContent:        AlignContentSpaceEvenly,
+		},
+		Children: []*Node{
+			{Style: Style{GridRowStart: 0, GridColumnStart: 0}},
+			{Style: Style{GridRowStart: 1, GridColumnStart: 0}},
+		},
+	}
+	LayoutGrid(root, Loose(100, 300), NewLayoutContext(800, 600, 16))
+	// Free space 200 split into three equal portions of 66.67.
+	gridRound1Approx(t, "row 0 Y", root.Children[0].Rect.Y, 200.0/3)
+	gridRound1Approx(t, "row 1 Y", root.Children[1].Rect.Y, 200.0/3*2+50)
+}
+
+// TestGridRound1JustifyContentVerticalRL checks justify-content in a
+// vertical-rl grid: the column axis is physical Y, so centering the columns
+// offsets Y, while rows still progress from the right edge.
+//
+// https://www.w3.org/TR/css-writing-modes-3/#logical-to-physical
+func TestGridRound1JustifyContentVerticalRL(t *testing.T) {
+	root := &Node{
+		Style: Style{
+			Display:             DisplayGrid,
+			WritingMode:         WritingModeVerticalRL,
+			Width:               Px(100),
+			Height:              Px(400),
+			GridTemplateColumns: []GridTrack{FixedTrack(Px(100)), FixedTrack(Px(100))},
+			GridTemplateRows:    []GridTrack{FixedTrack(Px(50))},
+			JustifyContent:      JustifyContentCenter,
+		},
+		Children: []*Node{
+			{Style: Style{GridRowStart: 0, GridColumnStart: 0}},
+			{Style: Style{GridRowStart: 0, GridColumnStart: 1}},
+		},
+	}
+	LayoutGrid(root, Loose(100, 400), NewLayoutContext(800, 600, 16))
+	// Columns run along Y: free space 200, centered offset 100.
+	gridRound1Approx(t, "column 0 Y", root.Children[0].Rect.Y, 100)
+	gridRound1Approx(t, "column 1 Y", root.Children[1].Rect.Y, 200)
+	gridRound1Approx(t, "item height (column size)", root.Children[0].Rect.Height, 100)
+	// Rows are start-aligned from the right edge (vertical-rl): the 50px row
+	// occupies X 50..100 of the 100px row axis.
+	gridRound1Approx(t, "item X (row from right)", root.Children[0].Rect.X, 50)
+	gridRound1Approx(t, "item width (row size)", root.Children[0].Rect.Width, 50)
+}

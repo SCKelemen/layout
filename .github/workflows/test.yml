@@ -59,6 +59,9 @@ jobs:
           go vet ./...
           go vet -tags no_yaml ./...
 
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.1 ./...
+
       - name: go mod tidy is clean
         run: |
           go mod tidy

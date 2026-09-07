@@ -205,27 +205,31 @@ func TestGridHorizontalTB(t *testing.T) {
 		t.Errorf("Child 1 Y: expected 0, got %.2f", child1.Rect.Y)
 	}
 
-	// Check child2 (row 1, col 0): X should be 0, Y should be 100 (row 0 has height 100 due to stretch)
+	// Check child2 (row 1, col 0): X should be 0, Y should be 50.
 	if child2.Rect.X != 0 {
 		t.Errorf("Child 2 X: expected 0, got %.2f", child2.Rect.X)
 	}
-	// Note: With align-content: stretch (default), rows are stretched to fill container height
-	// Container height = 200, 2 rows = 100 each, so row 1 starts at Y=100
-	if child2.Rect.Y != 100 {
-		t.Errorf("Child 2 Y: expected 100, got %.2f", child2.Rect.Y)
+	// Note: align-content: stretch (the default) only grows tracks whose max
+	// sizing function is auto (CSS Grid §12.8). These rows are fixed 50px
+	// tracks, so row 1 starts at Y=50 and the remaining 100px of the 200px
+	// container stays free at the end. (This test previously asserted that
+	// the fixed rows were stretched to 100px each.)
+	// https://www.w3.org/TR/css-grid-1/#algo-stretch
+	if child2.Rect.Y != 50 {
+		t.Errorf("Child 2 Y: expected 50, got %.2f", child2.Rect.Y)
 	}
 
-	// Check child3 (row 1, col 1): X should be 100, Y should be 100
+	// Check child3 (row 1, col 1): X should be 100, Y should be 50
 	if child3.Rect.X != 100 {
 		t.Errorf("Child 3 X: expected 100, got %.2f", child3.Rect.X)
 	}
-	if child3.Rect.Y != 100 {
-		t.Errorf("Child 3 Y: expected 100, got %.2f", child3.Rect.Y)
+	if child3.Rect.Y != 50 {
+		t.Errorf("Child 3 Y: expected 50, got %.2f", child3.Rect.Y)
 	}
 
-	// Check sizes (rows are stretched to 100 due to align-content: stretch)
+	// Check sizes (fixed rows keep their 50px height)
 	expectedWidth := 100.0
-	expectedHeight := 100.0 // Stretched from 50 to 100
+	expectedHeight := 50.0
 	if child0.Rect.Width != expectedWidth || child0.Rect.Height != expectedHeight {
 		t.Errorf("Child 0 size: expected %.2fx%.2f, got %.2fx%.2f",
 			expectedWidth, expectedHeight, child0.Rect.Width, child0.Rect.Height)

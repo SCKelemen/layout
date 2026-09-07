@@ -126,7 +126,7 @@ GridTemplateColumns: []layout.GridTrack{
 }
 ```
 
-See `examples/multi_column/main.go` for a complete example.
+See the `columns` section of `examples/grid/main.go` (`go run ./examples/grid columns`) for a complete example.
 
 ### Grid Helper Functions
 
@@ -194,7 +194,7 @@ root := &layout.Node{
 }
 ```
 
-See `examples/bento/main.go` for a complete bento box layout example.
+See the `bento` section of `examples/grid/main.go` (`go run ./examples/grid bento`) for a complete bento box layout example.
 
 ## Block Layout
 

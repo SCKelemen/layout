@@ -15,14 +15,14 @@ func TestUAX14SoftHyphenSegments(t *testing.T) {
 	if got := getBreakClass('­'); got != ClassBA {
 		t.Errorf("U+00AD class: got %v, want ClassBA", got)
 	}
-	assertSegments(t, "a­b­c", HyphensManual, "a­", "b­", "c")
-	assertSegments(t, "a­b­c", HyphensAuto, "a­", "b­", "c")
-	assertSegments(t, "a­b­c", HyphensNone, "a­b­c")
+	assertSegments(t, "a\u00adb\u00adc", HyphensManual, "a\u00ad", "b\u00ad", "c")
+	assertSegments(t, "a\u00adb\u00adc", HyphensAuto, "a\u00ad", "b\u00ad", "c")
+	assertSegments(t, "a\u00adb\u00adc", HyphensNone, "a\u00adb\u00adc")
 	// A soft hyphen next to a space does not create an extra opportunity
 	// beyond the one the space already provides.
-	assertSegments(t, "ab­ cd", HyphensManual, "ab­ ", "cd")
+	assertSegments(t, "ab\u00ad cd", HyphensManual, "ab\u00ad ", "cd")
 	// Multi-byte text before the soft hyphen keeps byte offsets aligned.
-	assertSegments(t, "éé­üü", HyphensManual, "éé­", "üü")
+	assertSegments(t, "éé\u00adüü", HyphensManual, "éé\u00ad", "üü")
 }
 
 // TestUAX14TabIsSpace verifies that a preserved tab is treated as SP for

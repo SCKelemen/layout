@@ -1125,26 +1125,6 @@ func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBo
 	return size
 }
 
-// convertFromContentSize converts a content size to the appropriate box-sizing format
-// If boxSizing is content-box, returns content size unchanged
-// If boxSizing is border-box, adds padding and border to get total size
-func convertFromContentSize(contentSize float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
-	if contentSize < 0 {
-		// Auto values are passed through unchanged
-		return contentSize
-	}
-	if boxSizing == BoxSizingBorderBox {
-		// border-box: add padding + border to get total size
-		if isWidth {
-			return contentSize + horizontalPaddingBorder
-		} else {
-			return contentSize + verticalPaddingBorder
-		}
-	}
-	// content-box: content size is the total size
-	return contentSize
-}
-
 // convertMinMaxToContentSize converts min/max constraints from border-box to content-box
 // Min/Max constraints in CSS are always interpreted as border-box when box-sizing is border-box
 func convertMinMaxToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {

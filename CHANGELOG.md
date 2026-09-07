@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [v1.4.0] - 2026-09-07
+
+Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).
+
 ### Fixed
 
 - **Block layout: unset `Width`/`Height` is `auto` (behavior change).** A zero-value `Length` (`Unit == ""`, i.e. the field was never assigned) on a block container now means `auto`, matching the flexbox and grid conventions and the CSS initial value (CSS 2.1 §10.3.3). An explicit `Px(0)` is still a real zero size. Previously an unset width was treated as `0px`, so a `Style{}` root collapsed every descendant to zero width.

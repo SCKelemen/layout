@@ -389,12 +389,6 @@ func pairBreakAllowed(before, after BreakClass, hadSpace bool, next BreakClass) 
 	return true
 }
 
-// findLineBreakOpportunities finds all valid line break opportunities in text.
-// Returns a slice of byte positions where breaks are allowed.
-func findLineBreakOpportunities(text string) []int {
-	return findLineBreakOpportunitiesWithHyphens(text, HyphensManual)
-}
-
 // findLineBreakOpportunitiesWithHyphens finds all valid line break
 // opportunities in text. Returns a slice of byte positions where breaks are
 // allowed, always starting with 0 and ending with len(text).

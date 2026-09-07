@@ -294,7 +294,7 @@ func TestBreakWordHonorsLetterSpacing(t *testing.T) {
 func TestBreakWordToFitDirect(t *testing.T) {
 	setupFakeMetrics()
 	style := TextStyle{FontSize: 16, LetterSpacing: 5}
-	pieces := breakWordToFit("abcdefghij", 40, style)
+	pieces := breakWordToFit("abcdefghij", 40, style, getTextMetrics())
 	if strings.Join(pieces, "|") != "abc|def|ghi|j" {
 		t.Errorf("pieces: got %q", pieces)
 	}
@@ -304,7 +304,7 @@ func TestBreakWordToFitDirect(t *testing.T) {
 		}
 	}
 	// A single rune wider than the limit still produces a piece (progress guaranteed).
-	if got := breakWordToFit("ab", 5, style); strings.Join(got, "|") != "a|b" {
+	if got := breakWordToFit("ab", 5, style, getTextMetrics()); strings.Join(got, "|") != "a|b" {
 		t.Errorf("narrow limit: got %q", got)
 	}
 }

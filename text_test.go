@@ -1944,15 +1944,13 @@ func TestTextIndentWithAlignment(t *testing.T) {
 			align:  TextAlignRight,
 			indent: 20,
 			expectFunc: func(t *testing.T, offsetX, lineWidth, contentWidth float64) {
-				// Right-aligned with positive indent: indent reduces available width
-				// Content should be right-aligned within (contentWidth - indent)
-				// Text should end at (contentWidth - indent) not contentWidth
-				// So: offsetX = contentWidth - lineWidth - indent
+				// Right-aligned with positive indent: the indent is a margin on
+				// the START edge of the line box (css-text-3 §7.2.1), so it
+				// shortens the line at the left and end-aligned text stays
+				// flush with the right edge.
 				// Example: contentWidth=200, lineWidth=50, indent=20
-				// Without indent: offsetX = 200 - 50 = 150 (ends at 200)
-				// With indent: offsetX = 200 - 50 - 20 = 130 (ends at 180, leaving 20px on right)
-				indent := 20.0
-				expectedOffset := contentWidth - lineWidth - indent
+				// offsetX = 200 - 50 = 150 (ends at 200)
+				expectedOffset := contentWidth - lineWidth
 				if math.Abs(offsetX-expectedOffset) > 0.1 {
 					t.Errorf("Expected offsetX=%.2f (text ends at %.2f), got %.2f (text ends at %.2f)",
 						expectedOffset, expectedOffset+lineWidth, offsetX, offsetX+lineWidth)

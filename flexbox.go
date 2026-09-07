@@ -65,14 +65,18 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 		alignItems = AlignItemsStretch
 	}
 
-	// Get gap values (resolve Length to pixels)
-	rowGap := ResolveLength(node.Style.FlexRowGap, ctx, fontSize)
-	if rowGap == 0 {
-		rowGap = ResolveLength(node.Style.FlexGap, ctx, fontSize)
+	// Get gap values (resolve Length to pixels). FlexGap is the shorthand
+	// default for both row-gap and column-gap: a longhand that was never set
+	// falls back to it, while an explicit FlexRowGap/FlexColumnGap, including
+	// Px(0), overrides it (CSS Box Alignment Level 3 §8.3, `gap` shorthand).
+	// https://www.w3.org/TR/css-align-3/#gap-shorthand
+	rowGap := ResolveLength(node.Style.FlexGap, ctx, fontSize)
+	if !isUnsetLength(node.Style.FlexRowGap) {
+		rowGap = ResolveLength(node.Style.FlexRowGap, ctx, fontSize)
 	}
-	columnGap := ResolveLength(node.Style.FlexColumnGap, ctx, fontSize)
-	if columnGap == 0 {
-		columnGap = ResolveLength(node.Style.FlexGap, ctx, fontSize)
+	columnGap := ResolveLength(node.Style.FlexGap, ctx, fontSize)
+	if !isUnsetLength(node.Style.FlexColumnGap) {
+		columnGap = ResolveLength(node.Style.FlexColumnGap, ctx, fontSize)
 	}
 
 	// Map row-gap/column-gap onto the flex axes. row-gap separates rows
@@ -357,6 +361,13 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 	switch justify {
 	case JustifyContentFlexStart:
 		offset = 0
+	case JustifyContentStretch:
+		// Flex items are already sized by the §9.7 flexible-length algorithm,
+		// so justify-content: stretch has nothing to distribute and behaves as
+		// flex-start (CSS Flexbox §8.2 / CSS Box Alignment §6.1).
+		// https://www.w3.org/TR/css-flexbox-1/#justify-content-property
+		// https://www.w3.org/TR/css-align-3/#valdef-justify-content-stretch
+		offset = 0
 	case JustifyContentFlexEnd:
 		offset = freeSpace
 	case JustifyContentCenter:
@@ -409,9 +420,4 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 			currentPos += gap + between
 		}
 	}
-}
-
-// justifyContent is kept for backward compatibility but now calls justifyContentWithGap with 0 gap
-func justifyContent(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, writingMode WritingMode) {
-	justifyContentWithGap(justify, line, startOffset, containerSize, isMainHorizontal, 0, writingMode)
 }

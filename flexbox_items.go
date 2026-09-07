@@ -75,7 +75,14 @@ func flexboxMeasureItems(node *Node, setup flexboxSetup, ctx *LayoutContext) []*
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childCrossMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 		} else {
-			// Main axis is vertical (always top-to-bottom for now)
+			// Main axis is vertical. It progresses top-to-bottom in every
+			// case that produces a vertical main axis: the block axis of
+			// horizontal-tb (column direction) and the inline axis of the
+			// vertical writing modes (row direction), which all flow top to
+			// bottom (CSS Writing Modes Level 3 §2, §3). The *-reverse
+			// directions are handled by flexboxAlignmentMainAxis reversing the
+			// line, not by swapping margins here.
+			// https://www.w3.org/TR/css-writing-modes-3/#block-flow
 			childMainMarginStart = ResolveLength(child.Style.Margin.Top, ctx, childFontSize)
 			childMainMarginEnd = ResolveLength(child.Style.Margin.Bottom, ctx, childFontSize)
 			childCrossMarginStart = ResolveLength(child.Style.Margin.Left, ctx, childFontSize)

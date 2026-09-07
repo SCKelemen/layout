@@ -6,9 +6,12 @@
 
 - **Flexbox: invalid and huge flex factors no longer produce NaN.** A NaN, infinite, or negative `FlexGrow`/`FlexShrink` is invalid per CSS Flexbox §7.2.1/§7.2.2 and is treated as unset (0 for grow; the initial value 1 for shrink) instead of turning every item's size and position into NaN. Finite but very large factors (e.g. `1e308` on several items) are normalized before summing in the §9.7 loop, so the sum no longer overflows to `+Inf` and items share free space in the correct proportions.
 
+- **Flexbox: `AlignContentSpaceEvenly` and `JustifyContentStretch` are implemented.** `align-content: space-evenly` distributes the free cross space so the gaps between lines and at both edges are equal, falling back to `center` when the lines overflow (CSS Box Alignment Level 3 §6.2); previously the value was silently laid out as `flex-start`. `justify-content: stretch` behaves as `flex-start` in a flex container, including in the `*-reverse` directions (CSS Flexbox §8.2). The `JustifyContentStart/End` and `AlignContentStart/End` aliases need no special handling since they share the flex-start/flex-end values.
+
 ### Changed
 
 - **Flexbox: `Width`/`Height`/`FlexBasis` follow the unset-means-auto convention (behavior change).** A flex container or item size is `auto` only when the `Length` was never set (`Unit == ""`) or is negative; `Px(0)` is now a real zero. `Width: Px(0)` on a container gives a 0 main/cross size, `Width: Px(0)` on an item is a definite 0 main size, and `FlexBasis: Px(0)` is a zero flex base size, so two items with `FlexGrow: 1, FlexBasis: Px(0)` in a 400px container are 200/200 regardless of content (previously a zero basis fell back to the content size, giving 300/100). `align-items: stretch` likewise treats `Height: Px(0)` (row) or `Width: Px(0)` (column) as an explicit cross size and keeps it (CSS Flexbox §9.4 step 11). `layout.Text()` nodes leave their size unset and continue to size to their content.
+- **Flexbox: `FlexRowGap`/`FlexColumnGap` fall back to `FlexGap` only when unset (behavior change).** The longhands override the `FlexGap` shorthand whenever they carry a unit, so `FlexColumnGap: Px(0)` now cancels `FlexGap: Px(10)` between items in a row container (and `FlexRowGap: Px(0)` between its lines), matching the `gap` shorthand semantics of CSS Box Alignment Level 3 §8.3. Previously the fallback keyed on the resolved value being 0, so an explicit zero longhand was indistinguishable from an unset one.
 
 ## [v1.4.0] - 2026-09-07
 

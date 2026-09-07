@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Text layout honors `LayoutContext.TextMetrics`.** `LayoutText`, every line breaker (`breakIntoLines*`, `wrapSegmentPreserveSpaces`, `breakWordToFit`), `text-overflow` truncation, `hanging-punctuation`, and the text branches of `CalculateIntrinsicWidth` now measure with `ctx.TextMetrics` when it is set (`ctx.WithTextMetrics(...)`), falling back to the package-level provider otherwise (and for a nil context). Previously only `ch` unit resolution used the context provider; all text measurement went through the global one.
+- **Preserved tabs advance to tab stops** in `white-space: pre` and `pre-wrap` (css-text-3 §3.1.1): a tab now shifts to the next multiple of `TabSize` (`<= 0` means 8) times the advance of a space, measured from the start of the line, instead of being measured as a single glyph. `"a\tb"` with 6px glyphs and the default tab size is 54px (6 + shift to 48 + 6), not 18px. The tab character is kept in the box text for renderers. Intrinsic max-content sizing of `pre`/`pre-wrap` text uses the same measurement.
+- **`text-indent` with end alignment** (css-text-3 §7.2.1): the indent is a margin on the start edge of the first line box only, so right-aligned text stays flush with the end edge (200px box, indent 20, 50px word: `OffsetX` 150, previously 130). `text-align-last: right` on the first line behaves the same way. In RTL the start edge is the right edge, so the indent shortens the line there instead. Center alignment is unchanged.
+- **Soft hyphens (U+00AD) are invisible** (css-text-3 §4.3): they are excluded from measured widths and from `InlineBox.Text`, and when a line breaks at one the last box gets a U+002D HYPHEN-MINUS appended and re-measured. The fit test reserves room for that hyphen so a hyphenated line does not overflow. Breaks at soft hyphens are still disabled by `Hyphens: HyphensNone`. Intrinsic sizing strips soft hyphens as well.
+- **`TextStyle.FontSize == 0` falls back to the root font size** (`ctx.RootFontSize`, or 16 without a context) instead of laying out as a 0x0 box, matching the nil-`TextStyle` path. The caller's `TextStyle` is not mutated. Intrinsic sizing applies the same fallback.
+- **`overflow-wrap: break-word` with a `text-indent` that fills the first line** starts the word on the second line (without indent) instead of overflowing the first line by the indent; the first line is left empty. Continuation pieces of a broken word are sized to the full inline size rather than the indented first-line width.
+
+### Changed
+
+- **Direction resolution:** text layout reads `Style.Direction` first and falls back to `TextStyle.Direction`, the same way `WritingMode` is resolved. `text-align: start` (`TextAlignDefault`) therefore resolves to the right in RTL when either field is set.
+- Removed the unused internal helpers `getInlineSize` (text.go) and `findLineBreakOpportunities` (uax14.go); `findLineBreakOpportunitiesWithHyphens` is the single entry point.
+
+### Added
+
+- `TextLine.EndsWithForcedBreak` and `InlineBox.SpaceAfter` are populated by `LayoutText`: `EndsWithForcedBreak` is true for lines ending at a preserved newline and for the last line of the text (both are aligned with `text-align-last` when justifying, css-text-3 §7.1) and false for soft wraps; `SpaceAfter` is true when an inter-word space follows the box on its line (false for the last box of a line, whose trailing space is removed). The text layout code's private parallel metadata slices were removed in favor of these fields.
+
 ## [v1.4.0] - 2026-09-07
 
 Spec-conformance sweep across every layout subsystem (#17). Roughly sixty confirmed bugs, each reproduced against the relevant CSS specification and covered by a regression test. Entries marked **behavior change** alter documented defaults: unset `Width`/`Height` and positioning offsets now mean `auto` while `Px(0)` is a real zero, flex `row-gap`/`column-gap` follow the flex direction, `layout.Text()` no longer seeds `Px(0)`, and `serialize` writes lengths as unit strings (legacy bare numbers still load).

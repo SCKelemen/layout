@@ -120,7 +120,7 @@ jobs:
 
     - name: Upload coverage
       if: matrix.go-version == '1.25'
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       continue-on-error: true
       with:
         file: ./layout/coverage.out

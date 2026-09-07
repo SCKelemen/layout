@@ -173,26 +173,41 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 	}
 
 	// Step 7: Calculate container size
-	// Main dimension = max line main extent (not sum)
-	// Cross dimension = use explicit cross size if available, otherwise sum of line cross sizes
+	//
+	// Main dimension: the container's definite main size when its main-axis
+	// size property is set (§9.2 step 4; a definite size is used as-is and
+	// content that does not fit overflows), otherwise the largest line's main
+	// extent (content-sized). The physical property for the main axis depends
+	// on the writing mode: Width for a horizontal main axis (row in
+	// horizontal-tb, column in the vertical modes), Height for a vertical one.
+	// Previously the content extent was always used, so an explicit main size
+	// only survived when a tight constraint happened to enforce it.
+	// https://www.w3.org/TR/css-flexbox-1/#algo-main-container
+	//
+	// Cross dimension: the explicit cross size if available, otherwise the sum
+	// of the line cross sizes (§9.4 step 15).
+	mainDimension := maxLineMainSize
+	styleMainSize := node.Style.Width
+	if !setup.isMainHorizontal {
+		styleMainSize = node.Style.Height
+	}
+	if flexIsSetLength(styleMainSize) && setup.mainSize < Unbounded {
+		mainDimension = setup.mainSize
+	}
+	crossDimension := totalCrossSize
+	if setup.hasExplicitCrossSize {
+		crossDimension = setup.crossSize
+	}
 	var containerSize Size
 	if setup.isMainHorizontal {
-		crossDimension := totalCrossSize
-		if setup.hasExplicitCrossSize {
-			crossDimension = setup.crossSize
-		}
 		containerSize = Size{
-			Width:  maxLineMainSize + setup.horizontalPadding + setup.horizontalBorder,
+			Width:  mainDimension + setup.horizontalPadding + setup.horizontalBorder,
 			Height: crossDimension + setup.verticalPadding + setup.verticalBorder,
 		}
 	} else {
-		crossDimension := totalCrossSize
-		if setup.hasExplicitCrossSize {
-			crossDimension = setup.crossSize
-		}
 		containerSize = Size{
 			Width:  crossDimension + setup.horizontalPadding + setup.horizontalBorder,
-			Height: maxLineMainSize + setup.verticalPadding + setup.verticalBorder,
+			Height: mainDimension + setup.verticalPadding + setup.verticalBorder,
 		}
 	}
 

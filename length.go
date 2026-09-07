@@ -317,9 +317,9 @@ func resolveViewportLength(l Length, viewportWidth, viewportHeight float64) floa
 		base = viewportWidth
 	case units.VH, units.VB, units.SVH, units.SVB, units.LVH, units.LVB, units.DVH, units.DVB:
 		base = viewportHeight
-	case units.VMIN, units.SVMIN, units.LVMIN, units.DVMIN:
+	case units.VMIN:
 		base = math.Min(viewportWidth, viewportHeight)
-	case units.VMAX, units.SVMAX, units.LVMAX, units.DVMAX:
+	case units.VMAX:
 		base = math.Max(viewportWidth, viewportHeight)
 	}
 	if base <= 0 || base >= math.MaxFloat64 {

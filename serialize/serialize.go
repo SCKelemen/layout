@@ -1,689 +1,1116 @@
+// Package serialize converts layout trees to and from JSON (and optionally
+// YAML). The wire format is documented in README.md.
+//
+// Deserialization treats its input as untrusted: numeric values are checked
+// for NaN, infinities, and absurd magnitudes, enum strings must be known,
+// and the tree depth and per-node child count are capped.
 package serialize
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
 
 	"github.com/SCKelemen/layout"
+	"github.com/SCKelemen/units"
 )
+
+// Input limits enforced by FromJSON and FromYAML (and, for depth, by ToJSON
+// and ToYAML so a cyclic tree fails instead of overflowing the stack).
+const (
+	// MaxTreeDepth is the maximum nesting depth of nodes (root has depth 0).
+	MaxTreeDepth = 1024
+	// MaxChildren is the maximum number of children a single node may have.
+	MaxChildren = 65536
+	// MaxNumericValue bounds the magnitude of every finite numeric input.
+	// The "unbounded" length sentinel is the only exception.
+	MaxNumericValue = 1e12
+)
+
+// ErrLimitExceeded is wrapped by errors returned when the input exceeds
+// MaxTreeDepth or MaxChildren.
+var ErrLimitExceeded = errors.New("serialize: input exceeds size limit")
 
 // NodeJSON represents a serializable version of layout.Node
 type NodeJSON struct {
-	Style    StyleJSON   `json:"style"`
-	Children []*NodeJSON `json:"children,omitempty"`
-	Rect     RectJSON    `json:"rect,omitempty"`
+	Style    StyleJSON   `json:"style" yaml:"style"`
+	Text     string      `json:"text,omitempty" yaml:"text,omitempty"`
+	Baseline float64     `json:"baseline,omitempty" yaml:"baseline,omitempty"`
+	Children []*NodeJSON `json:"children,omitempty" yaml:"children,omitempty"`
+	Rect     *RectJSON   `json:"rect,omitempty" yaml:"rect,omitempty"`
 }
 
 // StyleJSON represents a serializable version of layout.Style
 type StyleJSON struct {
-	Display        string  `json:"display,omitempty"`
-	FlexDirection  string  `json:"flexDirection,omitempty"`
-	FlexWrap       string  `json:"flexWrap,omitempty"`
-	JustifyContent string  `json:"justifyContent,omitempty"`
-	AlignItems     string  `json:"alignItems,omitempty"`
-	AlignContent   string  `json:"alignContent,omitempty"`
-	JustifyItems   string  `json:"justifyItems,omitempty"`
-	FlexGrow       float64 `json:"flexGrow,omitempty"`
-	FlexShrink     float64 `json:"flexShrink,omitempty"`
-	FlexBasis      float64 `json:"flexBasis,omitempty"`
-	FlexGap        float64 `json:"flexGap,omitempty"`
-	FlexRowGap     float64 `json:"flexRowGap,omitempty"`
-	FlexColumnGap  float64 `json:"flexColumnGap,omitempty"`
+	Display        string     `json:"display,omitempty" yaml:"display,omitempty"`
+	FlexDirection  string     `json:"flexDirection,omitempty" yaml:"flexDirection,omitempty"`
+	FlexWrap       string     `json:"flexWrap,omitempty" yaml:"flexWrap,omitempty"`
+	JustifyContent string     `json:"justifyContent,omitempty" yaml:"justifyContent,omitempty"`
+	AlignItems     string     `json:"alignItems,omitempty" yaml:"alignItems,omitempty"`
+	AlignContent   string     `json:"alignContent,omitempty" yaml:"alignContent,omitempty"`
+	AlignSelf      string     `json:"alignSelf,omitempty" yaml:"alignSelf,omitempty"`
+	JustifyItems   string     `json:"justifyItems,omitempty" yaml:"justifyItems,omitempty"`
+	JustifySelf    string     `json:"justifySelf,omitempty" yaml:"justifySelf,omitempty"`
+	FlexGrow       float64    `json:"flexGrow,omitempty" yaml:"flexGrow,omitempty"`
+	FlexShrink     float64    `json:"flexShrink,omitempty" yaml:"flexShrink,omitempty"`
+	FlexBasis      LengthJSON `json:"flexBasis,omitempty" yaml:"flexBasis,omitempty"`
+	FlexGap        LengthJSON `json:"flexGap,omitempty" yaml:"flexGap,omitempty"`
+	FlexRowGap     LengthJSON `json:"flexRowGap,omitempty" yaml:"flexRowGap,omitempty"`
+	FlexColumnGap  LengthJSON `json:"flexColumnGap,omitempty" yaml:"flexColumnGap,omitempty"`
+	Order          int        `json:"order,omitempty" yaml:"order,omitempty"`
 
 	// Grid
-	GridTemplateRows    []TrackJSON `json:"gridTemplateRows,omitempty"`
-	GridTemplateColumns []TrackJSON `json:"gridTemplateColumns,omitempty"`
-	GridAutoRows        TrackJSON   `json:"gridAutoRows,omitempty"`
-	GridAutoColumns     TrackJSON   `json:"gridAutoColumns,omitempty"`
-	GridGap             float64     `json:"gridGap,omitempty"`
-	GridRowGap          float64     `json:"gridRowGap,omitempty"`
-	GridColumnGap       float64     `json:"gridColumnGap,omitempty"`
-	GridRowStart        int         `json:"gridRowStart,omitempty"`
-	GridRowEnd          int         `json:"gridRowEnd,omitempty"`
-	GridColumnStart     int         `json:"gridColumnStart,omitempty"`
-	GridColumnEnd       int         `json:"gridColumnEnd,omitempty"`
+	GridTemplateRows    []TrackJSON            `json:"gridTemplateRows,omitempty" yaml:"gridTemplateRows,omitempty"`
+	GridTemplateColumns []TrackJSON            `json:"gridTemplateColumns,omitempty" yaml:"gridTemplateColumns,omitempty"`
+	GridAutoRows        *TrackJSON             `json:"gridAutoRows,omitempty" yaml:"gridAutoRows,omitempty"`
+	GridAutoColumns     *TrackJSON             `json:"gridAutoColumns,omitempty" yaml:"gridAutoColumns,omitempty"`
+	GridAutoFlow        string                 `json:"gridAutoFlow,omitempty" yaml:"gridAutoFlow,omitempty"`
+	GridGap             LengthJSON             `json:"gridGap,omitempty" yaml:"gridGap,omitempty"`
+	GridRowGap          LengthJSON             `json:"gridRowGap,omitempty" yaml:"gridRowGap,omitempty"`
+	GridColumnGap       LengthJSON             `json:"gridColumnGap,omitempty" yaml:"gridColumnGap,omitempty"`
+	GridRowStart        int                    `json:"gridRowStart,omitempty" yaml:"gridRowStart,omitempty"`
+	GridRowEnd          int                    `json:"gridRowEnd,omitempty" yaml:"gridRowEnd,omitempty"`
+	GridColumnStart     int                    `json:"gridColumnStart,omitempty" yaml:"gridColumnStart,omitempty"`
+	GridColumnEnd       int                    `json:"gridColumnEnd,omitempty" yaml:"gridColumnEnd,omitempty"`
+	GridTemplateAreas   *GridTemplateAreasJSON `json:"gridTemplateAreas,omitempty" yaml:"gridTemplateAreas,omitempty"`
+	GridArea            string                 `json:"gridArea,omitempty" yaml:"gridArea,omitempty"`
 
 	// Sizing
-	Width       float64 `json:"width,omitempty"`
-	Height      float64 `json:"height,omitempty"`
-	MinWidth    float64 `json:"minWidth,omitempty"`
-	MinHeight   float64 `json:"minHeight,omitempty"`
-	MaxWidth    float64 `json:"maxWidth,omitempty"`
-	MaxHeight   float64 `json:"maxHeight,omitempty"`
-	AspectRatio float64 `json:"aspectRatio,omitempty"`
+	Width            LengthJSON `json:"width,omitempty" yaml:"width,omitempty"`
+	Height           LengthJSON `json:"height,omitempty" yaml:"height,omitempty"`
+	MinWidth         LengthJSON `json:"minWidth,omitempty" yaml:"minWidth,omitempty"`
+	MinHeight        LengthJSON `json:"minHeight,omitempty" yaml:"minHeight,omitempty"`
+	MaxWidth         LengthJSON `json:"maxWidth,omitempty" yaml:"maxWidth,omitempty"`
+	MaxHeight        LengthJSON `json:"maxHeight,omitempty" yaml:"maxHeight,omitempty"`
+	AspectRatio      float64    `json:"aspectRatio,omitempty" yaml:"aspectRatio,omitempty"`
+	WidthSizing      string     `json:"widthSizing,omitempty" yaml:"widthSizing,omitempty"`
+	HeightSizing     string     `json:"heightSizing,omitempty" yaml:"heightSizing,omitempty"`
+	FitContentWidth  LengthJSON `json:"fitContentWidth,omitempty" yaml:"fitContentWidth,omitempty"`
+	FitContentHeight LengthJSON `json:"fitContentHeight,omitempty" yaml:"fitContentHeight,omitempty"`
 
 	// Spacing
-	Padding SpacingJSON `json:"padding,omitempty"`
-	Margin  SpacingJSON `json:"margin,omitempty"`
-	Border  SpacingJSON `json:"border,omitempty"`
+	Padding *SpacingJSON `json:"padding,omitempty" yaml:"padding,omitempty"`
+	Margin  *SpacingJSON `json:"margin,omitempty" yaml:"margin,omitempty"`
+	Border  *SpacingJSON `json:"border,omitempty" yaml:"border,omitempty"`
 
 	// Box model
-	BoxSizing string `json:"boxSizing,omitempty"`
+	BoxSizing string `json:"boxSizing,omitempty" yaml:"boxSizing,omitempty"`
 
 	// Positioning
-	Position string  `json:"position,omitempty"`
-	Top      float64 `json:"top,omitempty"`
-	Right    float64 `json:"right,omitempty"`
-	Bottom   float64 `json:"bottom,omitempty"`
-	Left     float64 `json:"left,omitempty"`
-	ZIndex   int     `json:"zIndex,omitempty"`
+	Position string     `json:"position,omitempty" yaml:"position,omitempty"`
+	Top      LengthJSON `json:"top,omitempty" yaml:"top,omitempty"`
+	Right    LengthJSON `json:"right,omitempty" yaml:"right,omitempty"`
+	Bottom   LengthJSON `json:"bottom,omitempty" yaml:"bottom,omitempty"`
+	Left     LengthJSON `json:"left,omitempty" yaml:"left,omitempty"`
+	ZIndex   int        `json:"zIndex,omitempty" yaml:"zIndex,omitempty"`
 
 	// Transform
-	Transform TransformJSON `json:"transform,omitempty"`
+	Transform *TransformJSON `json:"transform,omitempty" yaml:"transform,omitempty"`
+
+	// Writing mode and container queries
+	WritingMode   string   `json:"writingMode,omitempty" yaml:"writingMode,omitempty"`
+	ContainerType string   `json:"containerType,omitempty" yaml:"containerType,omitempty"`
+	ContainerName []string `json:"containerName,omitempty" yaml:"containerName,omitempty"`
+
+	// Text
+	TextStyle *TextStyleJSON `json:"textStyle,omitempty" yaml:"textStyle,omitempty"`
+}
+
+// LengthJSON is the wire form of layout.Length: a CSS-like string such as
+// "10px", "1.5em", or "unbounded".
+//
+// The empty string is the zero-value layout.Length{} (no unit), which the
+// engine treats as "not set" and which differs from "0px". Both
+// layout.PxUnbounded and layout.UnboundedLength() are written as
+// "unbounded" and read back as layout.PxUnbounded, the form the grid
+// engine checks for.
+//
+// For backward compatibility with files written before lengths carried
+// units, a bare JSON or YAML number is accepted and interpreted as pixels.
+type LengthJSON string
+
+// UnmarshalJSON accepts either a JSON string or a legacy bare number (px).
+func (l *LengthJSON) UnmarshalJSON(data []byte) error {
+	trimmed := strings.TrimSpace(string(data))
+	if trimmed == "null" {
+		*l = ""
+		return nil
+	}
+	if strings.HasPrefix(trimmed, `"`) {
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		*l = LengthJSON(s)
+		return nil
+	}
+	var v float64
+	if err := json.Unmarshal(data, &v); err != nil {
+		return fmt.Errorf("length: expected a string like \"10px\" or a number, got %s", trimmed)
+	}
+	// Validation (NaN/Inf/magnitude) happens when the string is parsed.
+	*l = LengthJSON(strconv.FormatFloat(v, 'f', -1, 64) + "px")
+	return nil
 }
 
 // TrackJSON represents a serializable version of layout.GridTrack
 type TrackJSON struct {
-	MinSize  float64 `json:"minSize,omitempty"`
-	MaxSize  float64 `json:"maxSize,omitempty"`
-	Fraction float64 `json:"fraction,omitempty"`
+	MinSize  LengthJSON `json:"minSize,omitempty" yaml:"minSize,omitempty"`
+	MaxSize  LengthJSON `json:"maxSize,omitempty" yaml:"maxSize,omitempty"`
+	Fraction float64    `json:"fraction,omitempty" yaml:"fraction,omitempty"`
 }
 
 // SpacingJSON represents a serializable version of layout.Spacing
 type SpacingJSON struct {
-	Top    float64 `json:"top,omitempty"`
-	Right  float64 `json:"right,omitempty"`
-	Bottom float64 `json:"bottom,omitempty"`
-	Left   float64 `json:"left,omitempty"`
+	Top    LengthJSON `json:"top,omitempty" yaml:"top,omitempty"`
+	Right  LengthJSON `json:"right,omitempty" yaml:"right,omitempty"`
+	Bottom LengthJSON `json:"bottom,omitempty" yaml:"bottom,omitempty"`
+	Left   LengthJSON `json:"left,omitempty" yaml:"left,omitempty"`
 }
 
 // RectJSON represents a serializable version of layout.Rect
 type RectJSON struct {
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	Width  float64 `json:"width"`
-	Height float64 `json:"height"`
+	X      float64 `json:"x" yaml:"x"`
+	Y      float64 `json:"y" yaml:"y"`
+	Width  float64 `json:"width" yaml:"width"`
+	Height float64 `json:"height" yaml:"height"`
 }
 
 // TransformJSON represents a serializable version of layout.Transform
 type TransformJSON struct {
-	A float64 `json:"a"`
-	B float64 `json:"b"`
-	C float64 `json:"c"`
-	D float64 `json:"d"`
-	E float64 `json:"e"`
-	F float64 `json:"f"`
+	A float64 `json:"a" yaml:"a"`
+	B float64 `json:"b" yaml:"b"`
+	C float64 `json:"c" yaml:"c"`
+	D float64 `json:"d" yaml:"d"`
+	E float64 `json:"e" yaml:"e"`
+	F float64 `json:"f" yaml:"f"`
+}
+
+// GridTemplateAreasJSON represents a serializable version of layout.GridTemplateAreas
+type GridTemplateAreasJSON struct {
+	Rows  int            `json:"rows" yaml:"rows"`
+	Cols  int            `json:"cols" yaml:"cols"`
+	Areas []GridAreaJSON `json:"areas,omitempty" yaml:"areas,omitempty"`
+}
+
+// GridAreaJSON represents a serializable version of layout.GridArea
+type GridAreaJSON struct {
+	Name        string `json:"name" yaml:"name"`
+	RowStart    int    `json:"rowStart" yaml:"rowStart"`
+	RowEnd      int    `json:"rowEnd" yaml:"rowEnd"`
+	ColumnStart int    `json:"columnStart" yaml:"columnStart"`
+	ColumnEnd   int    `json:"columnEnd" yaml:"columnEnd"`
+}
+
+// TextStyleJSON represents a serializable version of layout.TextStyle.
+// FontWeight is numeric (CSS 1-1000) and TextDecoration is the bitmask
+// value; every other enum is a CSS keyword string.
+type TextStyleJSON struct {
+	TextAlign           string  `json:"textAlign,omitempty" yaml:"textAlign,omitempty"`
+	TextAlignLast       string  `json:"textAlignLast,omitempty" yaml:"textAlignLast,omitempty"`
+	TextJustify         string  `json:"textJustify,omitempty" yaml:"textJustify,omitempty"`
+	LineHeight          float64 `json:"lineHeight,omitempty" yaml:"lineHeight,omitempty"`
+	WordSpacing         float64 `json:"wordSpacing,omitempty" yaml:"wordSpacing,omitempty"`
+	LetterSpacing       float64 `json:"letterSpacing,omitempty" yaml:"letterSpacing,omitempty"`
+	TextIndent          float64 `json:"textIndent,omitempty" yaml:"textIndent,omitempty"`
+	WhiteSpace          string  `json:"whiteSpace,omitempty" yaml:"whiteSpace,omitempty"`
+	OverflowWrap        string  `json:"overflowWrap,omitempty" yaml:"overflowWrap,omitempty"`
+	WordBreak           string  `json:"wordBreak,omitempty" yaml:"wordBreak,omitempty"`
+	TextOverflow        string  `json:"textOverflow,omitempty" yaml:"textOverflow,omitempty"`
+	TextTransform       string  `json:"textTransform,omitempty" yaml:"textTransform,omitempty"`
+	Hyphens             string  `json:"hyphens,omitempty" yaml:"hyphens,omitempty"`
+	HangingPunctuation  string  `json:"hangingPunctuation,omitempty" yaml:"hangingPunctuation,omitempty"`
+	TabSize             float64 `json:"tabSize,omitempty" yaml:"tabSize,omitempty"`
+	FontSize            float64 `json:"fontSize,omitempty" yaml:"fontSize,omitempty"`
+	FontFamily          string  `json:"fontFamily,omitempty" yaml:"fontFamily,omitempty"`
+	FontWeight          int     `json:"fontWeight,omitempty" yaml:"fontWeight,omitempty"`
+	FontStyle           string  `json:"fontStyle,omitempty" yaml:"fontStyle,omitempty"`
+	TextDecoration      int     `json:"textDecoration,omitempty" yaml:"textDecoration,omitempty"`
+	TextDecorationStyle string  `json:"textDecorationStyle,omitempty" yaml:"textDecorationStyle,omitempty"`
+	TextDecorationColor string  `json:"textDecorationColor,omitempty" yaml:"textDecorationColor,omitempty"`
+	VerticalAlign       string  `json:"verticalAlign,omitempty" yaml:"verticalAlign,omitempty"`
+	WritingMode         string  `json:"writingMode,omitempty" yaml:"writingMode,omitempty"`
+	Direction           string  `json:"direction,omitempty" yaml:"direction,omitempty"`
 }
 
 // ToJSON converts a layout.Node to JSON bytes
 func ToJSON(node *layout.Node) ([]byte, error) {
-	nodeJSON := nodeToJSON(node)
+	nodeJSON, err := nodeToJSON(node)
+	if err != nil {
+		return nil, err
+	}
 	return json.MarshalIndent(nodeJSON, "", "  ")
 }
 
-// FromJSON converts JSON bytes to a layout.Node
+// FromJSON converts JSON bytes to a layout.Node.
+// It returns an error for malformed JSON, non-finite or absurd numbers,
+// unknown enum keywords, or trees exceeding MaxTreeDepth/MaxChildren.
 func FromJSON(data []byte) (*layout.Node, error) {
 	var nodeJSON NodeJSON
 	if err := json.Unmarshal(data, &nodeJSON); err != nil {
 		return nil, err
 	}
-	return jsonToNode(&nodeJSON), nil
+	return jsonToNode(&nodeJSON)
 }
 
+// =============================================================================
+// Encoding (layout -> wire)
+// =============================================================================
+
 // nodeToJSON converts a layout.Node to NodeJSON
-func nodeToJSON(node *layout.Node) *NodeJSON {
+func nodeToJSON(node *layout.Node) (*NodeJSON, error) {
+	return encodeNode(node, "root", 0)
+}
+
+func encodeNode(node *layout.Node, path string, depth int) (*NodeJSON, error) {
 	if node == nil {
-		return nil
+		return nil, nil
+	}
+	if depth > MaxTreeDepth {
+		return nil, fmt.Errorf("%w: %s: depth exceeds %d", ErrLimitExceeded, path, MaxTreeDepth)
+	}
+
+	style, err := styleToJSON(&node.Style, path+".style")
+	if err != nil {
+		return nil, err
+	}
+	if err := checkFloat(path+".baseline", node.Baseline); err != nil {
+		return nil, err
 	}
 
 	nj := &NodeJSON{
-		Style: styleToJSON(&node.Style),
-		Rect:  rectToJSON(&node.Rect),
+		Style:    style,
+		Text:     node.Text,
+		Baseline: node.Baseline,
+	}
+	if node.Rect != (layout.Rect{}) {
+		if err := checkRect(path+".rect", &node.Rect); err != nil {
+			return nil, err
+		}
+		nj.Rect = rectToJSON(&node.Rect)
 	}
 
 	if len(node.Children) > 0 {
 		nj.Children = make([]*NodeJSON, len(node.Children))
 		for i, child := range node.Children {
-			nj.Children[i] = nodeToJSON(child)
+			nj.Children[i], err = encodeNode(child, fmt.Sprintf("%s.children[%d]", path, i), depth+1)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	return nj
-}
-
-// jsonToNode converts a NodeJSON to layout.Node
-func jsonToNode(nj *NodeJSON) *layout.Node {
-	if nj == nil {
-		return nil
-	}
-
-	node := &layout.Node{
-		Style: jsonToStyle(&nj.Style),
-		Rect:  jsonToRect(&nj.Rect),
-	}
-
-	if len(nj.Children) > 0 {
-		node.Children = make([]*layout.Node, len(nj.Children))
-		for i, child := range nj.Children {
-			node.Children[i] = jsonToNode(child)
-		}
-	}
-
-	return node
+	return nj, nil
 }
 
 // styleToJSON converts layout.Style to StyleJSON
-func styleToJSON(s *layout.Style) StyleJSON {
+func styleToJSON(s *layout.Style, path string) (StyleJSON, error) {
+	e := &encoder{path: path}
+
 	sj := StyleJSON{
-		Width:           s.Width.Value,
-		Height:          s.Height.Value,
-		MinWidth:        s.MinWidth.Value,
-		MinHeight:       s.MinHeight.Value,
-		MaxWidth:        s.MaxWidth.Value,
-		MaxHeight:       s.MaxHeight.Value,
-		AspectRatio:     s.AspectRatio,
-		FlexGrow:        s.FlexGrow,
-		FlexShrink:      s.FlexShrink,
-		FlexBasis:       s.FlexBasis.Value,
-		FlexGap:         s.FlexGap.Value,
-		FlexRowGap:      s.FlexRowGap.Value,
-		FlexColumnGap:   s.FlexColumnGap.Value,
-		GridGap:         s.GridGap.Value,
-		GridRowGap:      s.GridRowGap.Value,
-		GridColumnGap:   s.GridColumnGap.Value,
+		Display:        e.enum(displayEnum, int(s.Display)),
+		FlexDirection:  e.enum(flexDirectionEnum, int(s.FlexDirection)),
+		FlexWrap:       e.enum(flexWrapEnum, int(s.FlexWrap)),
+		JustifyContent: e.enum(justifyContentEnum, int(s.JustifyContent)),
+		AlignItems:     e.enum(alignItemsEnum, int(s.AlignItems)),
+		AlignContent:   e.enum(alignContentEnum, int(s.AlignContent)),
+		AlignSelf:      e.enum(alignItemsEnum, int(s.AlignSelf)),
+		JustifyItems:   e.enum(justifyItemsEnum, int(s.JustifyItems)),
+		JustifySelf:    e.enum(justifyItemsEnum, int(s.JustifySelf)),
+		FlexGrow:       e.float("flexGrow", s.FlexGrow),
+		FlexShrink:     e.float("flexShrink", s.FlexShrink),
+		FlexBasis:      e.length("flexBasis", s.FlexBasis),
+		FlexGap:        e.length("flexGap", s.FlexGap),
+		FlexRowGap:     e.length("flexRowGap", s.FlexRowGap),
+		FlexColumnGap:  e.length("flexColumnGap", s.FlexColumnGap),
+		Order:          s.Order,
+
+		GridAutoFlow:    e.enum(gridAutoFlowEnum, int(s.GridAutoFlow)),
+		GridGap:         e.length("gridGap", s.GridGap),
+		GridRowGap:      e.length("gridRowGap", s.GridRowGap),
+		GridColumnGap:   e.length("gridColumnGap", s.GridColumnGap),
 		GridRowStart:    s.GridRowStart,
 		GridRowEnd:      s.GridRowEnd,
 		GridColumnStart: s.GridColumnStart,
 		GridColumnEnd:   s.GridColumnEnd,
-		Top:             s.Top.Value,
-		Right:           s.Right.Value,
-		Bottom:          s.Bottom.Value,
-		Left:            s.Left.Value,
-		ZIndex:          s.ZIndex,
-		Padding:         spacingToJSON(&s.Padding),
-		Margin:          spacingToJSON(&s.Margin),
-		Border:          spacingToJSON(&s.Border),
-		Transform:       transformToJSON(&s.Transform),
+		GridArea:        s.GridArea,
+
+		Width:            e.length("width", s.Width),
+		Height:           e.length("height", s.Height),
+		MinWidth:         e.length("minWidth", s.MinWidth),
+		MinHeight:        e.length("minHeight", s.MinHeight),
+		MaxWidth:         e.length("maxWidth", s.MaxWidth),
+		MaxHeight:        e.length("maxHeight", s.MaxHeight),
+		AspectRatio:      e.float("aspectRatio", s.AspectRatio),
+		WidthSizing:      e.enum(intrinsicSizeEnum, int(s.WidthSizing)),
+		HeightSizing:     e.enum(intrinsicSizeEnum, int(s.HeightSizing)),
+		FitContentWidth:  e.length("fitContentWidth", s.FitContentWidth),
+		FitContentHeight: e.length("fitContentHeight", s.FitContentHeight),
+
+		BoxSizing: e.enum(boxSizingEnum, int(s.BoxSizing)),
+
+		Position: e.enum(positionEnum, int(s.Position)),
+		Top:      e.length("top", s.Top),
+		Right:    e.length("right", s.Right),
+		Bottom:   e.length("bottom", s.Bottom),
+		Left:     e.length("left", s.Left),
+		ZIndex:   s.ZIndex,
+
+		WritingMode:   e.enum(writingModeEnum, int(s.WritingMode)),
+		ContainerType: e.enum(containerTypeEnum, int(s.ContainerType)),
 	}
 
-	// Convert enums to strings
-	if s.Display != 0 {
-		sj.Display = displayToString(s.Display)
+	// Struct-typed fields are pointers so that omitempty can drop them.
+	if s.Padding != (layout.Spacing{}) {
+		sj.Padding = e.spacing("padding", &s.Padding)
 	}
-	if s.FlexDirection != 0 {
-		sj.FlexDirection = flexDirectionToString(s.FlexDirection)
+	if s.Margin != (layout.Spacing{}) {
+		sj.Margin = e.spacing("margin", &s.Margin)
 	}
-	if s.FlexWrap != 0 {
-		sj.FlexWrap = flexWrapToString(s.FlexWrap)
+	if s.Border != (layout.Spacing{}) {
+		sj.Border = e.spacing("border", &s.Border)
 	}
-	if s.JustifyContent != 0 {
-		sj.JustifyContent = justifyContentToString(s.JustifyContent)
+	if !s.Transform.IsIdentity() {
+		e.floats("transform", s.Transform.A, s.Transform.B, s.Transform.C, s.Transform.D, s.Transform.E, s.Transform.F)
+		sj.Transform = transformToJSON(&s.Transform)
 	}
-	// Serialize AlignItems (Default/0 will be omitted due to omitempty)
-	sj.AlignItems = alignItemsToString(s.AlignItems)
-	if s.AlignContent != 0 {
-		sj.AlignContent = alignContentToString(s.AlignContent)
+	if s.GridAutoRows != (layout.GridTrack{}) {
+		t := e.track("gridAutoRows", &s.GridAutoRows)
+		sj.GridAutoRows = &t
 	}
-	// Serialize JustifyItems (Default/0 will be omitted due to omitempty)
-	sj.JustifyItems = justifyItemsToString(s.JustifyItems)
-	if s.BoxSizing != 0 {
-		sj.BoxSizing = boxSizingToString(s.BoxSizing)
-	}
-	if s.Position != 0 {
-		sj.Position = positionToString(s.Position)
+	if s.GridAutoColumns != (layout.GridTrack{}) {
+		t := e.track("gridAutoColumns", &s.GridAutoColumns)
+		sj.GridAutoColumns = &t
 	}
 
-	// Convert grid tracks
 	if len(s.GridTemplateRows) > 0 {
 		sj.GridTemplateRows = make([]TrackJSON, len(s.GridTemplateRows))
 		for i := range s.GridTemplateRows {
-			sj.GridTemplateRows[i] = trackToJSON(&s.GridTemplateRows[i])
+			sj.GridTemplateRows[i] = e.track(fmt.Sprintf("gridTemplateRows[%d]", i), &s.GridTemplateRows[i])
 		}
 	}
 	if len(s.GridTemplateColumns) > 0 {
 		sj.GridTemplateColumns = make([]TrackJSON, len(s.GridTemplateColumns))
 		for i := range s.GridTemplateColumns {
-			sj.GridTemplateColumns[i] = trackToJSON(&s.GridTemplateColumns[i])
+			sj.GridTemplateColumns[i] = e.track(fmt.Sprintf("gridTemplateColumns[%d]", i), &s.GridTemplateColumns[i])
 		}
 	}
-	if s.GridAutoRows.MinSize.Value != 0 || s.GridAutoRows.MaxSize.Value != layout.Unbounded || s.GridAutoRows.Fraction != 0 {
-		sj.GridAutoRows = trackToJSON(&s.GridAutoRows)
+	if s.GridTemplateAreas != nil {
+		sj.GridTemplateAreas = gridTemplateAreasToJSON(s.GridTemplateAreas)
 	}
-	if s.GridAutoColumns.MinSize.Value != 0 || s.GridAutoColumns.MaxSize.Value != layout.Unbounded || s.GridAutoColumns.Fraction != 0 {
-		sj.GridAutoColumns = trackToJSON(&s.GridAutoColumns)
+	if len(s.ContainerName) > 0 {
+		sj.ContainerName = append([]string(nil), s.ContainerName...)
+	}
+	if s.TextStyle != nil {
+		sj.TextStyle = e.textStyle(s.TextStyle)
 	}
 
-	return sj
+	return sj, e.err
+}
+
+// encoder accumulates the first encoding error so the field-by-field
+// struct literal above stays readable.
+type encoder struct {
+	path string
+	err  error
+}
+
+func (e *encoder) fail(err error) {
+	if e.err == nil {
+		e.err = err
+	}
+}
+
+func (e *encoder) enum(t *enumTable, v int) string {
+	s, err := t.name(v)
+	if err != nil {
+		e.fail(fmt.Errorf("%s.%s: %w", e.path, t.kind, err))
+	}
+	return s
+}
+
+func (e *encoder) float(field string, v float64) float64 {
+	if err := checkFloat(e.path+"."+field, v); err != nil {
+		e.fail(err)
+	}
+	return v
+}
+
+func (e *encoder) floats(field string, vs ...float64) {
+	for _, v := range vs {
+		e.float(field, v)
+	}
+}
+
+func (e *encoder) length(field string, l layout.Length) LengthJSON {
+	s, err := lengthToJSON(l)
+	if err != nil {
+		e.fail(fmt.Errorf("%s.%s: %w", e.path, field, err))
+	}
+	return s
+}
+
+func (e *encoder) spacing(field string, s *layout.Spacing) *SpacingJSON {
+	return &SpacingJSON{
+		Top:    e.length(field+".top", s.Top),
+		Right:  e.length(field+".right", s.Right),
+		Bottom: e.length(field+".bottom", s.Bottom),
+		Left:   e.length(field+".left", s.Left),
+	}
+}
+
+func (e *encoder) track(field string, t *layout.GridTrack) TrackJSON {
+	return TrackJSON{
+		MinSize:  e.length(field+".minSize", t.MinSize),
+		MaxSize:  e.length(field+".maxSize", t.MaxSize),
+		Fraction: e.float(field+".fraction", t.Fraction),
+	}
+}
+
+func (e *encoder) textStyle(ts *layout.TextStyle) *TextStyleJSON {
+	saved := e.path
+	e.path += ".textStyle"
+	defer func() { e.path = saved }()
+
+	if ts.FontWeight < 0 || int(ts.FontWeight) > maxFontWeight {
+		e.fail(fmt.Errorf("%s.fontWeight: %d out of range [0, %d]", e.path, ts.FontWeight, maxFontWeight))
+	}
+	if ts.TextDecoration < 0 || int(ts.TextDecoration) > maxTextDecoration {
+		e.fail(fmt.Errorf("%s.textDecoration: %d out of range [0, %d]", e.path, ts.TextDecoration, maxTextDecoration))
+	}
+	return &TextStyleJSON{
+		TextAlign:           e.enum(textAlignEnum, int(ts.TextAlign)),
+		TextAlignLast:       e.enum(textAlignLastEnum, int(ts.TextAlignLast)),
+		TextJustify:         e.enum(textJustifyEnum, int(ts.TextJustify)),
+		LineHeight:          e.float("lineHeight", ts.LineHeight),
+		WordSpacing:         e.float("wordSpacing", ts.WordSpacing),
+		LetterSpacing:       e.float("letterSpacing", ts.LetterSpacing),
+		TextIndent:          e.float("textIndent", ts.TextIndent),
+		WhiteSpace:          e.enum(whiteSpaceEnum, int(ts.WhiteSpace)),
+		OverflowWrap:        e.enum(overflowWrapEnum, int(ts.OverflowWrap)),
+		WordBreak:           e.enum(wordBreakEnum, int(ts.WordBreak)),
+		TextOverflow:        e.enum(textOverflowEnum, int(ts.TextOverflow)),
+		TextTransform:       e.enum(textTransformEnum, int(ts.TextTransform)),
+		Hyphens:             e.enum(hyphensEnum, int(ts.Hyphens)),
+		HangingPunctuation:  e.enum(hangingPunctuationEnum, int(ts.HangingPunctuation)),
+		TabSize:             e.float("tabSize", ts.TabSize),
+		FontSize:            e.float("fontSize", ts.FontSize),
+		FontFamily:          ts.FontFamily,
+		FontWeight:          int(ts.FontWeight),
+		FontStyle:           e.enum(fontStyleEnum, int(ts.FontStyle)),
+		TextDecoration:      int(ts.TextDecoration),
+		TextDecorationStyle: e.enum(textDecorationStyleEnum, int(ts.TextDecorationStyle)),
+		TextDecorationColor: ts.TextDecorationColor,
+		VerticalAlign:       e.enum(verticalAlignEnum, int(ts.VerticalAlign)),
+		WritingMode:         e.enum(writingModeEnum, int(ts.WritingMode)),
+		Direction:           e.enum(directionEnum, int(ts.Direction)),
+	}
+}
+
+// lengthToJSON formats a Length as a CSS-like string. See LengthJSON.
+func lengthToJSON(l layout.Length) (LengthJSON, error) {
+	if l == (layout.Length{}) {
+		return "", nil
+	}
+	if l.Unit == layout.UnboundedUnit || l.Value >= math.MaxFloat64 {
+		return "unbounded", nil
+	}
+	if math.IsNaN(l.Value) || math.IsInf(l.Value, 0) {
+		return "", fmt.Errorf("length value %v is not finite", l.Value)
+	}
+	if math.Abs(l.Value) > MaxNumericValue {
+		return "", fmt.Errorf("length value %v exceeds %g", l.Value, MaxNumericValue)
+	}
+	unit := string(l.Unit)
+	if unit == "" {
+		// A non-zero value with no unit resolves as pixels; make that explicit.
+		unit = string(layout.Pixels)
+	}
+	// 'f' formatting never produces an exponent, which units.ParseLength rejects.
+	return LengthJSON(strconv.FormatFloat(l.Value, 'f', -1, 64) + unit), nil
+}
+
+func rectToJSON(r *layout.Rect) *RectJSON {
+	return &RectJSON{X: r.X, Y: r.Y, Width: r.Width, Height: r.Height}
+}
+
+func transformToJSON(t *layout.Transform) *TransformJSON {
+	return &TransformJSON{A: t.A, B: t.B, C: t.C, D: t.D, E: t.E, F: t.F}
+}
+
+func gridTemplateAreasToJSON(g *layout.GridTemplateAreas) *GridTemplateAreasJSON {
+	gj := &GridTemplateAreasJSON{Rows: g.Rows, Cols: g.Cols}
+	if len(g.Areas) > 0 {
+		gj.Areas = make([]GridAreaJSON, len(g.Areas))
+		for i, a := range g.Areas {
+			gj.Areas[i] = GridAreaJSON{
+				Name:        a.Name,
+				RowStart:    a.RowStart,
+				RowEnd:      a.RowEnd,
+				ColumnStart: a.ColumnStart,
+				ColumnEnd:   a.ColumnEnd,
+			}
+		}
+	}
+	return gj
+}
+
+// =============================================================================
+// Decoding (wire -> layout)
+// =============================================================================
+
+// jsonToNode converts a NodeJSON to layout.Node, validating all input.
+func jsonToNode(nj *NodeJSON) (*layout.Node, error) {
+	return decodeNode(nj, "root", 0)
+}
+
+func decodeNode(nj *NodeJSON, path string, depth int) (*layout.Node, error) {
+	if nj == nil {
+		return nil, nil
+	}
+	if depth > MaxTreeDepth {
+		return nil, fmt.Errorf("%w: %s: depth exceeds %d", ErrLimitExceeded, path, MaxTreeDepth)
+	}
+	if len(nj.Children) > MaxChildren {
+		return nil, fmt.Errorf("%w: %s: %d children exceeds %d", ErrLimitExceeded, path, len(nj.Children), MaxChildren)
+	}
+
+	style, err := jsonToStyle(&nj.Style, path+".style")
+	if err != nil {
+		return nil, err
+	}
+	if err := checkFloat(path+".baseline", nj.Baseline); err != nil {
+		return nil, err
+	}
+
+	node := &layout.Node{
+		Style:    style,
+		Text:     nj.Text,
+		Baseline: nj.Baseline,
+	}
+	if nj.Rect != nil {
+		node.Rect = layout.Rect{X: nj.Rect.X, Y: nj.Rect.Y, Width: nj.Rect.Width, Height: nj.Rect.Height}
+		if err := checkRect(path+".rect", &node.Rect); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(nj.Children) > 0 {
+		node.Children = make([]*layout.Node, 0, len(nj.Children))
+		for i, child := range nj.Children {
+			c, err := decodeNode(child, fmt.Sprintf("%s.children[%d]", path, i), depth+1)
+			if err != nil {
+				return nil, err
+			}
+			if c == nil {
+				// A JSON null in the children array has no layout meaning; skip it.
+				continue
+			}
+			node.Children = append(node.Children, c)
+		}
+	}
+
+	return node, nil
 }
 
 // jsonToStyle converts StyleJSON to layout.Style
-func jsonToStyle(sj *StyleJSON) layout.Style {
+func jsonToStyle(sj *StyleJSON, path string) (layout.Style, error) {
+	d := &decoder{path: path}
+
 	s := layout.Style{
-		Width:           layout.Px(sj.Width),
-		Height:          layout.Px(sj.Height),
-		MinWidth:        layout.Px(sj.MinWidth),
-		MinHeight:       layout.Px(sj.MinHeight),
-		MaxWidth:        layout.Px(sj.MaxWidth),
-		MaxHeight:       layout.Px(sj.MaxHeight),
-		AspectRatio:     sj.AspectRatio,
-		FlexGrow:        sj.FlexGrow,
-		FlexShrink:      sj.FlexShrink,
-		FlexBasis:       layout.Px(sj.FlexBasis),
-		FlexGap:         layout.Px(sj.FlexGap),
-		FlexRowGap:      layout.Px(sj.FlexRowGap),
-		FlexColumnGap:   layout.Px(sj.FlexColumnGap),
-		GridGap:         layout.Px(sj.GridGap),
-		GridRowGap:      layout.Px(sj.GridRowGap),
-		GridColumnGap:   layout.Px(sj.GridColumnGap),
+		Display:        layout.Display(d.enum(displayEnum, sj.Display)),
+		FlexDirection:  layout.FlexDirection(d.enum(flexDirectionEnum, sj.FlexDirection)),
+		FlexWrap:       layout.FlexWrap(d.enum(flexWrapEnum, sj.FlexWrap)),
+		JustifyContent: layout.JustifyContent(d.enum(justifyContentEnum, sj.JustifyContent)),
+		AlignItems:     layout.AlignItems(d.enum(alignItemsEnum, sj.AlignItems)),
+		AlignContent:   layout.AlignContent(d.enum(alignContentEnum, sj.AlignContent)),
+		AlignSelf:      layout.AlignItems(d.enum(alignItemsEnum, sj.AlignSelf)),
+		JustifyItems:   layout.JustifyItems(d.enum(justifyItemsEnum, sj.JustifyItems)),
+		JustifySelf:    layout.JustifyItems(d.enum(justifyItemsEnum, sj.JustifySelf)),
+		FlexGrow:       d.float("flexGrow", sj.FlexGrow),
+		FlexShrink:     d.float("flexShrink", sj.FlexShrink),
+		FlexBasis:      d.length("flexBasis", sj.FlexBasis),
+		FlexGap:        d.length("flexGap", sj.FlexGap),
+		FlexRowGap:     d.length("flexRowGap", sj.FlexRowGap),
+		FlexColumnGap:  d.length("flexColumnGap", sj.FlexColumnGap),
+		Order:          sj.Order,
+
+		GridAutoFlow:    layout.GridAutoFlow(d.enum(gridAutoFlowEnum, sj.GridAutoFlow)),
+		GridGap:         d.length("gridGap", sj.GridGap),
+		GridRowGap:      d.length("gridRowGap", sj.GridRowGap),
+		GridColumnGap:   d.length("gridColumnGap", sj.GridColumnGap),
 		GridRowStart:    sj.GridRowStart,
 		GridRowEnd:      sj.GridRowEnd,
 		GridColumnStart: sj.GridColumnStart,
 		GridColumnEnd:   sj.GridColumnEnd,
-		Top:             layout.Px(sj.Top),
-		Right:           layout.Px(sj.Right),
-		Bottom:          layout.Px(sj.Bottom),
-		Left:            layout.Px(sj.Left),
-		ZIndex:          sj.ZIndex,
-		Padding:         jsonToSpacing(&sj.Padding),
-		Margin:          jsonToSpacing(&sj.Margin),
-		Border:          jsonToSpacing(&sj.Border),
-		Transform:       jsonToTransform(&sj.Transform),
+		GridArea:        sj.GridArea,
+
+		Width:            d.length("width", sj.Width),
+		Height:           d.length("height", sj.Height),
+		MinWidth:         d.length("minWidth", sj.MinWidth),
+		MinHeight:        d.length("minHeight", sj.MinHeight),
+		MaxWidth:         d.length("maxWidth", sj.MaxWidth),
+		MaxHeight:        d.length("maxHeight", sj.MaxHeight),
+		AspectRatio:      d.float("aspectRatio", sj.AspectRatio),
+		WidthSizing:      layout.IntrinsicSize(d.enum(intrinsicSizeEnum, sj.WidthSizing)),
+		HeightSizing:     layout.IntrinsicSize(d.enum(intrinsicSizeEnum, sj.HeightSizing)),
+		FitContentWidth:  d.length("fitContentWidth", sj.FitContentWidth),
+		FitContentHeight: d.length("fitContentHeight", sj.FitContentHeight),
+
+		BoxSizing: layout.BoxSizing(d.enum(boxSizingEnum, sj.BoxSizing)),
+
+		Position: layout.Position(d.enum(positionEnum, sj.Position)),
+		Top:      d.length("top", sj.Top),
+		Right:    d.length("right", sj.Right),
+		Bottom:   d.length("bottom", sj.Bottom),
+		Left:     d.length("left", sj.Left),
+		ZIndex:   sj.ZIndex,
+
+		WritingMode:   layout.WritingMode(d.enum(writingModeEnum, sj.WritingMode)),
+		ContainerType: layout.ContainerType(d.enum(containerTypeEnum, sj.ContainerType)),
 	}
 
-	// Convert strings to enums
-	if sj.Display != "" {
-		s.Display = stringToDisplay(sj.Display)
+	if sj.Padding != nil {
+		s.Padding = d.spacing("padding", sj.Padding)
 	}
-	if sj.FlexDirection != "" {
-		s.FlexDirection = stringToFlexDirection(sj.FlexDirection)
+	if sj.Margin != nil {
+		s.Margin = d.spacing("margin", sj.Margin)
 	}
-	if sj.FlexWrap != "" {
-		s.FlexWrap = stringToFlexWrap(sj.FlexWrap)
+	if sj.Border != nil {
+		s.Border = d.spacing("border", sj.Border)
 	}
-	if sj.JustifyContent != "" {
-		s.JustifyContent = stringToJustifyContent(sj.JustifyContent)
+	if sj.Transform != nil {
+		d.floats("transform", sj.Transform.A, sj.Transform.B, sj.Transform.C, sj.Transform.D, sj.Transform.E, sj.Transform.F)
+		s.Transform = layout.Transform{
+			A: sj.Transform.A, B: sj.Transform.B,
+			C: sj.Transform.C, D: sj.Transform.D,
+			E: sj.Transform.E, F: sj.Transform.F,
+		}
 	}
-	if sj.AlignItems != "" {
-		s.AlignItems = stringToAlignItems(sj.AlignItems)
+	if sj.GridAutoRows != nil {
+		s.GridAutoRows = d.track("gridAutoRows", sj.GridAutoRows)
 	}
-	if sj.JustifyItems != "" {
-		s.JustifyItems = stringToJustifyItems(sj.JustifyItems)
-	}
-	if sj.AlignContent != "" {
-		s.AlignContent = stringToAlignContent(sj.AlignContent)
-	}
-	if sj.BoxSizing != "" {
-		s.BoxSizing = stringToBoxSizing(sj.BoxSizing)
-	}
-	if sj.Position != "" {
-		s.Position = stringToPosition(sj.Position)
+	if sj.GridAutoColumns != nil {
+		s.GridAutoColumns = d.track("gridAutoColumns", sj.GridAutoColumns)
 	}
 
-	// Convert grid tracks
+	if len(sj.GridTemplateRows) > MaxChildren || len(sj.GridTemplateColumns) > MaxChildren {
+		return s, fmt.Errorf("%w: %s: more than %d grid tracks", ErrLimitExceeded, path, MaxChildren)
+	}
 	if len(sj.GridTemplateRows) > 0 {
 		s.GridTemplateRows = make([]layout.GridTrack, len(sj.GridTemplateRows))
 		for i := range sj.GridTemplateRows {
-			s.GridTemplateRows[i] = jsonToTrack(&sj.GridTemplateRows[i])
+			s.GridTemplateRows[i] = d.track(fmt.Sprintf("gridTemplateRows[%d]", i), &sj.GridTemplateRows[i])
 		}
 	}
 	if len(sj.GridTemplateColumns) > 0 {
 		s.GridTemplateColumns = make([]layout.GridTrack, len(sj.GridTemplateColumns))
 		for i := range sj.GridTemplateColumns {
-			s.GridTemplateColumns[i] = jsonToTrack(&sj.GridTemplateColumns[i])
+			s.GridTemplateColumns[i] = d.track(fmt.Sprintf("gridTemplateColumns[%d]", i), &sj.GridTemplateColumns[i])
 		}
 	}
-	if sj.GridAutoRows.MinSize != 0 || sj.GridAutoRows.MaxSize != layout.Unbounded || sj.GridAutoRows.Fraction != 0 {
-		s.GridAutoRows = jsonToTrack(&sj.GridAutoRows)
+	if sj.GridTemplateAreas != nil {
+		s.GridTemplateAreas = d.gridTemplateAreas(sj.GridTemplateAreas)
 	}
-	if sj.GridAutoColumns.MinSize != 0 || sj.GridAutoColumns.MaxSize != layout.Unbounded || sj.GridAutoColumns.Fraction != 0 {
-		s.GridAutoColumns = jsonToTrack(&sj.GridAutoColumns)
+	if len(sj.ContainerName) > 0 {
+		s.ContainerName = layout.ContainerName(append([]string(nil), sj.ContainerName...))
+	}
+	if sj.TextStyle != nil {
+		s.TextStyle = d.textStyle(sj.TextStyle)
 	}
 
-	return s
+	return s, d.err
 }
 
-// Helper functions for enum conversions
-func displayToString(d layout.Display) string {
-	switch d {
-	case layout.DisplayBlock:
-		return "block"
-	case layout.DisplayFlex:
-		return "flex"
-	case layout.DisplayGrid:
-		return "grid"
-	default:
-		return ""
-	}
+// decoder accumulates the first validation error while a Style is rebuilt.
+type decoder struct {
+	path string
+	err  error
 }
 
-func stringToDisplay(s string) layout.Display {
-	switch s {
-	case "block":
-		return layout.DisplayBlock
-	case "flex":
-		return layout.DisplayFlex
-	case "grid":
-		return layout.DisplayGrid
-	default:
-		return 0
+func (d *decoder) fail(err error) {
+	if d.err == nil {
+		d.err = err
 	}
 }
 
-func flexDirectionToString(fd layout.FlexDirection) string {
-	switch fd {
-	case layout.FlexDirectionRow:
-		return "row"
-	case layout.FlexDirectionRowReverse:
-		return "row-reverse"
-	case layout.FlexDirectionColumn:
-		return "column"
-	case layout.FlexDirectionColumnReverse:
-		return "column-reverse"
-	default:
-		return ""
+func (d *decoder) enum(t *enumTable, s string) int {
+	v, err := t.value(s)
+	if err != nil {
+		d.fail(fmt.Errorf("%s.%s: %w", d.path, t.kind, err))
+	}
+	return v
+}
+
+func (d *decoder) float(field string, v float64) float64 {
+	if err := checkFloat(d.path+"."+field, v); err != nil {
+		d.fail(err)
+	}
+	return v
+}
+
+func (d *decoder) floats(field string, vs ...float64) {
+	for _, v := range vs {
+		d.float(field, v)
 	}
 }
 
-func stringToFlexDirection(s string) layout.FlexDirection {
-	switch s {
-	case "row":
-		return layout.FlexDirectionRow
-	case "row-reverse":
-		return layout.FlexDirectionRowReverse
-	case "column":
-		return layout.FlexDirectionColumn
-	case "column-reverse":
-		return layout.FlexDirectionColumnReverse
-	default:
-		return 0
+func (d *decoder) length(field string, l LengthJSON) layout.Length {
+	v, err := parseLength(l)
+	if err != nil {
+		d.fail(fmt.Errorf("%s.%s: %w", d.path, field, err))
 	}
+	return v
 }
 
-func flexWrapToString(fw layout.FlexWrap) string {
-	switch fw {
-	case layout.FlexWrapNoWrap:
-		return "nowrap"
-	case layout.FlexWrapWrap:
-		return "wrap"
-	case layout.FlexWrapWrapReverse:
-		return "wrap-reverse"
-	default:
-		return ""
-	}
-}
-
-func stringToFlexWrap(s string) layout.FlexWrap {
-	switch s {
-	case "nowrap":
-		return layout.FlexWrapNoWrap
-	case "wrap":
-		return layout.FlexWrapWrap
-	case "wrap-reverse":
-		return layout.FlexWrapWrapReverse
-	default:
-		return 0
-	}
-}
-
-func justifyContentToString(jc layout.JustifyContent) string {
-	switch jc {
-	case layout.JustifyContentFlexStart:
-		return "flex-start"
-	case layout.JustifyContentFlexEnd:
-		return "flex-end"
-	case layout.JustifyContentCenter:
-		return "center"
-	case layout.JustifyContentSpaceBetween:
-		return "space-between"
-	case layout.JustifyContentSpaceAround:
-		return "space-around"
-	case layout.JustifyContentSpaceEvenly:
-		return "space-evenly"
-	default:
-		return ""
-	}
-}
-
-func stringToJustifyContent(s string) layout.JustifyContent {
-	switch s {
-	case "flex-start":
-		return layout.JustifyContentFlexStart
-	case "flex-end":
-		return layout.JustifyContentFlexEnd
-	case "center":
-		return layout.JustifyContentCenter
-	case "space-between":
-		return layout.JustifyContentSpaceBetween
-	case "space-around":
-		return layout.JustifyContentSpaceAround
-	case "space-evenly":
-		return layout.JustifyContentSpaceEvenly
-	default:
-		return 0
-	}
-}
-
-func alignItemsToString(ai layout.AlignItems) string {
-	switch ai {
-	case layout.AlignItemsStretch:
-		return "stretch"
-	case layout.AlignItemsFlexStart:
-		return "flex-start"
-	case layout.AlignItemsFlexEnd:
-		return "flex-end"
-	case layout.AlignItemsCenter:
-		return "center"
-	case layout.AlignItemsBaseline:
-		return "baseline"
-	default:
-		return "" // Zero value (stretch), will be omitted
-	}
-}
-
-func stringToAlignItems(s string) layout.AlignItems {
-	switch s {
-	case "":
-		return layout.AlignItemsStretch // Zero value (default)
-	case "stretch":
-		return layout.AlignItemsStretch
-	case "flex-start":
-		return layout.AlignItemsFlexStart
-	case "flex-end":
-		return layout.AlignItemsFlexEnd
-	case "center":
-		return layout.AlignItemsCenter
-	case "baseline":
-		return layout.AlignItemsBaseline
-	default:
-		return layout.AlignItemsStretch // Zero value (default)
-	}
-}
-
-func justifyItemsToString(ji layout.JustifyItems) string {
-	switch ji {
-	case layout.JustifyItemsStretch:
-		return "stretch"
-	case layout.JustifyItemsStart:
-		return "start"
-	case layout.JustifyItemsEnd:
-		return "end"
-	case layout.JustifyItemsCenter:
-		return "center"
-	default:
-		return "" // Zero value (stretch), will be omitted
-	}
-}
-
-func stringToJustifyItems(s string) layout.JustifyItems {
-	switch s {
-	case "":
-		return layout.JustifyItemsStretch // Zero value (default)
-	case "stretch":
-		return layout.JustifyItemsStretch
-	case "start":
-		return layout.JustifyItemsStart
-	case "end":
-		return layout.JustifyItemsEnd
-	case "center":
-		return layout.JustifyItemsCenter
-	default:
-		return layout.JustifyItemsStretch // Zero value (default)
-	}
-}
-
-func alignContentToString(ac layout.AlignContent) string {
-	switch ac {
-	case layout.AlignContentFlexStart:
-		return "flex-start"
-	case layout.AlignContentFlexEnd:
-		return "flex-end"
-	case layout.AlignContentCenter:
-		return "center"
-	case layout.AlignContentStretch:
-		return "stretch"
-	case layout.AlignContentSpaceBetween:
-		return "space-between"
-	case layout.AlignContentSpaceAround:
-		return "space-around"
-	default:
-		return ""
-	}
-}
-
-func stringToAlignContent(s string) layout.AlignContent {
-	switch s {
-	case "flex-start":
-		return layout.AlignContentFlexStart
-	case "flex-end":
-		return layout.AlignContentFlexEnd
-	case "center":
-		return layout.AlignContentCenter
-	case "stretch":
-		return layout.AlignContentStretch
-	case "space-between":
-		return layout.AlignContentSpaceBetween
-	case "space-around":
-		return layout.AlignContentSpaceAround
-	default:
-		return 0
-	}
-}
-
-func boxSizingToString(bs layout.BoxSizing) string {
-	switch bs {
-	case layout.BoxSizingContentBox:
-		return "content-box"
-	case layout.BoxSizingBorderBox:
-		return "border-box"
-	default:
-		return ""
-	}
-}
-
-func stringToBoxSizing(s string) layout.BoxSizing {
-	switch s {
-	case "content-box":
-		return layout.BoxSizingContentBox
-	case "border-box":
-		return layout.BoxSizingBorderBox
-	default:
-		return 0
-	}
-}
-
-func positionToString(p layout.Position) string {
-	switch p {
-	case layout.PositionStatic:
-		return "static"
-	case layout.PositionRelative:
-		return "relative"
-	case layout.PositionAbsolute:
-		return "absolute"
-	case layout.PositionFixed:
-		return "fixed"
-	case layout.PositionSticky:
-		return "sticky"
-	default:
-		return ""
-	}
-}
-
-func stringToPosition(s string) layout.Position {
-	switch s {
-	case "static":
-		return layout.PositionStatic
-	case "relative":
-		return layout.PositionRelative
-	case "absolute":
-		return layout.PositionAbsolute
-	case "fixed":
-		return layout.PositionFixed
-	case "sticky":
-		return layout.PositionSticky
-	default:
-		return 0
-	}
-}
-
-func trackToJSON(t *layout.GridTrack) TrackJSON {
-	return TrackJSON{
-		MinSize:  t.MinSize.Value,
-		MaxSize:  t.MaxSize.Value,
-		Fraction: t.Fraction,
-	}
-}
-
-func jsonToTrack(tj *TrackJSON) layout.GridTrack {
-	return layout.GridTrack{
-		MinSize:  layout.Px(tj.MinSize),
-		MaxSize:  layout.Px(tj.MaxSize),
-		Fraction: tj.Fraction,
-	}
-}
-
-func spacingToJSON(s *layout.Spacing) SpacingJSON {
-	return SpacingJSON{
-		Top:    s.Top.Value,
-		Right:  s.Right.Value,
-		Bottom: s.Bottom.Value,
-		Left:   s.Left.Value,
-	}
-}
-
-func jsonToSpacing(sj *SpacingJSON) layout.Spacing {
+func (d *decoder) spacing(field string, sj *SpacingJSON) layout.Spacing {
 	return layout.Spacing{
-		Top:    layout.Px(sj.Top),
-		Right:  layout.Px(sj.Right),
-		Bottom: layout.Px(sj.Bottom),
-		Left:   layout.Px(sj.Left),
+		Top:    d.length(field+".top", sj.Top),
+		Right:  d.length(field+".right", sj.Right),
+		Bottom: d.length(field+".bottom", sj.Bottom),
+		Left:   d.length(field+".left", sj.Left),
 	}
 }
 
-func rectToJSON(r *layout.Rect) RectJSON {
-	return RectJSON{
-		X:      r.X,
-		Y:      r.Y,
-		Width:  r.Width,
-		Height: r.Height,
+func (d *decoder) track(field string, tj *TrackJSON) layout.GridTrack {
+	return layout.GridTrack{
+		MinSize:  d.length(field+".minSize", tj.MinSize),
+		MaxSize:  d.length(field+".maxSize", tj.MaxSize),
+		Fraction: d.float(field+".fraction", tj.Fraction),
 	}
 }
 
-func jsonToRect(rj *RectJSON) layout.Rect {
-	return layout.Rect{
-		X:      rj.X,
-		Y:      rj.Y,
-		Width:  rj.Width,
-		Height: rj.Height,
+func (d *decoder) gridTemplateAreas(gj *GridTemplateAreasJSON) *layout.GridTemplateAreas {
+	field := d.path + ".gridTemplateAreas"
+	if gj.Rows < 0 || gj.Cols < 0 || gj.Rows > MaxChildren || gj.Cols > MaxChildren {
+		d.fail(fmt.Errorf("%s: rows/cols %d/%d out of range [0, %d]", field, gj.Rows, gj.Cols, MaxChildren))
+	}
+	if len(gj.Areas) > MaxChildren {
+		d.fail(fmt.Errorf("%w: %s: %d areas exceeds %d", ErrLimitExceeded, field, len(gj.Areas), MaxChildren))
+		return nil
+	}
+	g := &layout.GridTemplateAreas{Rows: gj.Rows, Cols: gj.Cols, Areas: make([]layout.GridArea, 0, len(gj.Areas))}
+	for i, a := range gj.Areas {
+		if a.RowStart < 0 || a.ColumnStart < 0 || a.RowEnd < a.RowStart || a.ColumnEnd < a.ColumnStart {
+			d.fail(fmt.Errorf("%s.areas[%d]: invalid bounds rows %d..%d cols %d..%d", field, i, a.RowStart, a.RowEnd, a.ColumnStart, a.ColumnEnd))
+		}
+		g.Areas = append(g.Areas, layout.GridArea{
+			Name:        a.Name,
+			RowStart:    a.RowStart,
+			RowEnd:      a.RowEnd,
+			ColumnStart: a.ColumnStart,
+			ColumnEnd:   a.ColumnEnd,
+		})
+	}
+	return g
+}
+
+func (d *decoder) textStyle(tj *TextStyleJSON) *layout.TextStyle {
+	saved := d.path
+	d.path += ".textStyle"
+	defer func() { d.path = saved }()
+
+	if tj.FontWeight < 0 || tj.FontWeight > maxFontWeight {
+		d.fail(fmt.Errorf("%s.fontWeight: %d out of range [0, %d]", d.path, tj.FontWeight, maxFontWeight))
+	}
+	if tj.TextDecoration < 0 || tj.TextDecoration > maxTextDecoration {
+		d.fail(fmt.Errorf("%s.textDecoration: %d out of range [0, %d]", d.path, tj.TextDecoration, maxTextDecoration))
+	}
+	return &layout.TextStyle{
+		TextAlign:           layout.TextAlign(d.enum(textAlignEnum, tj.TextAlign)),
+		TextAlignLast:       layout.TextAlignLast(d.enum(textAlignLastEnum, tj.TextAlignLast)),
+		TextJustify:         layout.TextJustify(d.enum(textJustifyEnum, tj.TextJustify)),
+		LineHeight:          d.float("lineHeight", tj.LineHeight),
+		WordSpacing:         d.float("wordSpacing", tj.WordSpacing),
+		LetterSpacing:       d.float("letterSpacing", tj.LetterSpacing),
+		TextIndent:          d.float("textIndent", tj.TextIndent),
+		WhiteSpace:          layout.WhiteSpace(d.enum(whiteSpaceEnum, tj.WhiteSpace)),
+		OverflowWrap:        layout.OverflowWrap(d.enum(overflowWrapEnum, tj.OverflowWrap)),
+		WordBreak:           layout.WordBreak(d.enum(wordBreakEnum, tj.WordBreak)),
+		TextOverflow:        layout.TextOverflow(d.enum(textOverflowEnum, tj.TextOverflow)),
+		TextTransform:       layout.TextTransform(d.enum(textTransformEnum, tj.TextTransform)),
+		Hyphens:             layout.Hyphens(d.enum(hyphensEnum, tj.Hyphens)),
+		HangingPunctuation:  layout.HangingPunctuation(d.enum(hangingPunctuationEnum, tj.HangingPunctuation)),
+		TabSize:             d.float("tabSize", tj.TabSize),
+		FontSize:            d.float("fontSize", tj.FontSize),
+		FontFamily:          tj.FontFamily,
+		FontWeight:          layout.FontWeight(tj.FontWeight),
+		FontStyle:           layout.FontStyle(d.enum(fontStyleEnum, tj.FontStyle)),
+		TextDecoration:      layout.TextDecoration(tj.TextDecoration),
+		TextDecorationStyle: layout.TextDecorationStyle(d.enum(textDecorationStyleEnum, tj.TextDecorationStyle)),
+		TextDecorationColor: tj.TextDecorationColor,
+		VerticalAlign:       layout.VerticalAlign(d.enum(verticalAlignEnum, tj.VerticalAlign)),
+		WritingMode:         layout.WritingMode(d.enum(writingModeEnum, tj.WritingMode)),
+		Direction:           layout.Direction(d.enum(directionEnum, tj.Direction)),
 	}
 }
 
-func transformToJSON(t *layout.Transform) TransformJSON {
-	return TransformJSON{
-		A: t.A,
-		B: t.B,
-		C: t.C,
-		D: t.D,
-		E: t.E,
-		F: t.F,
+// parseLength parses the wire form of a Length. See LengthJSON.
+func parseLength(l LengthJSON) (layout.Length, error) {
+	s := strings.TrimSpace(string(l))
+	if s == "" {
+		return layout.Length{}, nil
 	}
+	if strings.EqualFold(s, "unbounded") {
+		return layout.PxUnbounded, nil
+	}
+	// units.ParseLength rejects NaN, infinities, exponents, and unknown units.
+	parsed, err := units.ParseLength(s)
+	if err != nil {
+		return layout.Length{}, err
+	}
+	if math.Abs(parsed.Value) > MaxNumericValue {
+		return layout.Length{}, fmt.Errorf("length %q exceeds %g", s, MaxNumericValue)
+	}
+	return parsed, nil
 }
 
-func jsonToTransform(tj *TransformJSON) layout.Transform {
-	return layout.Transform{
-		A: tj.A,
-		B: tj.B,
-		C: tj.C,
-		D: tj.D,
-		E: tj.E,
-		F: tj.F,
+// checkFloat rejects NaN, infinities, and magnitudes above MaxNumericValue.
+func checkFloat(path string, v float64) error {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return fmt.Errorf("%s: value %v is not finite", path, v)
 	}
+	if math.Abs(v) > MaxNumericValue {
+		return fmt.Errorf("%s: value %v exceeds %g", path, v, MaxNumericValue)
+	}
+	return nil
 }
+
+func checkRect(path string, r *layout.Rect) error {
+	for _, f := range []struct {
+		name string
+		v    float64
+	}{{"x", r.X}, {"y", r.Y}, {"width", r.Width}, {"height", r.Height}} {
+		if err := checkFloat(path+"."+f.name, f.v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// =============================================================================
+// Enum tables
+// =============================================================================
+
+// Bounds for the two TextStyle enums that are serialized numerically.
+const (
+	maxFontWeight     = 1000 // CSS Fonts Level 4 font-weight range is [1, 1000]
+	maxTextDecoration = int(layout.TextDecorationUnderline | layout.TextDecorationOverline | layout.TextDecorationLineThrough)
+)
+
+// enumTable maps an integer enum to CSS keyword strings and back.
+// The zero value maps to the empty string on output (omitted) and the
+// empty string maps to zero on input; every other string must be known.
+type enumTable struct {
+	kind   string
+	names  map[int]string
+	values map[string]int
+}
+
+func newEnum(kind string, entries map[string]int) *enumTable {
+	t := &enumTable{kind: kind, names: make(map[int]string, len(entries)), values: entries}
+	for name, v := range entries {
+		t.names[v] = name
+	}
+	return t
+}
+
+func (t *enumTable) name(v int) (string, error) {
+	if v == 0 {
+		return "", nil
+	}
+	s, ok := t.names[v]
+	if !ok {
+		return "", fmt.Errorf("unknown %s value %d", t.kind, v)
+	}
+	return s, nil
+}
+
+func (t *enumTable) value(s string) (int, error) {
+	if s == "" {
+		return 0, nil
+	}
+	v, ok := t.values[s]
+	if !ok {
+		return 0, fmt.Errorf("unknown %s %q", t.kind, s)
+	}
+	return v, nil
+}
+
+var (
+	displayEnum = newEnum("display", map[string]int{
+		"block":       int(layout.DisplayBlock),
+		"flex":        int(layout.DisplayFlex),
+		"grid":        int(layout.DisplayGrid),
+		"inline-text": int(layout.DisplayInlineText),
+		"none":        int(layout.DisplayNone),
+	})
+	flexDirectionEnum = newEnum("flexDirection", map[string]int{
+		"row":            int(layout.FlexDirectionRow),
+		"row-reverse":    int(layout.FlexDirectionRowReverse),
+		"column":         int(layout.FlexDirectionColumn),
+		"column-reverse": int(layout.FlexDirectionColumnReverse),
+	})
+	flexWrapEnum = newEnum("flexWrap", map[string]int{
+		"nowrap":       int(layout.FlexWrapNoWrap),
+		"wrap":         int(layout.FlexWrapWrap),
+		"wrap-reverse": int(layout.FlexWrapWrapReverse),
+	})
+	justifyContentEnum = newEnum("justifyContent", map[string]int{
+		"flex-start":    int(layout.JustifyContentFlexStart),
+		"flex-end":      int(layout.JustifyContentFlexEnd),
+		"center":        int(layout.JustifyContentCenter),
+		"space-between": int(layout.JustifyContentSpaceBetween),
+		"space-around":  int(layout.JustifyContentSpaceAround),
+		"space-evenly":  int(layout.JustifyContentSpaceEvenly),
+	})
+	alignItemsEnum = newEnum("alignItems", map[string]int{
+		"stretch":    int(layout.AlignItemsStretch),
+		"flex-start": int(layout.AlignItemsFlexStart),
+		"flex-end":   int(layout.AlignItemsFlexEnd),
+		"center":     int(layout.AlignItemsCenter),
+		"baseline":   int(layout.AlignItemsBaseline),
+	})
+	justifyItemsEnum = newEnum("justifyItems", map[string]int{
+		"stretch": int(layout.JustifyItemsStretch),
+		"start":   int(layout.JustifyItemsStart),
+		"end":     int(layout.JustifyItemsEnd),
+		"center":  int(layout.JustifyItemsCenter),
+	})
+	alignContentEnum = newEnum("alignContent", map[string]int{
+		"stretch":       int(layout.AlignContentStretch),
+		"flex-start":    int(layout.AlignContentFlexStart),
+		"flex-end":      int(layout.AlignContentFlexEnd),
+		"center":        int(layout.AlignContentCenter),
+		"space-between": int(layout.AlignContentSpaceBetween),
+		"space-around":  int(layout.AlignContentSpaceAround),
+	})
+	gridAutoFlowEnum = newEnum("gridAutoFlow", map[string]int{
+		"row":          int(layout.GridAutoFlowRow),
+		"column":       int(layout.GridAutoFlowColumn),
+		"row-dense":    int(layout.GridAutoFlowRowDense),
+		"column-dense": int(layout.GridAutoFlowColumnDense),
+	})
+	boxSizingEnum = newEnum("boxSizing", map[string]int{
+		"content-box": int(layout.BoxSizingContentBox),
+		"border-box":  int(layout.BoxSizingBorderBox),
+	})
+	positionEnum = newEnum("position", map[string]int{
+		"static":   int(layout.PositionStatic),
+		"relative": int(layout.PositionRelative),
+		"absolute": int(layout.PositionAbsolute),
+		"fixed":    int(layout.PositionFixed),
+		"sticky":   int(layout.PositionSticky),
+	})
+	intrinsicSizeEnum = newEnum("intrinsicSize", map[string]int{
+		"none":        int(layout.IntrinsicSizeNone),
+		"min-content": int(layout.IntrinsicSizeMinContent),
+		"max-content": int(layout.IntrinsicSizeMaxContent),
+		"fit-content": int(layout.IntrinsicSizeFitContent),
+	})
+	writingModeEnum = newEnum("writingMode", map[string]int{
+		"horizontal-tb": int(layout.WritingModeHorizontalTB),
+		"vertical-rl":   int(layout.WritingModeVerticalRL),
+		"vertical-lr":   int(layout.WritingModeVerticalLR),
+		"sideways-rl":   int(layout.WritingModeSidewaysRL),
+		"sideways-lr":   int(layout.WritingModeSidewaysLR),
+	})
+	containerTypeEnum = newEnum("containerType", map[string]int{
+		"normal":      int(layout.ContainerTypeNormal),
+		"size":        int(layout.ContainerTypeSize),
+		"inline-size": int(layout.ContainerTypeInlineSize),
+	})
+	directionEnum = newEnum("direction", map[string]int{
+		"ltr": int(layout.DirectionLTR),
+		"rtl": int(layout.DirectionRTL),
+	})
+
+	// TextStyle enums
+	textAlignEnum = newEnum("textAlign", map[string]int{
+		"start":   int(layout.TextAlignDefault),
+		"left":    int(layout.TextAlignLeft),
+		"right":   int(layout.TextAlignRight),
+		"center":  int(layout.TextAlignCenter),
+		"justify": int(layout.TextAlignJustify),
+	})
+	textAlignLastEnum = newEnum("textAlignLast", map[string]int{
+		"auto":    int(layout.TextAlignLastAuto),
+		"left":    int(layout.TextAlignLastLeft),
+		"right":   int(layout.TextAlignLastRight),
+		"center":  int(layout.TextAlignLastCenter),
+		"justify": int(layout.TextAlignLastJustify),
+	})
+	textJustifyEnum = newEnum("textJustify", map[string]int{
+		"auto":            int(layout.TextJustifyAuto),
+		"inter-word":      int(layout.TextJustifyInterWord),
+		"inter-character": int(layout.TextJustifyInterCharacter),
+		"distribute":      int(layout.TextJustifyDistribute),
+		"none":            int(layout.TextJustifyNone),
+	})
+	whiteSpaceEnum = newEnum("whiteSpace", map[string]int{
+		"normal":   int(layout.WhiteSpaceNormal),
+		"nowrap":   int(layout.WhiteSpaceNowrap),
+		"pre":      int(layout.WhiteSpacePre),
+		"pre-wrap": int(layout.WhiteSpacePreWrap),
+		"pre-line": int(layout.WhiteSpacePreLine),
+	})
+	overflowWrapEnum = newEnum("overflowWrap", map[string]int{
+		"normal":     int(layout.OverflowWrapNormal),
+		"break-word": int(layout.OverflowWrapBreakWord),
+		"anywhere":   int(layout.OverflowWrapAnywhere),
+	})
+	wordBreakEnum = newEnum("wordBreak", map[string]int{
+		"normal":    int(layout.WordBreakNormal),
+		"break-all": int(layout.WordBreakBreakAll),
+		"keep-all":  int(layout.WordBreakKeepAll),
+	})
+	textOverflowEnum = newEnum("textOverflow", map[string]int{
+		"clip":     int(layout.TextOverflowClip),
+		"ellipsis": int(layout.TextOverflowEllipsis),
+	})
+	textTransformEnum = newEnum("textTransform", map[string]int{
+		"none":           int(layout.TextTransformNone),
+		"uppercase":      int(layout.TextTransformUppercase),
+		"lowercase":      int(layout.TextTransformLowercase),
+		"capitalize":     int(layout.TextTransformCapitalize),
+		"full-width":     int(layout.TextTransformFullWidth),
+		"full-size-kana": int(layout.TextTransformFullSizeKana),
+	})
+	hyphensEnum = newEnum("hyphens", map[string]int{
+		"none":   int(layout.HyphensNone),
+		"manual": int(layout.HyphensManual),
+		"auto":   int(layout.HyphensAuto),
+	})
+	hangingPunctuationEnum = newEnum("hangingPunctuation", map[string]int{
+		"none":      int(layout.HangingPunctuationNone),
+		"first":     int(layout.HangingPunctuationFirst),
+		"last":      int(layout.HangingPunctuationLast),
+		"force-end": int(layout.HangingPunctuationForceEnd),
+		"allow-end": int(layout.HangingPunctuationAllowEnd),
+	})
+	fontStyleEnum = newEnum("fontStyle", map[string]int{
+		"normal":  int(layout.FontStyleNormal),
+		"italic":  int(layout.FontStyleItalic),
+		"oblique": int(layout.FontStyleOblique),
+	})
+	textDecorationStyleEnum = newEnum("textDecorationStyle", map[string]int{
+		"solid":  int(layout.TextDecorationStyleSolid),
+		"double": int(layout.TextDecorationStyleDouble),
+		"dotted": int(layout.TextDecorationStyleDotted),
+		"dashed": int(layout.TextDecorationStyleDashed),
+		"wavy":   int(layout.TextDecorationStyleWavy),
+	})
+	verticalAlignEnum = newEnum("verticalAlign", map[string]int{
+		"baseline":    int(layout.VerticalAlignBaseline),
+		"sub":         int(layout.VerticalAlignSub),
+		"super":       int(layout.VerticalAlignSuper),
+		"text-top":    int(layout.VerticalAlignTextTop),
+		"text-bottom": int(layout.VerticalAlignTextBottom),
+		"middle":      int(layout.VerticalAlignMiddle),
+		"top":         int(layout.VerticalAlignTop),
+		"bottom":      int(layout.VerticalAlignBottom),
+	})
+)

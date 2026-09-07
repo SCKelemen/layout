@@ -55,9 +55,13 @@ fmt.Printf("Node width: %.2f\n", deserialized.Rect.Width)
 
 The serialized JSON includes:
 
-- **Style**: All layout properties (display, flex, grid, sizing, positioning, etc.)
-- **Rect**: Computed position and size (after layout)
+- **Style**: All layout properties (display, flex, grid, sizing, positioning,
+  writing mode, container queries, text style, etc.)
+- **Text** / **Baseline**: Text content and baseline of the node
+- **Rect**: Computed position and size (after layout); omitted when zero
 - **Children**: Recursive child nodes
+
+`TextLayout` is derived output of the layout pass and is not serialized.
 
 ### Example JSON Output
 
@@ -66,8 +70,13 @@ The serialized JSON includes:
   "style": {
     "display": "flex",
     "flexDirection": "column",
-    "width": 200,
-    "height": -1
+    "width": "200px",
+    "padding": {
+      "top": "10px",
+      "right": "10px",
+      "bottom": "10px",
+      "left": "10px"
+    }
   },
   "rect": {
     "x": 0,
@@ -78,14 +87,14 @@ The serialized JSON includes:
   "children": [
     {
       "style": {
-        "width": 100,
-        "height": 50
+        "width": "100px",
+        "height": "2em"
       },
       "rect": {
-        "x": 0,
-        "y": 0,
+        "x": 10,
+        "y": 10,
         "width": 100,
-        "height": 50
+        "height": 32
       }
     }
   ]
@@ -94,14 +103,37 @@ The serialized JSON includes:
 
 ## Notes
 
-- **Enum Values**: Enums are serialized as strings (e.g., `"flex"`, `"grid"`, `"row"`)
-- **Auto Values**: `-1` represents "auto" for width/height and positioning properties
-- **Zero Values**: Zero values are omitted from JSON output (use `omitempty` tags)
-- **Transform**: Transform matrices are serialized with all 6 components (a, b, c, d, e, f)
+- **Lengths**: Every `layout.Length` is written as a CSS-like string that
+  keeps its unit: `"10px"`, `"2em"`, `"1.5rem"`, `"50vw"`, `"10cqw"`, ...
+  The zero-value `layout.Length{}` (no unit, meaning "not set") is omitted,
+  while an explicit `Px(0)` is written as `"0px"`. Both
+  `layout.PxUnbounded` and `layout.UnboundedLength()` are written as
+  `"unbounded"` and read back as `layout.PxUnbounded`.
+  For backward compatibility a bare number (`"width": 200`) is still
+  accepted on input and interpreted as pixels.
+- **Enum Values**: Enums are serialized as CSS keywords (e.g. `"flex"`,
+  `"grid"`, `"inline-text"`, `"none"`, `"row-reverse"`, `"space-evenly"`).
+  Unknown keywords are rejected with an error rather than silently mapped to
+  a default. `fontWeight` is numeric (1-1000) and `textDecoration` is the
+  bitmask value.
+- **Auto Values**: `"-1px"` represents "auto" for width/height and
+  positioning properties; `-1` grid line indices mean auto placement.
+- **Zero Values**: Default values are omitted from the output, including
+  default alignment (`stretch`), identity transforms, and empty
+  padding/margin/border.
+- **Transform**: Non-identity transform matrices are serialized with all 6
+  components (a, b, c, d, e, f).
+- **Validation**: `FromJSON`/`FromYAML` treat input as untrusted. They reject
+  NaN or infinite numbers, magnitudes above `MaxNumericValue` (1e12, except
+  the `"unbounded"` sentinel), unknown enum keywords, fractional or
+  overflowing integers, trees deeper than `MaxTreeDepth` (1024), and nodes
+  with more than `MaxChildren` (65536) children. Limit violations wrap
+  `ErrLimitExceeded`.
 
 ## YAML Support
 
-YAML support is available as an optional feature. To use it:
+YAML support is available as an optional feature. YAML output uses the same
+camelCase keys and the same length strings as the JSON output. To use it:
 
 1. Install the YAML library:
    ```bash

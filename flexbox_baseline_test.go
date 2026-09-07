@@ -185,17 +185,21 @@ func TestFlexboxBaselineAlignmentColumn(t *testing.T) {
 	ctx := NewLayoutContext(1920, 1080, 16)
 	LayoutFlexbox(root, constraints, ctx)
 
-	// In column direction, baseline affects X positioning (cross axis)
-	// Max baseline = 15
-	// First item needs offset of (15 - 10) = 5 in X direction
-	expectedX1 := 5.0
-	if root.Children[0].Rect.X != expectedX1 {
-		t.Errorf("First item X: expected %.2f, got %.2f", expectedX1, root.Children[0].Rect.X)
+	// In a column flex container (horizontal writing mode) the items' inline
+	// axis is the cross axis, and CSS Flexbox §8.3 says baseline alignment is
+	// then identical to flex-start. Node.Baseline is a vertical distance and has
+	// no meaning in the horizontal cross axis, so both items sit at X = 0. The
+	// previous expectation (X = 5 for the first item) shifted items by the
+	// difference of their vertical baselines, which is not spec behavior.
+	// https://www.w3.org/TR/css-flexbox-1/#align-items-property
+	if root.Children[0].Rect.X != 0 {
+		t.Errorf("First item X: expected 0 (baseline behaves as flex-start in column direction), got %.2f", root.Children[0].Rect.X)
 	}
-
-	// Second item should be at X = 0 (has max baseline)
 	if root.Children[1].Rect.X != 0 {
 		t.Errorf("Second item X: expected 0, got %.2f", root.Children[1].Rect.X)
+	}
+	if root.Children[0].Rect.Width != 30 || root.Children[1].Rect.Width != 40 {
+		t.Errorf("Items must keep their explicit widths, got %.2f and %.2f", root.Children[0].Rect.Width, root.Children[1].Rect.Width)
 	}
 }
 

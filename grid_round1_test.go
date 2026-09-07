@@ -384,3 +384,42 @@ func TestGridRound1NamedAreasDoNotMutateStyle(t *testing.T) {
 		t.Errorf("second layout mutated the child's Style: %+v", got)
 	}
 }
+
+// TestGridRound1AspectRatioVerticalWritingModes checks that an aspect-ratio
+// item in a vertical writing mode is fitted to its grid area in logical
+// terms. The area is one 200px column (physical height) by one 100px row
+// (physical width); a 2:1 (width:height) item must fit inside it as 100x50
+// and, in vertical-rl, sit against the right edge. Previously the physical
+// width/height were fitted against the logical column/row sizes, producing a
+// 100x200 box outside the area.
+//
+// https://www.w3.org/TR/css-sizing-4/#aspect-ratio
+// https://www.w3.org/TR/css-writing-modes-3/#logical-to-physical
+func TestGridRound1AspectRatioVerticalWritingModes(t *testing.T) {
+	for _, mode := range []WritingMode{WritingModeVerticalRL, WritingModeVerticalLR} {
+		item := &Node{Style: Style{AspectRatio: 2}}
+		root := &Node{
+			Style: Style{
+				Display:             DisplayGrid,
+				WritingMode:         mode,
+				GridTemplateColumns: []GridTrack{FixedTrack(Px(200))},
+				GridTemplateRows:    []GridTrack{FixedTrack(Px(100))},
+			},
+			Children: []*Node{item},
+		}
+		size := LayoutGrid(root, Loose(Unbounded, Unbounded), NewLayoutContext(800, 600, 16))
+		name := "vertical-lr"
+		if mode == WritingModeVerticalRL {
+			name = "vertical-rl"
+		}
+		gridRound1Approx(t, name+" container width", size.Width, 100)
+		gridRound1Approx(t, name+" container height", size.Height, 200)
+		gridRound1Approx(t, name+" item width", item.Rect.Width, 100)
+		gridRound1Approx(t, name+" item height", item.Rect.Height, 50)
+		gridRound1Approx(t, name+" item X", item.Rect.X, 0)
+		gridRound1Approx(t, name+" item Y", item.Rect.Y, 0)
+		if item.Rect.X+item.Rect.Width > 100.01 || item.Rect.Y+item.Rect.Height > 200.01 {
+			t.Errorf("%s: item %+v overflows its 100x200 area", name, item.Rect)
+		}
+	}
+}

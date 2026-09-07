@@ -283,11 +283,25 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		// If item has aspect ratio, maintain it while fitting within cell
 		// In CSS Grid, items with aspect ratio maintain their ratio but fit within the cell
 		// For spanning items, we should use the measured size if it's valid and maintains aspect ratio
+		//
+		// Everything here is computed in logical terms (itemWidth = column
+		// axis, itemHeight = row axis), like the non-aspect-ratio branch, so
+		// the physical swap at the end of the loop applies uniformly.
+		// AspectRatio is physical width / height (css-sizing-4 §5); columns
+		// run along physical Y in vertical writing modes, so the logical
+		// column/row ratio is its reciprocal there.
+		// https://www.w3.org/TR/css-sizing-4/#aspect-ratio
+		// https://www.w3.org/TR/css-writing-modes-3/#logical-to-physical
 		if item.node.Style.AspectRatio > 0 {
+			ratio := item.node.Style.AspectRatio
+			if isVerticalWritingMode {
+				ratio = 1 / ratio
+			}
+
 			// Check if we have a valid measured size that maintains aspect ratio
 			measuredRatio := 0.0
-			if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
-				measuredRatio = item.measuredSize.Width / item.measuredSize.Height
+			if measuredCol > 0 && measuredRow > 0 {
+				measuredRatio = measuredCol / measuredRow
 			}
 
 			// If measured size maintains aspect ratio, prefer it (especially for spanning items)
@@ -295,56 +309,54 @@ func LayoutGrid(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 			// For spanning items, the measured size determines row/column sizes, so we should use it
 			// According to CSS spec, items with aspect-ratio maintain their ratio and don't stretch
 			// to fill cells (unlike items without aspect-ratio which stretch by default)
-			if measuredRatio > 0 && math.Abs(measuredRatio-item.node.Style.AspectRatio) < 0.01 {
+			if measuredRatio > 0 && math.Abs(measuredRatio-ratio) < 0.01 {
 				// Use measured size, but ensure it fits within cell
-				itemWidth = item.measuredSize.Width
-				itemHeight = item.measuredSize.Height
+				itemWidth = measuredCol
+				itemHeight = measuredRow
 
 				// Constrain to cell if measured size exceeds cell (shouldn't happen for spanning items)
 				// But aspect ratio takes precedence - don't stretch beyond measured size
 				if maxItemWidth > 0 && itemWidth > maxItemWidth {
 					// Cell is smaller than measured - constrain to cell
 					itemWidth = maxItemWidth
-					itemHeight = itemWidth / item.node.Style.AspectRatio
+					itemHeight = itemWidth / ratio
 				}
 				if maxItemHeight > 0 && itemHeight > maxItemHeight {
 					// Cell is smaller than measured - constrain to cell
 					itemHeight = maxItemHeight
-					itemWidth = itemHeight * item.node.Style.AspectRatio
+					itemWidth = itemHeight * ratio
 				}
-			} else if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
+			} else if measuredCol > 0 && measuredRow > 0 {
 				// Measured size exists but doesn't maintain aspect ratio - use it as fallback
 				// This can happen if min/max constraints were applied
-				itemWidth = item.measuredSize.Width
-				itemHeight = item.measuredSize.Height
+				itemWidth = measuredCol
+				itemHeight = measuredRow
 			} else {
 				// Calculate dimensions that maintain aspect ratio and fit within cell
-				// Try width-based first (fill cell width)
+				// Try column-axis-based first (fill the area's column-axis size)
 				if maxItemWidth > 0 {
 					itemWidth = maxItemWidth
-					itemHeight = itemWidth / item.node.Style.AspectRatio
+					itemHeight = itemWidth / ratio
 
-					// If height exceeds cell, constrain by height instead
+					// If the row-axis size exceeds the area, constrain by it instead
 					if itemHeight > maxItemHeight && maxItemHeight > 0 {
 						itemHeight = maxItemHeight
-						itemWidth = itemHeight * item.node.Style.AspectRatio
+						itemWidth = itemHeight * ratio
 					}
 
-					// Ensure we don't exceed cell width (might happen if constrained by height)
+					// Ensure we don't exceed the column-axis size (might happen if constrained by the row axis)
 					if itemWidth > maxItemWidth {
 						itemWidth = maxItemWidth
-						itemHeight = itemWidth / item.node.Style.AspectRatio
+						itemHeight = itemWidth / ratio
 					}
 				} else if maxItemHeight > 0 {
-					// Cell width is 0, use height-based calculation
+					// Column-axis size is 0, use the row axis
 					itemHeight = maxItemHeight
-					itemWidth = itemHeight * item.node.Style.AspectRatio
-				} else {
+					itemWidth = itemHeight * ratio
+				} else if measuredCol > 0 && measuredRow > 0 {
 					// Both are 0, use measured size if available
-					if item.measuredSize.Width > 0 && item.measuredSize.Height > 0 {
-						itemWidth = item.measuredSize.Width
-						itemHeight = item.measuredSize.Height
-					}
+					itemWidth = measuredCol
+					itemHeight = measuredRow
 				}
 			}
 		} else {

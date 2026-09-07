@@ -657,11 +657,14 @@ func TestGridTemplateAreasMixedPlacement(t *testing.T) {
 			container.Children[1].Rect.X, container.Children[1].Rect.Y)
 	}
 
-	// Auto-placement: uses simple row-major counter, places at next index
-	// With 2 columns, child index 2 goes to: row=2/2=1, col=2%2=0 → (0,50)
-	// Note: This overlaps with the explicit child, which is valid CSS Grid behavior
-	if container.Children[2].Rect.X != 0 || container.Children[2].Rect.Y != 50 {
-		t.Errorf("Auto-placed child should be at (0,50), got (%.0f,%.0f)",
+	// Auto-placement: CSS Grid §8.5 places auto items in the first cell not
+	// occupied by a definitely placed item. The header covers row 0 and the
+	// explicit child covers (1,0), so the only free cell is (1,1) → (100,50).
+	// (This test previously asserted the index-based placement that ignored
+	// occupancy and overlapped the explicit child.)
+	// https://www.w3.org/TR/css-grid-1/#auto-placement-algo
+	if container.Children[2].Rect.X != 100 || container.Children[2].Rect.Y != 50 {
+		t.Errorf("Auto-placed child should be at (100,50), got (%.0f,%.0f)",
 			container.Children[2].Rect.X, container.Children[2].Rect.Y)
 	}
 }
@@ -698,11 +701,14 @@ func TestGridTemplateAreasUndefinedArea(t *testing.T) {
 			container.Children[0].Rect.X, container.Children[0].Rect.Y)
 	}
 
-	// Child with undefined area should use auto-placement with row-major counter
-	// With 2 columns, child index 1 goes to: row=1/2=0, col=1%2=1 → (100,0)
-	// Note: This overlaps with the header, which is valid CSS Grid behavior
-	if container.Children[1].Rect.X != 100 || container.Children[1].Rect.Y != 0 {
-		t.Errorf("Child with undefined area should use auto-placement at (100,0), got (%.0f,%.0f)",
+	// Child with undefined area falls back to auto-placement. CSS Grid §8.5
+	// skips cells occupied by definitely placed items, and the header covers
+	// all of row 0, so the child lands in the first free cell (1,0) → (0,50).
+	// (This test previously asserted index-based placement overlapping the
+	// header.)
+	// https://www.w3.org/TR/css-grid-1/#auto-placement-algo
+	if container.Children[1].Rect.X != 0 || container.Children[1].Rect.Y != 50 {
+		t.Errorf("Child with undefined area should use auto-placement at (0,50), got (%.0f,%.0f)",
 			container.Children[1].Rect.X, container.Children[1].Rect.Y)
 	}
 }

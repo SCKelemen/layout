@@ -20,13 +20,13 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 	setup := blockDetermineContainerSize(node, constraints, ctx, currentFontSize)
 
 	// §5: Aspect Ratios - Determine node size considering aspect ratio
-	nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight := blockDetermineSize(node, setup, ctx, currentFontSize)
+	nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight := blockDetermineSize(node, &setup, ctx, currentFontSize)
 
 	// §5: Intrinsic Size Determination - Apply min/max constraints
 	nodeWidth, nodeHeight = blockApplyConstraints(node, setup, nodeWidth, nodeHeight, aspectRatioCalculatedWidth, aspectRatioCalculatedHeight)
 
 	// §8.3.1: Collapsing margins - Layout children with margin collapsing
-	currentBlockPos, maxCrossSize := blockLayoutChildren(node, setup, nodeWidth, ctx, currentFontSize)
+	currentBlockPos, maxCrossSize := blockLayoutChildren(node, setup, nodeWidth, nodeHeight, ctx, currentFontSize)
 
 	// Determine which dimension was calculated by children layout based on writing mode
 	isVertical := node.Style.WritingMode.IsVertical()
@@ -49,10 +49,10 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 		} else {
 			nodeHeight = childrenBlockSize
 		}
-		// Ensure MinHeight is still respected even when using children height
-		if setup.minHeightContent > 0 {
-			nodeHeight = max(nodeHeight, setup.minHeightContent)
-		}
+		// Content-based heights are still subject to max-height and min-height.
+		// CSS 2.1 §10.7: the tentative used height is clamped by max-height,
+		// then by min-height (https://www.w3.org/TR/CSS21/visudet.html#min-max-heights).
+		nodeHeight = clampMinMax(nodeHeight, setup.minHeightContent, setup.maxHeightContent)
 	} else if setup.isAutoHeight {
 		// Aspect ratio calculated height, but ensure MinHeight is still respected
 		if setup.minHeightContent > 0 {
@@ -77,11 +77,19 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 				childrenWidth = childrenCrossSize
 			}
 
-			if childrenWidth == 0 && setup.contentWidth > 0 {
+			// An unbounded available width is indefinite and must never become a
+			// used size; with no content to size against, shrink-to-fit yields 0.
+			// CSS 2.1 §10.3.5: shrink-to-fit = min(max(preferred minimum width,
+			// available width), preferred width) with no available width.
+			// https://www.w3.org/TR/CSS21/visudet.html#float-width
+			if childrenWidth == 0 && setup.contentWidth > 0 && setup.contentWidth < Unbounded {
 				nodeWidth = setup.contentWidth
 			} else {
 				nodeWidth = childrenWidth
 			}
+			// Content-based widths are clamped by max-width (CSS 2.1 §10.4);
+			// min-width is applied below.
+			nodeWidth = clampMinMax(nodeWidth, 0, setup.maxWidthContent)
 		}
 		// Ensure MinWidth is still respected (even if aspect ratio calculated width)
 		if setup.minWidthContent > 0 {
@@ -92,6 +100,12 @@ func LayoutBlock(node *Node, constraints Constraints, ctx *LayoutContext) Size {
 				nodeHeight = nodeWidth / node.Style.AspectRatio
 			}
 		}
+	}
+
+	// Vertical right-to-left writing modes position children from the block-end
+	// (right) edge, which is only known once the final block size (width) is.
+	if isVertical && node.Style.WritingMode.IsRightToLeft() {
+		blockMirrorChildrenRTL(node, nodeWidth, ctx, currentFontSize)
 	}
 
 	// Calculate final size
@@ -133,11 +147,19 @@ func max(a, b float64) float64 {
 	return b
 }
 
+// defaultRootFontSize is the font size used when no LayoutContext is provided
+// (the CSS "medium" font size, 16px).
+const defaultRootFontSize = 16.0
+
 // getCurrentFontSize returns the current font size for Length resolution.
-// Falls back to ctx.RootFontSize if the node's TextStyle is not set.
+// Falls back to ctx.RootFontSize if the node's TextStyle is not set, and to
+// defaultRootFontSize when ctx is nil or has no root font size.
 func getCurrentFontSize(node *Node, ctx *LayoutContext) float64 {
 	if node.Style.TextStyle != nil && node.Style.TextStyle.FontSize > 0 {
 		return node.Style.TextStyle.FontSize
+	}
+	if ctx == nil || ctx.RootFontSize <= 0 {
+		return defaultRootFontSize
 	}
 	return ctx.RootFontSize
 }

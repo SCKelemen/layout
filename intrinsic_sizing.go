@@ -1,6 +1,9 @@
 package layout
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // Intrinsic sizing algorithms for CSS Sizing Module Level 3.
 //
@@ -74,6 +77,8 @@ func calculateMinContentWidth(node *Node, constraints Constraints, ctx *LayoutCo
 		return calculateGridMinContentWidth(node, constraints, ctx)
 	case DisplayBlock:
 		return calculateBlockMinContentWidth(node, constraints, ctx)
+	case DisplayInlineText:
+		return calculateTextMinContentWidth(node, ctx)
 	default:
 		return 0
 	}
@@ -89,6 +94,8 @@ func calculateMaxContentWidth(node *Node, constraints Constraints, ctx *LayoutCo
 		return calculateGridMaxContentWidth(node, constraints, ctx)
 	case DisplayBlock:
 		return calculateBlockMaxContentWidth(node, constraints, ctx)
+	case DisplayInlineText:
+		return calculateTextMaxContentWidth(node, ctx)
 	default:
 		return 0
 	}
@@ -108,8 +115,88 @@ func calculateMaxContentHeight(node *Node, constraints Constraints, ctx *LayoutC
 	return -1 // Auto (layout will determine from content)
 }
 
+// childIntrinsicWidthContribution returns a child's contribution to its
+// parent's intrinsic inline size: the child's outer (margin-box) width.
+//
+// CSS Sizing Level 3 §5.1: the min-/max-content contribution of a box is the
+// size of its margin box when sized under the corresponding constraint,
+// i.e. content (or the specified width) + padding + border + margins.
+// https://www.w3.org/TR/css-sizing-3/#intrinsic-contribution
+//
+// Lengths are resolved with the child's font size so em/rem/vw values count
+// in pixels, and a specified width is interpreted through the child's
+// box-sizing (a content-box width has padding and border added on top).
+func childIntrinsicWidthContribution(child *Node, sizingType IntrinsicSize, ctx *LayoutContext) float64 {
+	fontSize := getCurrentFontSize(child, ctx)
+	paddingBorder := getHorizontalPaddingBorder(child.Style.Padding, child.Style.Border, ctx, fontSize)
+
+	widthPx := ResolveLength(child.Style.Width, ctx, fontSize)
+	var width float64
+	switch {
+	case !isUnsetLength(child.Style.Width) && widthPx > 0 && widthPx < Unbounded:
+		// Specified width: outer size depends on box-sizing.
+		// CSS Box Sizing Level 3 §3.1: https://www.w3.org/TR/css-sizing-3/#box-sizing
+		if child.Style.BoxSizing == BoxSizingBorderBox {
+			width = widthPx
+		} else {
+			width = widthPx + paddingBorder
+		}
+	case widthPx == SizeMinContent || child.Style.WidthSizing == IntrinsicSizeMinContent:
+		// The intrinsic width functions already include the child's own padding and border.
+		width = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent, ctx)
+	case widthPx == SizeMaxContent || child.Style.WidthSizing == IntrinsicSizeMaxContent:
+		width = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
+	case widthPx == SizeFitContent || child.Style.WidthSizing == IntrinsicSizeFitContent:
+		width = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeFitContent, ctx)
+	default:
+		// Auto width: use the child's intrinsic size under the same constraint.
+		width = CalculateIntrinsicWidth(child, Unconstrained(), sizingType, ctx)
+	}
+	if width < 0 || width >= Unbounded {
+		width = 0
+	}
+
+	// Margins (may be negative; unbounded values are ignored).
+	marginLeft := ResolveLength(child.Style.Margin.Left, ctx, fontSize)
+	marginRight := ResolveLength(child.Style.Margin.Right, ctx, fontSize)
+	if marginLeft > -Unbounded && marginLeft < Unbounded {
+		width += marginLeft
+	}
+	if marginRight > -Unbounded && marginRight < Unbounded {
+		width += marginRight
+	}
+	return width
+}
+
+// countVisibleChildren returns the number of children that participate in
+// layout (display: none children generate no box and no gap).
+// CSS Box Alignment Level 3 §8: gaps are placed between adjacent items;
+// a display:none child is not an item. https://www.w3.org/TR/css-align-3/#gaps
+func countVisibleChildren(node *Node) int {
+	count := 0
+	for _, child := range node.Children {
+		if child.Style.Display != DisplayNone {
+			count++
+		}
+	}
+	return count
+}
+
+// totalGap returns the total space taken by gaps between count items.
+func totalGap(gap Length, count int, ctx *LayoutContext, fontSize float64) float64 {
+	if count <= 1 {
+		return 0
+	}
+	gapPx := ResolveLength(gap, ctx, fontSize)
+	if gapPx <= 0 || gapPx >= Unbounded {
+		return 0
+	}
+	return gapPx * float64(count-1)
+}
+
 // calculateBlockMinContentWidth calculates min-content width for block layout.
-// For block layout, this is the maximum of children's min-content widths.
+// For block layout, this is the maximum of children's min-content contributions.
+// CSS Sizing Level 3 §5.1: https://www.w3.org/TR/css-sizing-3/#intrinsic-contribution
 func calculateBlockMinContentWidth(node *Node, constraints Constraints, ctx *LayoutContext) float64 {
 	maxChildWidth := 0.0
 
@@ -117,26 +204,7 @@ func calculateBlockMinContentWidth(node *Node, constraints Constraints, ctx *Lay
 		if child.Style.Display == DisplayNone {
 			continue
 		}
-
-		// Calculate child's min-content width recursively
-		childWidth := 0.0
-		if child.Style.Width.Value > 0 {
-			// Explicit width (assuming pixels, should use ResolveLength with ctx)
-			childWidth = child.Style.Width.Value
-		} else if child.Style.Width.Value == SizeMinContent || child.Style.WidthSizing == IntrinsicSizeMinContent {
-			// Recursive min-content
-			childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent, ctx)
-		} else if child.Style.Width.Value == SizeMaxContent || child.Style.WidthSizing == IntrinsicSizeMaxContent {
-			// Max-content for child
-			childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
-		} else {
-			// For children with auto width, use max-content as approximation
-			childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
-		}
-
-		// Add margins (assuming pixels, should use ResolveLength with ctx)
-		childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-
+		childWidth := childIntrinsicWidthContribution(child, IntrinsicSizeMinContent, ctx)
 		if childWidth > maxChildWidth {
 			maxChildWidth = childWidth
 		}
@@ -149,7 +217,7 @@ func calculateBlockMinContentWidth(node *Node, constraints Constraints, ctx *Lay
 }
 
 // calculateBlockMaxContentWidth calculates max-content width for block layout.
-// For block layout, this is the maximum of children's max-content widths.
+// For block layout, this is the maximum of children's max-content contributions.
 func calculateBlockMaxContentWidth(node *Node, constraints Constraints, ctx *LayoutContext) float64 {
 	maxChildWidth := 0.0
 
@@ -157,20 +225,7 @@ func calculateBlockMaxContentWidth(node *Node, constraints Constraints, ctx *Lay
 		if child.Style.Display == DisplayNone {
 			continue
 		}
-
-		// Calculate child's max-content width recursively
-		childWidth := 0.0
-		if child.Style.Width.Value > 0 {
-			// Explicit width (assuming pixels, should use ResolveLength with ctx)
-			childWidth = child.Style.Width.Value
-		} else {
-			// Recursive max-content
-			childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
-		}
-
-		// Add margins (assuming pixels, should use ResolveLength with ctx)
-		childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-
+		childWidth := childIntrinsicWidthContribution(child, IntrinsicSizeMaxContent, ctx)
 		if childWidth > maxChildWidth {
 			maxChildWidth = childWidth
 		}
@@ -184,122 +239,131 @@ func calculateBlockMaxContentWidth(node *Node, constraints Constraints, ctx *Lay
 
 // calculateFlexMinContentWidth calculates min-content width for flex layout.
 func calculateFlexMinContentWidth(node *Node, constraints Constraints, ctx *LayoutContext) float64 {
-	isRow := node.Style.FlexDirection == FlexDirectionRow || node.Style.FlexDirection == FlexDirectionRowReverse
-
-	if isRow {
-		// Flex row: sum of children's min-content widths
-		totalWidth := 0.0
-		for _, child := range node.Children {
-			if child.Style.Display == DisplayNone {
-				continue
-			}
-			// If child has explicit width, use it; otherwise calculate intrinsically
-			childWidth := 0.0
-			if child.Style.Width.Value > 0 {
-				childWidth = child.Style.Width.Value
-			} else {
-				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent, ctx)
-			}
-			childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-			totalWidth += childWidth
-		}
-
-		// Add gaps
-		gap := node.Style.FlexGap
-		if node.Style.FlexColumnGap.Value > 0 {
-			gap = node.Style.FlexColumnGap
-		}
-		if len(node.Children) > 1 {
-			totalWidth += gap.Value * float64(len(node.Children)-1)
-		}
-
-		currentFontSize := getCurrentFontSize(node, ctx)
-		horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
-		return totalWidth + horizontalPaddingBorder
-	} else {
-		// Flex column: max of children's min-content widths
-		maxWidth := 0.0
-		for _, child := range node.Children {
-			if child.Style.Display == DisplayNone {
-				continue
-			}
-			// If child has explicit width, use it; otherwise calculate intrinsically
-			childWidth := 0.0
-			if child.Style.Width.Value > 0 {
-				childWidth = child.Style.Width.Value
-			} else {
-				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMinContent, ctx)
-			}
-			childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-			if childWidth > maxWidth {
-				maxWidth = childWidth
-			}
-		}
-
-		currentFontSize := getCurrentFontSize(node, ctx)
-		horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
-		return maxWidth + horizontalPaddingBorder
-	}
+	return calculateFlexIntrinsicWidth(node, IntrinsicSizeMinContent, ctx)
 }
 
 // calculateFlexMaxContentWidth calculates max-content width for flex layout.
 func calculateFlexMaxContentWidth(node *Node, constraints Constraints, ctx *LayoutContext) float64 {
+	return calculateFlexIntrinsicWidth(node, IntrinsicSizeMaxContent, ctx)
+}
+
+// calculateFlexIntrinsicWidth computes the min- or max-content width of a flex
+// container.
+//
+// CSS Flexbox Level 1 §9.9.1 (simplified): for a row container the intrinsic
+// main size is the sum of the items' contributions plus gaps; for a column
+// container the intrinsic cross size is the largest item contribution.
+// https://www.w3.org/TR/css-flexbox-1/#intrinsic-sizes
+func calculateFlexIntrinsicWidth(node *Node, sizingType IntrinsicSize, ctx *LayoutContext) float64 {
 	isRow := node.Style.FlexDirection == FlexDirectionRow || node.Style.FlexDirection == FlexDirectionRowReverse
+	currentFontSize := getCurrentFontSize(node, ctx)
+
+	total := 0.0
+	for _, child := range node.Children {
+		if child.Style.Display == DisplayNone {
+			continue
+		}
+		childWidth := childIntrinsicWidthContribution(child, sizingType, ctx)
+		if isRow {
+			total += childWidth
+		} else if childWidth > total {
+			total = childWidth
+		}
+	}
 
 	if isRow {
-		// Flex row: sum of children's max-content widths
-		totalWidth := 0.0
-		for _, child := range node.Children {
-			if child.Style.Display == DisplayNone {
-				continue
-			}
-			// If child has explicit width, use it; otherwise calculate intrinsically
-			childWidth := 0.0
-			if child.Style.Width.Value > 0 {
-				childWidth = child.Style.Width.Value
-			} else {
-				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
-			}
-			childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-			totalWidth += childWidth
-		}
-
-		// Add gaps
+		// Gaps sit between adjacent visible items only.
 		gap := node.Style.FlexGap
 		if node.Style.FlexColumnGap.Value > 0 {
 			gap = node.Style.FlexColumnGap
 		}
-		if len(node.Children) > 1 {
-			totalWidth += gap.Value * float64(len(node.Children)-1)
-		}
-
-		currentFontSize := getCurrentFontSize(node, ctx)
-		horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
-		return totalWidth + horizontalPaddingBorder
-	} else {
-		// Flex column: max of children's max-content widths
-		maxWidth := 0.0
-		for _, child := range node.Children {
-			if child.Style.Display == DisplayNone {
-				continue
-			}
-			// If child has explicit width, use it; otherwise calculate intrinsically
-			childWidth := 0.0
-			if child.Style.Width.Value > 0 {
-				childWidth = child.Style.Width.Value
-			} else {
-				childWidth = CalculateIntrinsicWidth(child, Unconstrained(), IntrinsicSizeMaxContent, ctx)
-			}
-			childWidth += child.Style.Margin.Left.Value + child.Style.Margin.Right.Value
-			if childWidth > maxWidth {
-				maxWidth = childWidth
-			}
-		}
-
-		currentFontSize := getCurrentFontSize(node, ctx)
-		horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
-		return maxWidth + horizontalPaddingBorder
+		total += totalGap(gap, countVisibleChildren(node), ctx, currentFontSize)
 	}
+
+	horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
+	return total + horizontalPaddingBorder
+}
+
+// textIntrinsicStyle returns the TextStyle used to measure a text node,
+// defaulting to the same style LayoutText applies when none is set.
+func textIntrinsicStyle(node *Node) TextStyle {
+	if node.Style.TextStyle != nil {
+		return *node.Style.TextStyle
+	}
+	return TextStyle{
+		FontSize:   16,
+		TextAlign:  TextAlignDefault,
+		LineHeight: 0,
+		WhiteSpace: WhiteSpaceNormal,
+		Direction:  DirectionLTR,
+	}
+}
+
+// textIntrinsicContent applies the same text preprocessing as LayoutText
+// (tab expansion, white-space normalization, text-transform) so intrinsic
+// measurements match the laid-out text.
+func textIntrinsicContent(node *Node, style TextStyle) string {
+	text := node.Text
+	if style.WhiteSpace == WhiteSpaceNormal || style.WhiteSpace == WhiteSpaceNowrap {
+		text = expandTabs(text, style.TabSize)
+	}
+	text = preprocessText(text, style.WhiteSpace)
+	return applyTextTransform(text, style.TextTransform)
+}
+
+// calculateTextMaxContentWidth returns the max-content width of a text node:
+// the width of its longest line when no soft wrap opportunities are taken.
+//
+// CSS Sizing Level 3 §4.1 / CSS Text Level 3 §4: the max-content inline size
+// of text is the width of the text laid out without any soft wrapping;
+// forced line breaks (preserved newlines) still split lines.
+// https://www.w3.org/TR/css-sizing-3/#max-content
+func calculateTextMaxContentWidth(node *Node, ctx *LayoutContext) float64 {
+	style := textIntrinsicStyle(node)
+	text := textIntrinsicContent(node, style)
+	metrics := getTextMetrics()
+
+	maxLine := 0.0
+	for _, line := range strings.Split(text, "\n") {
+		if line == "" {
+			continue
+		}
+		width, _, _ := metrics.Measure(line, style)
+		if width > maxLine {
+			maxLine = width
+		}
+	}
+
+	fontSize := getCurrentFontSize(node, ctx)
+	return maxLine + getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, fontSize)
+}
+
+// calculateTextMinContentWidth returns the min-content width of a text node:
+// the width of its widest unbreakable segment (word).
+//
+// CSS Sizing Level 3 §4.1: the min-content inline size of text is the size
+// it would have if every soft wrap opportunity were taken. With
+// white-space: nowrap or pre there are no soft wrap opportunities, so the
+// min-content size equals the max-content size.
+// https://www.w3.org/TR/css-sizing-3/#min-content
+func calculateTextMinContentWidth(node *Node, ctx *LayoutContext) float64 {
+	style := textIntrinsicStyle(node)
+	if style.WhiteSpace == WhiteSpaceNowrap || style.WhiteSpace == WhiteSpacePre {
+		return calculateTextMaxContentWidth(node, ctx)
+	}
+	text := textIntrinsicContent(node, style)
+	metrics := getTextMetrics()
+
+	maxWord := 0.0
+	for _, word := range splitIntoWords(text) {
+		width, _, _ := metrics.Measure(word, style)
+		if width > maxWord {
+			maxWord = width
+		}
+	}
+
+	fontSize := getCurrentFontSize(node, ctx)
+	return maxWord + getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, fontSize)
 }
 
 // calculateGridMinContentWidth calculates min-content width for grid layout.
@@ -309,9 +373,10 @@ func calculateGridMinContentWidth(node *Node, constraints Constraints, ctx *Layo
 		return 0
 	}
 
+	currentFontSize := getCurrentFontSize(node, ctx)
 	totalWidth := 0.0
 	for i, track := range node.Style.GridTemplateColumns {
-		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMinContent, ctx, 16.0)
+		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMinContent, ctx, currentFontSize)
 		totalWidth += trackSize
 	}
 
@@ -320,11 +385,8 @@ func calculateGridMinContentWidth(node *Node, constraints Constraints, ctx *Layo
 	if node.Style.GridColumnGap.Value > 0 {
 		gap = node.Style.GridColumnGap
 	}
-	if len(node.Style.GridTemplateColumns) > 1 {
-		totalWidth += gap.Value * float64(len(node.Style.GridTemplateColumns)-1)
-	}
+	totalWidth += totalGap(gap, len(node.Style.GridTemplateColumns), ctx, currentFontSize)
 
-	currentFontSize := getCurrentFontSize(node, ctx)
 	horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
 	return totalWidth + horizontalPaddingBorder
 }
@@ -336,9 +398,10 @@ func calculateGridMaxContentWidth(node *Node, constraints Constraints, ctx *Layo
 		return 0
 	}
 
+	currentFontSize := getCurrentFontSize(node, ctx)
 	totalWidth := 0.0
 	for i, track := range node.Style.GridTemplateColumns {
-		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMaxContent, ctx, 16.0)
+		trackSize := resolveIntrinsicTrackSize(track, node, i, true, IntrinsicSizeMaxContent, ctx, currentFontSize)
 		totalWidth += trackSize
 	}
 
@@ -347,11 +410,8 @@ func calculateGridMaxContentWidth(node *Node, constraints Constraints, ctx *Layo
 	if node.Style.GridColumnGap.Value > 0 {
 		gap = node.Style.GridColumnGap
 	}
-	if len(node.Style.GridTemplateColumns) > 1 {
-		totalWidth += gap.Value * float64(len(node.Style.GridTemplateColumns)-1)
-	}
+	totalWidth += totalGap(gap, len(node.Style.GridTemplateColumns), ctx, currentFontSize)
 
-	currentFontSize := getCurrentFontSize(node, ctx)
 	horizontalPaddingBorder := getHorizontalPaddingBorder(node.Style.Padding, node.Style.Border, ctx, currentFontSize)
 	return totalWidth + horizontalPaddingBorder
 }

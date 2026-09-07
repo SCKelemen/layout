@@ -73,7 +73,9 @@ func main() {
 					Height:          layout.Px(100),
 				},
 			},
-			// Card 6: Slightly scaled and rotated
+			// Card 6: Slightly scaled and rotated.
+			// Multiply applies the right operand first: this rotates by 2 degrees,
+			// then scales the rotated card by 1.05.
 			{
 				Style: layout.Style{
 					GridRowStart:    1,

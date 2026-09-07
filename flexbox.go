@@ -1,5 +1,7 @@
 package layout
 
+import "math"
+
 // LayoutFlexbox performs flexbox layout on a node.
 //
 // Algorithm based on CSS Flexible Box Layout Module Level 1:
@@ -29,11 +31,21 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 	// §9.2: Line Length Determination - Setup and initial measurement
 	setup := flexboxDetermineLineLength(node, constraints, ctx)
 
-	// Handle empty container
+	// Handle empty container: it still has its explicit (or available) width
+	// and its explicit height, plus padding and border. Never propagate an
+	// unbounded content size into the result.
 	if len(node.Children) == 0 {
+		emptyWidth := 0.0
+		if setup.contentWidth < Unbounded {
+			emptyWidth = setup.contentWidth
+		}
+		emptyHeight := 0.0
+		if node.Style.Height.Value > 0 && setup.contentHeight < Unbounded {
+			emptyHeight = setup.contentHeight
+		}
 		resultSize := Size{
-			Width:  setup.horizontalPadding + setup.horizontalBorder,
-			Height: setup.verticalPadding + setup.verticalBorder,
+			Width:  emptyWidth + setup.horizontalPadding + setup.horizontalBorder,
+			Height: emptyHeight + setup.verticalPadding + setup.verticalBorder,
 		}
 		node.Rect = Rect{
 			X:      0,
@@ -53,10 +65,6 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 		alignItems = AlignItemsStretch
 	}
 
-	// Step 2: Calculate flex lines (for wrapping)
-	hasWrap := node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse
-	lines := calculateFlexLines(flexItems, setup.mainSize, hasWrap)
-
 	// Get gap values (resolve Length to pixels)
 	rowGap := ResolveLength(node.Style.FlexRowGap, ctx, fontSize)
 	if rowGap == 0 {
@@ -66,6 +74,21 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 	if columnGap == 0 {
 		columnGap = ResolveLength(node.Style.FlexGap, ctx, fontSize)
 	}
+
+	// Map row-gap/column-gap onto the flex axes. row-gap separates rows
+	// (block axis) and column-gap separates columns (inline axis), so in a row
+	// flex container the gap between items is column-gap and the gap between
+	// lines is row-gap; in a column flex container it is the other way around.
+	// CSS Box Alignment Level 3 §8.3 / CSS Flexbox Level 1 §8.
+	// https://www.w3.org/TR/css-align-3/#column-row-gap
+	mainGap, crossGap := columnGap, rowGap
+	if !setup.isRow {
+		mainGap, crossGap = rowGap, columnGap
+	}
+
+	// Step 2: Calculate flex lines (for wrapping), including the main-axis gap
+	hasWrap := node.Style.FlexWrap == FlexWrapWrap || node.Style.FlexWrap == FlexWrapWrapReverse
+	lines := calculateFlexLines(flexItems, setup.mainSize, hasWrap, mainGap)
 
 	// §9.3: Main Size Determination and §9.4: Cross Size Determination
 	lineCrossSizes := make([]float64, len(lines))
@@ -83,34 +106,24 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 		lineCrossSizes[lineIdx] = lineCrossSize
 		totalCrossSize += lineCrossSize
 		if lineIdx < len(lines)-1 {
-			totalCrossSize += rowGap
+			totalCrossSize += crossGap
 		}
 	}
 
-	// §10.4: Aligning with align-content - distribute lines along cross axis
-	// For wrap-reverse, swap flex-start/flex-end since cross-axis direction is reversed
-	alignContent := node.Style.AlignContent
-	isWrapReverse := node.Style.FlexWrap == FlexWrapWrapReverse
-	if isWrapReverse {
-		if alignContent == AlignContentFlexStart {
-			alignContent = AlignContentFlexEnd
-		} else if alignContent == AlignContentFlexEnd {
-			alignContent = AlignContentFlexStart
-		}
-	}
-
-	// Temporarily modify node's AlignContent for the calculation
-	originalAlignContent := node.Style.AlignContent
-	node.Style.AlignContent = alignContent
+	// §10.4: Aligning with align-content - distribute lines along cross axis.
+	// align-content is resolved against the cross-start edge; for wrap-reverse
+	// the cross-start edge is flipped by flexboxHandleWrapReverse, which mirrors
+	// the computed offsets. The value itself must not be swapped here as well,
+	// or the two inversions cancel out.
+	// https://www.w3.org/TR/css-flexbox-1/#flex-wrap-property
 	lineOffsets, totalCrossSize := flexboxAlignWithAlignContent(
-		node, lines, lineCrossSizes, setup.crossSize, totalCrossSize, rowGap, setup.hasExplicitCrossSize)
-	node.Style.AlignContent = originalAlignContent
+		node, lines, lineCrossSizes, setup.crossSize, totalCrossSize, crossGap, setup.hasExplicitCrossSize)
 
 	// §9.2: Line Length Determination - Handle flex-wrap: wrap-reverse
 	// For wrap-reverse, we reverse line order and mirror offsets (no need for originalLineCrossSizes)
 	lineOffsets, totalCrossSize = flexboxHandleWrapReverse(
 		node, lines, lineCrossSizes, lineOffsets, nil, // originalLineCrossSizes no longer needed
-		setup.crossSize, totalCrossSize, rowGap, setup.hasExplicitCrossSize)
+		setup.crossSize, totalCrossSize, crossGap, setup.hasExplicitCrossSize)
 
 	// Step 6: Second pass - position items using justify-content and align-items
 	maxLineMainSize := 0.0
@@ -138,33 +151,15 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 		// §9.5: Main-Axis Alignment - position items along main axis
 		lineMainSize := flexboxAlignmentMainAxis(
 			node, line, setup, lineCrossSize, lineStartCrossOffset,
-			columnGap, setup.mainSize, isReverse, ctx)
+			mainGap, setup.mainSize, isReverse, ctx)
 
-		// Re-layout nested flex containers that got their size from FlexGrow
-		// This must happen AFTER both cross and main axis alignment, so items have final Rect
-		// This handles the case where a flex item is itself a flex container with FlexGrow,
-		// and its children need to be re-stretched based on the item's final computed size.
+		// Re-layout container items whose final size differs from the size they
+		// were measured at. This must happen AFTER both cross and main axis
+		// alignment, so items have their final Rect. Flexing (grow or shrink) and
+		// stretching change an item's size, and its own children must be laid
+		// out against that final size rather than the measurement constraints.
 		for _, item := range line {
-			if item.node.Style.Display == DisplayFlex && item.flexGrow > 0 {
-				// For nested flex containers with FlexGrow, always re-layout them with their final
-				// computed size so their children can properly stretch.
-				// The item may have been measured with unbounded or wrong constraints initially,
-				// so we need to re-layout with the actual final size after FlexGrow was applied.
-
-				// Save the position set by parent's alignment
-				savedX := item.node.Rect.X
-				savedY := item.node.Rect.Y
-				finalWidth := item.node.Rect.Width
-				finalHeight := item.node.Rect.Height
-
-				// Create tight constraints based on final size and re-layout
-				tightConstraints := Tight(finalWidth, finalHeight)
-				LayoutFlexbox(item.node, tightConstraints, ctx)
-
-				// Restore position (re-layout resets X, Y to 0)
-				item.node.Rect.X = savedX
-				item.node.Rect.Y = savedY
-			}
+			flexboxRelayoutResizedItem(item, ctx)
 		}
 
 		// Track maximum line main size (for container main dimension)
@@ -224,10 +219,80 @@ type flexItem struct {
 	mainMarginEnd    float64
 	crossMarginStart float64
 	crossMarginEnd   float64
+
+	// hypotheticalMainSize is the flex base size clamped by the item's
+	// min/max main size (CSS Flexbox §9.3 step 3).
+	hypotheticalMainSize float64
+	// minMain/maxMain are the resolved min/max main size; maxMain is
+	// Unbounded when unset.
+	minMain float64
+	maxMain float64
+	// frozen marks an item whose main size is final in the §9.7 loop.
+	frozen bool
+	// hasExplicitCrossSize is true when the item's cross size property is not
+	// auto, in which case align-self: stretch does not apply (§9.4 step 11).
+	hasExplicitCrossSize bool
+	// measuredWidth/measuredHeight are the item's Rect dimensions after the
+	// initial measurement pass, used to decide whether to lay it out again.
+	measuredWidth  float64
+	measuredHeight float64
 }
 
-func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool) [][]*flexItem {
-	if !wrap {
+// flexboxRelayoutResizedItem lays out an item again with tight constraints
+// when its final flexed/stretched size differs from the size it was measured
+// at, so its contents are positioned against the final size.
+//
+// Container items (flex, grid, block) need this so their own children are laid
+// out against the final size. Text items need it so their lines re-wrap: a
+// text item's flex base size is its max-content size (CSS Flexbox §9.2 step
+// 3E), and once flexing has shrunk or grown it the line boxes must be
+// recomputed at the used main size.
+// https://www.w3.org/TR/css-flexbox-1/#algo-main-item
+//
+// Positions set by the parent's alignment are preserved. Childless non-text
+// nodes are left alone; unbounded sizes are never used as constraints.
+func flexboxRelayoutResizedItem(item *flexItem, ctx *LayoutContext) {
+	child := item.node
+	switch child.Style.Display {
+	case DisplayInlineText:
+		// Text leaves have no children but must re-wrap at the final size.
+	case DisplayFlex, DisplayGrid, DisplayBlock:
+		if len(child.Children) == 0 {
+			return
+		}
+	default:
+		return
+	}
+	finalWidth := child.Rect.Width
+	finalHeight := child.Rect.Height
+	if finalWidth >= Unbounded || finalHeight >= Unbounded || finalWidth < 0 || finalHeight < 0 {
+		return
+	}
+	const epsilon = 1e-6
+	if math.Abs(finalWidth-item.measuredWidth) < epsilon && math.Abs(finalHeight-item.measuredHeight) < epsilon {
+		return
+	}
+
+	savedX := child.Rect.X
+	savedY := child.Rect.Y
+	Layout(child, Tight(finalWidth, finalHeight), ctx)
+	child.Rect.X = savedX
+	child.Rect.Y = savedY
+	child.Rect.Width = finalWidth
+	child.Rect.Height = finalHeight
+	item.measuredWidth = finalWidth
+	item.measuredHeight = finalHeight
+}
+
+// calculateFlexLines collects items into flex lines.
+//
+// Implementation of CSS Flexible Box Layout Module Level 1 §9.3 step 5: a
+// line is broken before the first item whose outer hypothetical main size,
+// plus the main-axis gap that precedes it, would overflow the line. With an
+// indefinite container main size every item goes on one line.
+// https://www.w3.org/TR/css-flexbox-1/#algo-line-break
+func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool, gap float64) [][]*flexItem {
+	if !wrap || containerMainSize >= Unbounded {
 		return [][]*flexItem{items}
 	}
 
@@ -237,11 +302,15 @@ func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool)
 
 	for _, item := range items {
 		// Include margins in item size for wrapping calculation
-		itemSize := item.baseSize + item.mainMarginStart + item.mainMarginEnd
-		if currentLineSize+itemSize > containerMainSize && len(currentLine) > 0 {
-			lines = append(lines, currentLine)
-			currentLine = []*flexItem{}
-			currentLineSize = 0
+		itemSize := item.hypotheticalMainSize + item.mainMarginStart + item.mainMarginEnd
+		if len(currentLine) > 0 {
+			if currentLineSize+gap+itemSize > containerMainSize {
+				lines = append(lines, currentLine)
+				currentLine = []*flexItem{}
+				currentLineSize = 0
+			} else {
+				currentLineSize += gap
+			}
 		}
 		currentLine = append(currentLine, item)
 		currentLineSize += itemSize
@@ -254,38 +323,37 @@ func calculateFlexLines(items []*flexItem, containerMainSize float64, wrap bool)
 	return lines
 }
 
-// justifyContentWithGap applies justify-content with gap support
+// justifyContentWithGap positions the items of a line along the main axis.
+//
+// Implementation of CSS Flexible Box Layout Module Level 1 §9.5 / §10.2
+// (justify-content). space-between, space-around and space-evenly insert extra
+// space between consecutive items in addition to the gap; with negative free
+// space they fall back to flex-start (space-between) or center (space-around,
+// space-evenly).
+// https://www.w3.org/TR/css-flexbox-1/#justify-content-property
 func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset, containerSize float64, isMainHorizontal bool, gap float64, writingMode WritingMode) {
 	if len(line) == 0 {
 		return
 	}
 
-	// Calculate total size of items in main axis (including margins)
-	// Use item.mainSize instead of item.node.Rect.Width/Height because mainSize is the
-	// actual flex-calculated size, while Rect.Width/Height might be set to explicit dimensions
-	// If mainSize is 0, fall back to rect width/height as a last resort
+	// Total outer size of the items in the main axis, including gaps.
+	// item.mainSize is the resolved flex main size (§9.7).
 	totalItemSize := 0.0
 	for _, item := range line {
-		itemSize := item.mainSize
-		if itemSize == 0 {
-			// Fallback to rect size if mainSize is 0
-			if isMainHorizontal {
-				itemSize = item.node.Rect.Width
-			} else {
-				itemSize = item.node.Rect.Height
-			}
-		}
-		totalItemSize += itemSize + item.mainMarginStart + item.mainMarginEnd
+		totalItemSize += item.mainSize + item.mainMarginStart + item.mainMarginEnd
 	}
-	// Add gaps between items
 	if len(line) > 1 {
 		totalItemSize += gap * float64(len(line)-1)
 	}
 
-	// Free space is the container's main size minus total item size (including gaps)
+	// An indefinite container size means there is no free space to distribute.
+	if containerSize >= Unbounded {
+		containerSize = totalItemSize
+	}
 	freeSpace := containerSize - totalItemSize
-	var offset float64
 
+	n := float64(len(line))
+	var offset, between float64
 	switch justify {
 	case JustifyContentFlexStart:
 		offset = 0
@@ -294,40 +362,22 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 	case JustifyContentCenter:
 		offset = freeSpace / 2
 	case JustifyContentSpaceBetween:
-		if len(line) > 1 {
-			// Distribute free space between items (not including gap)
-			spaceBetween := freeSpace / float64(len(line)-1)
-			currentPos := startOffset
-			isRightToLeft := writingMode.IsRightToLeft() && isMainHorizontal
-			for _, item := range line {
-				if isMainHorizontal {
-					if isRightToLeft {
-						// Right-to-left: position from right edge moving leftward
-						item.node.Rect.X += startOffset + containerSize - currentPos - item.mainMarginStart - item.mainSize
-					} else {
-						// Left-to-right: position from left edge moving rightward
-						item.node.Rect.X += currentPos + item.mainMarginStart
-					}
-					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
-				} else {
-					item.node.Rect.Y += currentPos + item.mainMarginStart
-					currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd + gap + spaceBetween
-				}
-			}
-			return
+		if freeSpace > 0 && len(line) > 1 {
+			between = freeSpace / (n - 1)
 		}
-		offset = 0
 	case JustifyContentSpaceAround:
-		if len(line) > 0 {
-			// Distribute free space around items
-			spaceAround := freeSpace / float64(len(line))
-			offset = spaceAround / 2
+		if freeSpace > 0 {
+			between = freeSpace / n
+			offset = between / 2
+		} else {
+			offset = freeSpace / 2
 		}
 	case JustifyContentSpaceEvenly:
-		if len(line) > 0 {
-			// Distribute free space evenly (including edges)
-			spaceEvenly := freeSpace / float64(len(line)+1)
-			offset = spaceEvenly
+		if freeSpace > 0 {
+			between = freeSpace / (n + 1)
+			offset = between
+		} else {
+			offset = freeSpace / 2
 		}
 	}
 
@@ -350,17 +400,13 @@ func justifyContentWithGap(justify JustifyContent, line []*flexItem, startOffset
 				// Left-to-right: position from left edge moving rightward
 				item.node.Rect.X += currentPos + item.mainMarginStart
 			}
-			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
-			if i < len(line)-1 {
-				currentPos += gap
-			}
 		} else {
 			// Main axis vertical: modify Y (main axis), preserve X (cross axis)
 			item.node.Rect.Y += currentPos + item.mainMarginStart
-			currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
-			if i < len(line)-1 {
-				currentPos += gap
-			}
+		}
+		currentPos += item.mainSize + item.mainMarginStart + item.mainMarginEnd
+		if i < len(line)-1 {
+			currentPos += gap + between
 		}
 	}
 }

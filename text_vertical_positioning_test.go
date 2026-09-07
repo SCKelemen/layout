@@ -50,7 +50,7 @@ func TestVerticalWritingModeLinePositioning(t *testing.T) {
 			maxInlineSize: 50, // Force wrapping
 			lineHeight:    20,
 			minLines:      2,
-			checkLine0X:   30, // First line at contentInlineSize - lineHeight = 50 - 20 = 30
+			checkLine0X:   -1, // Checked below: block size - lineHeight (see rlStartsAtBlockEnd)
 			checkLine0Y:   0,  // Aligned to top
 		},
 		{
@@ -72,7 +72,7 @@ func TestVerticalWritingModeLinePositioning(t *testing.T) {
 			maxInlineSize: 50,
 			lineHeight:    20,
 			minLines:      2,
-			checkLine0X:   30, // First line at contentInlineSize - lineHeight
+			checkLine0X:   -1, // Checked below: block size - lineHeight (see rlStartsAtBlockEnd)
 			checkLine0Y:   -1, // Y should be at bottom (contentInlineSize - lineWidth)
 		},
 	}
@@ -124,6 +124,26 @@ func TestVerticalWritingModeLinePositioning(t *testing.T) {
 			}
 			if tt.checkLine0Y >= 0 && line0.OffsetY != tt.checkLine0Y {
 				t.Errorf("Line 0 OffsetY: expected %.2f, got %.2f", tt.checkLine0Y, line0.OffsetY)
+			}
+
+			// rlStartsAtBlockEnd: in vertical-rl the first line sits at the
+			// right edge of the content box, whose block size (physical width)
+			// is the number of lines times the line height. The test used to
+			// expect contentInlineSize - lineHeight (50 - 20 = 30), which mixed
+			// the inline size into the block axis.
+			// https://www.w3.org/TR/css-writing-modes-3/#block-flow
+			if tt.writingMode == WritingModeVerticalRL {
+				blockSize := float64(len(lines)) * tt.lineHeight
+				if node.Rect.Width != blockSize {
+					t.Errorf("Vertical-RL: Rect.Width should equal block size %.2f, got %.2f", blockSize, node.Rect.Width)
+				}
+				if node.Rect.Height > tt.maxInlineSize {
+					t.Errorf("Vertical-RL: Rect.Height %.2f should not exceed inline constraint %.2f", node.Rect.Height, tt.maxInlineSize)
+				}
+				expectedX := blockSize - tt.lineHeight
+				if line0.OffsetX != expectedX {
+					t.Errorf("Vertical-RL: Line 0 OffsetX: expected %.2f, got %.2f", expectedX, line0.OffsetX)
+				}
 			}
 
 			// Check second line position and direction if multiple lines

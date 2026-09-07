@@ -24,7 +24,13 @@
 //	    layout.Fixed(100, 50),
 //	)
 //	constraints := layout.Loose(800, 600)
-//	size := layout.Layout(root, constraints)
+//	size := layout.LayoutSimple(root, constraints)
+//
+// LayoutSimple derives a LayoutContext from the constraints. Pass an explicit
+// context when you need control over the viewport or root font size:
+//
+//	ctx := layout.NewLayoutContext(800, 600, 16)
+//	size := layout.Layout(root, constraints, ctx)
 //
 // # Usage Patterns
 //

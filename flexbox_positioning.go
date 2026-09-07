@@ -30,57 +30,15 @@ func flexboxAlignmentMainAxis(
 	// Get parent font size for Length resolution
 	parentFontSize := getCurrentFontSize(node, ctx)
 
+	// Apply the resolved main size (§9.7) to each item's Rect. The cross-axis
+	// position and size were already set by flexboxAlignmentCrossAxis. The
+	// resolved size is authoritative: an item legitimately shrunk to zero must
+	// not be reset to its explicit width/height, or it would overflow the line.
 	for _, item := range line {
-		// Get child font size for Length resolution
-		childFontSize := getCurrentFontSize(item.node, ctx)
-
-		// Get rect dimensions - cross-axis was already set by flexboxAlignmentCrossAxis
-		// We just need to set/update main-axis dimensions
-		var rectWidth, rectHeight float64
 		if setup.isMainHorizontal {
-			rectWidth = item.mainSize
-			rectHeight = item.node.Rect.Height // Preserve cross-axis value
+			item.node.Rect.Width = item.mainSize
 		} else {
-			rectWidth = item.node.Rect.Width // Preserve cross-axis value
-			rectHeight = item.mainSize
-		}
-
-		// Update main-axis size if needed
-		if setup.isMainHorizontal {
-			if rectWidth == 0 && item.node.Style.Width.Value >= 0 {
-				rectWidth = ResolveLength(item.node.Style.Width, ctx, childFontSize)
-				// Update mainSize so justify-content calculations use correct size
-				item.mainSize = rectWidth
-			}
-		} else {
-			if rectHeight == 0 && item.node.Style.Height.Value >= 0 {
-				rectHeight = ResolveLength(item.node.Style.Height, ctx, childFontSize)
-				item.mainSize = rectHeight
-			}
-		}
-
-		// Update rect with main-axis dimensions (preserving cross-axis from previous step)
-		if setup.isMainHorizontal {
-			item.node.Rect.Width = rectWidth
-			// Y and Height were already set by flexboxAlignmentCrossAxis
-		} else {
-			item.node.Rect.Height = rectHeight
-			// X and Width were already set by flexboxAlignmentCrossAxis
-		}
-	}
-
-	// Ensure item.mainSize is set correctly before justify-content calculation
-	// This is needed because justifyContentWithGap uses item.mainSize
-	for _, item := range line {
-		childFontSize := getCurrentFontSize(item.node, ctx)
-		if setup.isMainHorizontal {
-			if item.mainSize == 0 && item.node.Style.Width.Value >= 0 {
-				item.mainSize = ResolveLength(item.node.Style.Width, ctx, childFontSize)
-			}
-		} else {
-			if item.mainSize == 0 && item.node.Style.Height.Value >= 0 {
-				item.mainSize = ResolveLength(item.node.Style.Height, ctx, childFontSize)
-			}
+			item.node.Rect.Height = item.mainSize
 		}
 	}
 
@@ -90,6 +48,20 @@ func flexboxAlignmentMainAxis(
 		contentAreaStart = ResolveLength(node.Style.Padding.Left, ctx, parentFontSize) + ResolveLength(node.Style.Border.Left, ctx, parentFontSize)
 	} else {
 		contentAreaStart = ResolveLength(node.Style.Padding.Top, ctx, parentFontSize) + ResolveLength(node.Style.Border.Top, ctx, parentFontSize)
+	}
+
+	// With an indefinite main size the line is exactly as long as its content:
+	// there is no free space to distribute and the container must not be sized
+	// from an unbounded value (CSS Flexbox §9.2 step 4 / §9.5).
+	// https://www.w3.org/TR/css-flexbox-1/#algo-main-container
+	if !setup.hasExplicitMainSize || mainSize >= Unbounded {
+		mainSize = 0
+		for _, item := range line {
+			mainSize += item.mainSize + item.mainMarginStart + item.mainMarginEnd
+		}
+		if len(line) > 1 {
+			mainSize += columnGap * float64(len(line)-1)
+		}
 	}
 
 	// Apply justify-content with gap support
@@ -162,10 +134,7 @@ func flexboxAlignmentCrossAxis(
 	var maxBaseline float64 = 0.0
 	hasBaseline := false
 	for _, item := range line {
-		itemAlign := alignItems
-		if item.node.Style.AlignSelf != 0 {
-			itemAlign = item.node.Style.AlignSelf
-		}
+		itemAlign := flexboxResolveItemAlign(item, alignItems, setup)
 		if itemAlign == AlignItemsBaseline {
 			hasBaseline = true
 			break
@@ -174,10 +143,7 @@ func flexboxAlignmentCrossAxis(
 
 	if hasBaseline {
 		for _, item := range line {
-			itemAlign := alignItems
-			if item.node.Style.AlignSelf != 0 {
-				itemAlign = item.node.Style.AlignSelf
-			}
+			itemAlign := flexboxResolveItemAlign(item, alignItems, setup)
 			if itemAlign == AlignItemsBaseline {
 				// Get baseline for this item
 				// If node.Baseline is 0 (not set), use the item's cross size as fallback
@@ -197,10 +163,7 @@ func flexboxAlignmentCrossAxis(
 
 	for _, item := range line {
 		// Check for per-item alignment override (CSS Flexbox §8.3)
-		itemAlign := alignItems
-		if item.node.Style.AlignSelf != 0 {
-			itemAlign = item.node.Style.AlignSelf
-		}
+		itemAlign := flexboxResolveItemAlign(item, alignItems, setup)
 		// Set initial rect dimensions
 		// For main axis horizontal: mainSize=width, crossSize=height
 		// For main axis vertical: mainSize=height, crossSize=width
@@ -213,9 +176,12 @@ func flexboxAlignmentCrossAxis(
 			rectHeight = item.mainSize
 		}
 
-		// Apply align-self/align-items stretch if needed (for cross-size)
-		// Use lineCrossSize consistently - it already accounts for single-line stretch
-		if itemAlign == AlignItemsStretch {
+		// Apply align-self/align-items stretch if needed (for cross-size).
+		// Use lineCrossSize consistently - it already accounts for single-line stretch.
+		// §9.4 step 11: stretch only applies when the item's cross size is auto;
+		// an explicit cross size is kept and the item is aligned like flex-start.
+		// https://www.w3.org/TR/css-flexbox-1/#algo-stretch
+		if itemAlign == AlignItemsStretch && !item.hasExplicitCrossSize {
 			if setup.isMainHorizontal {
 				// For main axis horizontal, cross-size is height
 				rectHeight = lineCrossSize - item.crossMarginStart - item.crossMarginEnd
@@ -271,4 +237,20 @@ func flexboxAlignmentCrossAxis(
 			item.node.Rect.Width = rectWidth
 		}
 	}
+}
+
+// flexboxResolveItemAlign resolves the effective cross-axis alignment of an
+// item: align-self overrides align-items (CSS Flexbox §8.3), and baseline
+// alignment in a column flex container (where the baseline runs parallel to the
+// main axis) behaves as flex-start (CSS Flexbox §8.3 / CSS Box Alignment §7.2).
+// https://www.w3.org/TR/css-flexbox-1/#align-items-property
+func flexboxResolveItemAlign(item *flexItem, alignItems AlignItems, setup flexboxSetup) AlignItems {
+	itemAlign := alignItems
+	if item.node.Style.AlignSelf != 0 {
+		itemAlign = item.node.Style.AlignSelf
+	}
+	if itemAlign == AlignItemsBaseline && !setup.isRow {
+		itemAlign = AlignItemsFlexStart
+	}
+	return itemAlign
 }

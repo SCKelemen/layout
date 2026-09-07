@@ -153,16 +153,19 @@ func TestFlexboxFlexWrapReverse(t *testing.T) {
 	ctx := NewLayoutContext(1920, 1080, 16)
 	LayoutFlexbox(root, constraints, ctx)
 
-	// With wrap-reverse, lines are visually reversed
-	// Original: Line 1 (items 1,2), Line 2 (item 3)
-	// Reversed: Line 1 visual (item 3), Line 2 visual (items 1,2)
-	// So item 3 should be at Y=0, items 1,2 should be at Y=50 (line height)
+	// With wrap-reverse the cross-start edge is the bottom of the container, and
+	// align-content: flex-start packs lines toward cross-start. So the first line
+	// (items 1,2) sits at the bottom (Y = 200 - 50 = 150) and the second line
+	// (item 3) stacks above it (Y = 100). The previous expectation (0/50) came
+	// from swapping flex-start/flex-end for wrap-reverse and then mirroring the
+	// offsets again, which cancelled out.
+	// https://www.w3.org/TR/css-flexbox-1/#flex-wrap-property
+	// https://www.w3.org/TR/css-flexbox-1/#align-content-property
 	item1Y := root.Children[0].Rect.Y - root.Style.Padding.Top.Value - root.Style.Border.Top.Value
 	item3Y := root.Children[2].Rect.Y - root.Style.Padding.Top.Value - root.Style.Border.Top.Value
 
-	// With wrap-reverse, last line (in original order) becomes first visually
-	expectedItem3Y := 0.0  // First line visually (was last originally)
-	expectedItem1Y := 50.0 // Second line visually (was first originally, 50px line height)
+	expectedItem3Y := 100.0 // Second line, stacked above the first toward the top
+	expectedItem1Y := 150.0 // First line, at the cross-start (bottom) edge
 
 	if math.Abs(item3Y-expectedItem3Y) > 1.0 {
 		t.Errorf("Item 3 (last in array, first line) should be at Y %.2f, got %.2f", expectedItem3Y, item3Y)
@@ -223,7 +226,7 @@ func TestFlexboxRowGapAndColumnGap(t *testing.T) {
 			AlignContent:  AlignContentFlexStart, // Use flex-start to avoid stretching
 			FlexRowGap:    Px(30),                // 30px between rows
 			FlexColumnGap: Px(40),                // 40px between columns
-			Width:         Px(100),               // Force wrapping
+			Width:         Px(150),               // Fits 50 + 40 + 50 = 140, forces third item to wrap
 			Height:        Px(200),
 		},
 		Children: []*Node{
@@ -233,7 +236,12 @@ func TestFlexboxRowGapAndColumnGap(t *testing.T) {
 		},
 	}
 
-	constraints := Loose(100, 200)
+	// The container was 100px wide, but the gap counts toward line breaking
+	// (CSS Flexbox §9.3 step 5), so two 50px items plus a 40px column gap
+	// (140px) cannot share a 100px line. Use 150px so the intent of the test
+	// (two items on line 1, one on line 2) holds.
+	// https://www.w3.org/TR/css-flexbox-1/#algo-line-break
+	constraints := Loose(150, 200)
 	ctx := NewLayoutContext(1920, 1080, 16)
 	LayoutFlexbox(root, constraints, ctx)
 

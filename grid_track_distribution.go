@@ -1,21 +1,44 @@
 package layout
 
+// gridTrackStretches reports whether a track takes part in the
+// "Stretch auto Tracks" step: only tracks whose max track sizing function
+// is auto grow when align-content / justify-content is normal or stretch.
+// Fixed, minmax(fixed, fixed), intrinsic-keyword, and flexible tracks do not.
+//
+// CSS Grid Layout Module Level 1 §12.8: Stretch auto Tracks
+// See: https://www.w3.org/TR/css-grid-1/#algo-stretch
+func gridTrackStretches(track GridTrack, ctx *LayoutContext, currentFontSize float64) bool {
+	if track.Fraction != 0 {
+		return false
+	}
+	maxSize := ResolveLength(track.MaxSize, ctx, currentFontSize)
+	return maxSize >= Unbounded
+}
+
 // gridDistributeTrackSpace distributes free space among grid tracks.
 //
 // Algorithm based on CSS Grid Layout Module Level 1:
-// - §11.6: Grid Container Intrinsic Sizes
-// - §11.8: Distributing free space
+// - §12.8: Stretch auto Tracks
+// - §10.4: Aligning the Grid (align-content / justify-content)
 //
-// For align-content (distributes space between row tracks along the block axis)
-// For justify-content (distributes space between column tracks along the inline axis)
+// Only the stretch value changes track sizes: the free space is split
+// equally among the tracks whose max sizing function is auto (§12.8). When
+// there is no such track the free space is left alone and the tracks behave
+// as start-aligned, as the spec requires. All other alignment values only
+// affect track positions, which gridCalculateTrackOffsets computes.
 //
+// Returns the (possibly stretched) track sizes and their total including gaps.
+//
+// See: https://www.w3.org/TR/css-grid-1/#algo-stretch
 // See: https://www.w3.org/TR/css-grid-1/#grid-align
-// See: https://www.w3.org/TR/css-grid-1/#grid-justify
 func gridDistributeTrackSpace(
 	trackSizes []float64,
+	tracks []GridTrack,
 	availableSpace float64,
 	gap float64,
 	alignment AlignContent,
+	ctx *LayoutContext,
+	currentFontSize float64,
 ) ([]float64, float64) {
 	if len(trackSizes) == 0 {
 		return trackSizes, 0
@@ -30,6 +53,11 @@ func gridDistributeTrackSpace(
 		totalTrackSize += gap * float64(len(trackSizes)-1)
 	}
 
+	// Indefinite available space means there is no free space to distribute.
+	if availableSpace >= Unbounded {
+		return trackSizes, totalTrackSize
+	}
+
 	// Calculate free space
 	freeSpace := availableSpace - totalTrackSize
 	if freeSpace <= 0 {
@@ -37,68 +65,32 @@ func gridDistributeTrackSpace(
 		return trackSizes, totalTrackSize
 	}
 
-	// Distribute free space based on alignment
 	switch alignment {
-	case AlignContentFlexStart:
-		// All tracks start from the beginning, no distribution needed
+	case AlignContentFlexStart, AlignContentFlexEnd, AlignContentCenter,
+		AlignContentSpaceBetween, AlignContentSpaceAround:
+		// These only move tracks; sizes are unchanged.
 		return trackSizes, totalTrackSize
-
-	case AlignContentFlexEnd:
-		// All tracks move to the end, free space at start
-		// Track positions will be offset by freeSpace
-		return trackSizes, totalTrackSize
-
-	case AlignContentCenter:
-		// Tracks are centered, free space split evenly at start/end
-		// Track positions will be offset by freeSpace/2
-		return trackSizes, totalTrackSize
-
-	case AlignContentSpaceBetween:
-		// Free space distributed evenly between tracks
-		if len(trackSizes) <= 1 {
-			// Only one track, behave like flex-start
-			return trackSizes, totalTrackSize
-		}
-		// Free space is distributed between tracks, not added to track sizes
-		// This affects track positions, not sizes
-		return trackSizes, totalTrackSize
-
-	case AlignContentSpaceAround:
-		// Free space distributed around tracks (half at each end)
-		// Space before/after each track is equal
-		// This affects track positions, not sizes
-		return trackSizes, totalTrackSize
-
-	case AlignContentStretch:
-		// Distribute free space by increasing track sizes
-		// Only for auto tracks (tracks without fixed size)
-		// Count auto tracks (tracks that can grow)
-		autoTrackCount := 0
-		for range trackSizes {
-			// Consider tracks that are not at max size as stretchable
-			// For simplicity, we stretch all tracks equally
-			autoTrackCount++
-		}
-
-		if autoTrackCount > 0 {
-			spacePerTrack := freeSpace / float64(autoTrackCount)
-			newSizes := make([]float64, len(trackSizes))
-			newTotalSize := 0.0
-			for i, size := range trackSizes {
-				newSizes[i] = size + spacePerTrack
-				newTotalSize += newSizes[i]
-			}
-			if len(trackSizes) > 1 {
-				newTotalSize += gap * float64(len(trackSizes)-1)
-			}
-			return newSizes, newTotalSize
-		}
-		return trackSizes, totalTrackSize
-
-	default:
-		// Default to stretch
-		return gridDistributeTrackSpace(trackSizes, availableSpace, gap, AlignContentStretch)
 	}
+
+	// AlignContentStretch (the zero value) and any unknown value: stretch.
+	stretchable := make([]int, 0, len(trackSizes))
+	for i := range trackSizes {
+		if i < len(tracks) && gridTrackStretches(tracks[i], ctx, currentFontSize) {
+			stretchable = append(stretchable, i)
+		}
+	}
+	if len(stretchable) == 0 {
+		// §12.8: nothing to stretch; behaves as start alignment.
+		return trackSizes, totalTrackSize
+	}
+
+	spacePerTrack := freeSpace / float64(len(stretchable))
+	newSizes := make([]float64, len(trackSizes))
+	copy(newSizes, trackSizes)
+	for _, i := range stretchable {
+		newSizes[i] += spacePerTrack
+	}
+	return newSizes, availableSpace
 }
 
 // gridCalculateTrackOffsets calculates the starting position of each track based on alignment.
@@ -116,7 +108,10 @@ func gridCalculateTrackOffsets(
 	}
 
 	offsets := make([]float64, len(trackSizes))
-	freeSpace := availableSpace - totalTrackSize
+	freeSpace := 0.0
+	if availableSpace < Unbounded {
+		freeSpace = availableSpace - totalTrackSize
+	}
 	if freeSpace < 0 {
 		freeSpace = 0
 	}

@@ -913,8 +913,25 @@ func Matrix(a, b, c, d, e, f float64) Transform {
 	return Transform{A: a, B: b, C: c, D: d, E: e, F: f}
 }
 
-// Multiply multiplies two transforms (applies t2 after t1)
+// Multiply returns the matrix product t1 × t2.
+//
+// When the result is applied to a point, t2 is applied FIRST and t1 is
+// applied to the outcome (standard column-vector composition, matching SVG
+// and CSS transform lists where the rightmost transform acts first):
+//
+//	Translate(10, 20).Multiply(Scale(2, 2)).Apply(p) == Translate(10, 20).Apply(Scale(2, 2).Apply(p))
+//
+// To apply t1 first and t2 second, call t2.Multiply(t1) instead.
+//
+// A zero-value Transform{} operand is treated as the identity, so
+// Transform{}.Multiply(t) == t and t.Multiply(Transform{}) == t.
 func (t1 Transform) Multiply(t2 Transform) Transform {
+	if t1 == (Transform{}) {
+		return t2
+	}
+	if t2 == (Transform{}) {
+		return t1
+	}
 	return Transform{
 		A: t1.A*t2.A + t1.C*t2.B,
 		B: t1.B*t2.A + t1.D*t2.B,
@@ -934,8 +951,13 @@ func (t Transform) Apply(p Point) Point {
 }
 
 // ApplyToRect applies the transform to a rectangle's corners
-// Returns the bounding box of the transformed rectangle
+// Returns the bounding box of the transformed rectangle.
+// An identity transform (including the zero-value Transform{}) returns r unchanged.
 func (t Transform) ApplyToRect(r Rect) Rect {
+	if t.IsIdentity() {
+		return r
+	}
+
 	// Transform all four corners
 	corners := []Point{
 		{X: r.X, Y: r.Y},
@@ -986,8 +1008,15 @@ func (t Transform) ToSVGString() string {
 	return fmt.Sprintf("matrix(%g,%g,%g,%g,%g,%g)", t.A, t.B, t.C, t.D, t.E, t.F)
 }
 
-// IsIdentity checks if the transform is an identity (no transformation)
+// IsIdentity checks if the transform is an identity (no transformation).
+//
+// The zero-value Transform{} (all components 0) is also treated as the
+// identity: it is what every Node has when no transform was set, and it is
+// never a useful real transform (it would collapse everything to the origin).
 func (t Transform) IsIdentity() bool {
+	if t == (Transform{}) {
+		return true
+	}
 	return t.A == 1 && t.B == 0 && t.C == 0 && t.D == 1 && t.E == 0 && t.F == 0
 }
 
@@ -1012,6 +1041,12 @@ func getVerticalPaddingBorder(padding, border Spacing, ctx *LayoutContext, curre
 // convertToContentSize converts a width/height from border-box to content-box
 // If boxSizing is content-box, returns the value unchanged
 // If boxSizing is border-box, subtracts padding and border to get content size
+//
+// When the border-box size is smaller than the padding and border, the content
+// size is clamped to 0 rather than going negative. A negative result would be
+// misread as the auto sentinel (Value < 0) by callers. This matches CSS Box
+// Sizing Level 3 §3.1: "the used value of the content-box size is floored at
+// zero" (https://www.w3.org/TR/css-sizing-3/#box-sizing).
 func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBorder, verticalPaddingBorder float64, isWidth bool) float64 {
 	if size < 0 {
 		// Auto values are passed through unchanged
@@ -1019,11 +1054,16 @@ func convertToContentSize(size float64, boxSizing BoxSizing, horizontalPaddingBo
 	}
 	if boxSizing == BoxSizingBorderBox {
 		// border-box: size includes padding + border, so subtract to get content size
+		var converted float64
 		if isWidth {
-			return size - horizontalPaddingBorder
+			converted = size - horizontalPaddingBorder
 		} else {
-			return size - verticalPaddingBorder
+			converted = size - verticalPaddingBorder
 		}
+		if converted < 0 {
+			return 0
+		}
+		return converted
 	}
 	// content-box: size is already content size
 	return size

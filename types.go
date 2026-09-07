@@ -141,8 +141,8 @@ type Style struct {
 	GridAutoColumns     GridTrack
 	GridAutoFlow        GridAutoFlow       // Auto-placement algorithm (default: row)
 	GridGap             Length             // Gap between grid tracks (use Px(0) for no gap)
-	GridRowGap          Length             // Row gap (use Px(0) to fall back to GridGap)
-	GridColumnGap       Length             // Column gap (use Px(0) to fall back to GridGap)
+	GridRowGap          Length             // Row gap. Unset falls back to GridGap; Px(0) is a real zero gap.
+	GridColumnGap       Length             // Column gap. Unset falls back to GridGap; Px(0) is a real zero gap.
 	GridRowStart        int                // -1 means auto
 	GridRowEnd          int                // -1 means auto
 	GridColumnStart     int                // -1 means auto
@@ -179,7 +179,7 @@ type Style struct {
 	FitContentHeight Length        // Maximum height for fit-content (only used when HeightSizing = IntrinsicSizeFitContent)
 
 	Padding Spacing
-	Margin  Spacing // Margin is supported in Flexbox and Grid layouts
+	Margin  Spacing // Margin is supported in block, flexbox, and grid layouts (block margins collapse)
 	Border  Spacing
 
 	// Box model
@@ -197,7 +197,9 @@ type Style struct {
 	Transform Transform
 
 	// WritingMode controls the block flow direction for layout containers.
-	// Inherited property that applies to all elements (block, flex, grid, text).
+	// Applies to all element types (block, flex, grid, text). CSS defines
+	// writing-mode as inherited, but this engine does not propagate it from
+	// parent to child: set it on every node that should use a non-default mode.
 	// Based on CSS Writing Modes Level 3: https://www.w3.org/TR/css-writing-modes-3/
 	// Default: WritingModeHorizontalTB (zero value)
 	WritingMode WritingMode

@@ -40,7 +40,7 @@ func LayoutFlexbox(node *Node, constraints Constraints, ctx *LayoutContext) Size
 			emptyWidth = setup.contentWidth
 		}
 		emptyHeight := 0.0
-		if node.Style.Height.Value > 0 && setup.contentHeight < Unbounded {
+		if flexIsSetLength(node.Style.Height) && setup.contentHeight < Unbounded {
 			emptyHeight = setup.contentHeight
 		}
 		resultSize := Size{

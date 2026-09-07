@@ -1,5 +1,7 @@
 package layout
 
+import "math"
+
 // flexboxSetup contains the setup state for flexbox layout
 // Algorithm based on CSS Flexible Box Layout Module Level 1: §9.2: Line Length Determination
 // Extended with CSS Writing Modes Level 3 support
@@ -21,6 +23,32 @@ type flexboxSetup struct {
 	hasExplicitMainSize  bool
 	hasExplicitCrossSize bool
 	writingMode          WritingMode
+}
+
+// flexIsSetLength reports whether a flex-relevant size property (Width,
+// Height, FlexBasis) holds a definite, non-negative length. The Go zero value
+// (Unit == "", never assigned) means auto, as does a negative value, which the
+// library uses as an explicit auto sentinel. An explicit Px(0) is a real zero:
+// CSS has no notion of a zero length meaning auto, so a flex container with
+// width: 0 has a 0 main size and an item with flex-basis: 0 starts from a zero
+// flex base size (CSS Flexbox §7.2.3, §9.2 step 3).
+// https://www.w3.org/TR/css-flexbox-1/#flex-basis-property
+func flexIsSetLength(l Length) bool {
+	return l.Unit != "" && l.Value >= 0
+}
+
+// flexSanitizeFactor validates a flex grow or shrink factor. CSS Flexbox §7.2.1
+// and §7.2.2 only allow non-negative numbers, and an invalid declaration is
+// ignored, so NaN, infinite and negative factors are treated as if they had
+// never been set (0). Letting an infinite factor into the §9.7 arithmetic
+// would otherwise propagate NaN into every item position and size.
+// https://www.w3.org/TR/css-flexbox-1/#flex-grow-property
+// https://www.w3.org/TR/css-flexbox-1/#flex-shrink-property
+func flexSanitizeFactor(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+		return 0
+	}
+	return v
 }
 
 // flexboxDetermineLineLength initializes the flexbox layout state and determines line length.
@@ -85,11 +113,11 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 		} else if totalIntrinsicWidth <= availableWidth {
 			availableWidth = totalIntrinsicWidth
 		}
-	} else if node.Style.Width.Value > 0 {
+	} else if flexIsSetLength(node.Style.Width) {
 		// If container has explicit width/height, use it to constrain available space
 		// Similar to grid layout
 		// If constraints are zero/unbounded and we have explicit dimensions, use the explicit dimensions
-		// Only use explicit width if it's > 0 (not auto/unspecified)
+		// An unset or negative width is auto; Px(0) is a real zero (see flexIsSetLength).
 		resolvedWidth := ResolveLength(node.Style.Width, ctx, fontSize)
 		specifiedWidthContent := convertToContentSize(resolvedWidth, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, true)
 		totalSpecifiedWidth := specifiedWidthContent + setup.horizontalPadding + setup.horizontalBorder
@@ -109,8 +137,8 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 		} else if totalIntrinsicHeight <= availableHeight {
 			availableHeight = totalIntrinsicHeight
 		}
-	} else if node.Style.Height.Value > 0 {
-		// Only use explicit height if it's > 0 (not auto/unspecified)
+	} else if flexIsSetLength(node.Style.Height) {
+		// An unset or negative height is auto; Px(0) is a real zero (see flexIsSetLength).
 		resolvedHeight := ResolveLength(node.Style.Height, ctx, fontSize)
 		specifiedHeightContent := convertToContentSize(resolvedHeight, node.Style.BoxSizing, setup.horizontalPadding+setup.horizontalBorder, setup.verticalPadding+setup.verticalBorder, false)
 		totalSpecifiedHeight := specifiedHeightContent + setup.verticalPadding + setup.verticalBorder
@@ -173,12 +201,12 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 	// Check based on physical cross axis direction
 	if setup.isMainHorizontal {
 		// Main is horizontal, so cross axis is vertical (height)
-		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
+		if flexIsSetLength(node.Style.Height) || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
 	} else {
 		// Main is vertical, so cross axis is horizontal (width)
-		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
+		if flexIsSetLength(node.Style.Width) || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitCrossSize = true
 		}
 	}
@@ -188,12 +216,12 @@ func flexboxDetermineLineLength(node *Node, constraints Constraints, ctx *Layout
 	// Check based on physical main axis direction
 	if setup.isMainHorizontal {
 		// Main axis is horizontal (width)
-		if node.Style.Width.Value > 0 || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
+		if flexIsSetLength(node.Style.Width) || (constraints.MaxWidth > 0 && constraints.MaxWidth < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}
 	} else {
 		// Main axis is vertical (height)
-		if node.Style.Height.Value > 0 || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
+		if flexIsSetLength(node.Style.Height) || (constraints.MaxHeight > 0 && constraints.MaxHeight < Unbounded) {
 			setup.hasExplicitMainSize = true
 		}
 	}
